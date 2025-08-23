@@ -1,0 +1,42 @@
+[
+  {
+    "name": "NVIDIA H200",
+    "vram_gb": 141
+  },
+  {
+    "name": "NVIDIA RTX Pro 6000",
+    "vram_gb": 96
+  },
+  {
+    "name": "NVIDIA H100 (94GB)",
+    "vram_gb": 94
+  },
+  {
+    "name": "NVIDIA H100 (80GB)",
+    "vram_gb": 80
+  },
+  {
+    "name": "NVIDIA A100 (80GB)",
+    "vram_gb": 80
+  },
+  {
+    "name": "NVIDIA RTX 6000 Ada",
+    "vram_gb": 48
+  },
+  {
+    "name": "NVIDIA L40S",
+    "vram_gb": 48
+  },
+  {
+    "name": "NVIDIA RTX 5090",
+    "vram_gb": 32
+  },
+  {
+    "name": "NVIDIA RTX 4090",
+    "vram_gb": 24
+  },
+  {
+    "name": "NVIDIA L4",
+    "vram_gb": 24
+  }
+]

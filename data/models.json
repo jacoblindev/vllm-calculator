@@ -1,0 +1,38 @@
+[
+  {
+    "name": "gpt-oss-120b",
+    "huggingface_id": "gpt-oss/gpt-oss-120b"
+  },
+  {
+    "name": "gpt-oss-20b",
+    "huggingface_id": "gpt-oss/gpt-oss-20b"
+  },
+  {
+    "name": "gemma-3-27b-it",
+    "huggingface_id": "google/gemma-3-27b-it"
+  },
+  {
+    "name": "Mistral-Small-3.2-24B-Instruct-2506",
+    "huggingface_id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+  },
+  {
+    "name": "Phi-3-medium-4k-instruct",
+    "huggingface_id": "microsoft/Phi-3-medium-4k-instruct"
+  },
+  {
+    "name": "Llama-3-8B-Instruct",
+    "huggingface_id": "meta-llama/Meta-Llama-3-8B-Instruct"
+  },
+  {
+    "name": "Command-R+",
+    "huggingface_id": "cohere/command-r-plus"
+  },
+  {
+    "name": "bge-m3",
+    "huggingface_id": "BAAI/bge-m3"
+  },
+  {
+    "name": "bge-reranker-v2-m3",
+    "huggingface_id": "BAAI/bge-reranker-v2-m3"
+  }
+]
