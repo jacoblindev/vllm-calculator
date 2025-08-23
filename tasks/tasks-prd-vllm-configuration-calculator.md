@@ -1,0 +1,109 @@
+# Task List: vLLM Configuration Calculator
+
+## Relevant Files
+
+- `package.json` - Project dependencies and scripts configuration
+- `vite.config.js` - Vite build configuration for Vue.js SPA
+- `tailwind.config.js` - Tailwind CSS configuration file
+- `src/main.js` - Vue.js application entry point
+- `src/App.vue` - Main application component and layout
+- `src/components/GPUSelector.vue` - GPU selection component with predefined and custom options
+- `src/components/GPUSelector.test.js` - Unit tests for GPU selector component
+- `src/components/ModelSelector.vue` - Model selection component with Hugging Face integration
+- `src/components/ModelSelector.test.js` - Unit tests for model selector component
+- `src/components/ConfigurationOutput.vue` - Component displaying the three recommendation sets
+- `src/components/ConfigurationOutput.test.js` - Unit tests for configuration output component
+- `src/components/VRAMChart.vue` - Chart.js visualization component for VRAM usage
+- `src/components/VRAMChart.test.js` - Unit tests for VRAM chart component
+- `src/lib/calculationEngine.js` - Core vLLM parameter calculation logic
+- `src/lib/calculationEngine.test.js` - Unit tests for calculation engine
+- `src/lib/huggingfaceApi.js` - Utility functions for Hugging Face API integration
+- `src/lib/huggingfaceApi.test.js` - Unit tests for Hugging Face API utilities
+- `src/lib/dataLoader.js` - Utility functions for loading GPU and model data
+- `src/lib/dataLoader.test.js` - Unit tests for data loader utilities
+- `public/index.html` - Main HTML template
+- `.github/workflows/deploy.yml` - GitHub Actions workflow for deployment
+- `jest.config.js` - Jest testing configuration
+- `README.md` - Project documentation
+
+### Notes
+
+- Unit tests should be placed alongside the code files they are testing in the same directory
+- Use `npm test` to run all tests
+- Use `npm run dev` to start the development server
+- Use `npm run build` to build the production version
+
+## Tasks
+
+- [ ] 1.0 Project Setup and Infrastructure
+  - [ ] 1.1 Initialize Vue.js project with Vite
+  - [ ] 1.2 Install and configure Tailwind CSS
+  - [ ] 1.3 Install Chart.js and Vue Chart.js integration
+  - [ ] 1.4 Set up Jest testing framework
+  - [ ] 1.5 Create basic project structure and directories
+  - [ ] 1.6 Configure ESLint and Prettier for code quality
+- [ ] 2.0 Core Calculation Engine Development
+  - [ ] 2.1 Research and implement vLLM memory calculation formulas
+  - [ ] 2.2 Create calculation functions for throughput-optimized configurations
+  - [ ] 2.3 Create calculation functions for latency-optimized configurations
+  - [ ] 2.4 Create calculation functions for balanced configurations
+  - [ ] 2.5 Implement VRAM breakdown calculations (model weights, KV cache, swap, reserved)
+  - [ ] 2.6 Add parameter validation and error handling
+  - [ ] 2.7 Write comprehensive unit tests for all calculation functions
+- [ ] 3.0 GPU Selection Component Development
+  - [ ] 3.1 Create GPU selector component with predefined list integration
+  - [ ] 3.2 Implement quantity selection for each GPU type
+  - [ ] 3.3 Add custom GPU input functionality with VRAM specification
+  - [ ] 3.4 Implement GPU selection validation and error states
+  - [ ] 3.5 Style component according to design specifications
+  - [ ] 3.6 Write unit tests for GPU selector component
+- [ ] 4.0 Model Selection Component Development
+  - [ ] 4.1 Create model selector component with predefined list integration
+  - [ ] 4.2 Implement Hugging Face API integration for custom model fetching
+  - [ ] 4.3 Create fallback manual entry form for model specifications
+  - [ ] 4.4 Add loading states and error handling for API calls
+  - [ ] 4.5 Implement multi-model selection functionality
+  - [ ] 4.6 Style component and add user guidance for manual entry
+  - [ ] 4.7 Write unit tests for model selector component
+- [ ] 5.0 Configuration Output Component Development
+  - [ ] 5.1 Create component to display three recommendation sets (throughput, latency, balanced)
+  - [ ] 5.2 Implement parameter explanations for each vLLM setting
+  - [ ] 5.3 Add copy-to-clipboard functionality for command strings
+  - [ ] 5.4 Create tabbed or card-based layout for easy comparison
+  - [ ] 5.5 Style output component with clear visual hierarchy
+  - [ ] 5.6 Write unit tests for configuration output component
+- [ ] 6.0 VRAM Visualization Component Development
+  - [ ] 6.1 Set up Chart.js integration with Vue.js
+  - [ ] 6.2 Create stacked bar chart for VRAM usage breakdown
+  - [ ] 6.3 Implement dynamic chart updates based on configuration changes
+  - [ ] 6.4 Add chart labels and legends for clarity
+  - [ ] 6.5 Style charts to match application design
+  - [ ] 6.6 Write unit tests for VRAM chart component
+- [ ] 7.0 Main Application Integration and Layout
+  - [ ] 7.1 Create main App.vue component with overall layout
+  - [ ] 7.2 Implement state management for GPU and model selections
+  - [ ] 7.3 Connect calculation engine to UI components
+  - [ ] 7.4 Add application header and navigation elements
+  - [ ] 7.5 Implement responsive layout for different screen sizes
+  - [ ] 7.6 Add loading states and error boundaries
+- [ ] 8.0 UI/UX Polish and Responsive Design
+  - [ ] 8.1 Refine component styling for professional appearance
+  - [ ] 8.2 Implement responsive design for mobile and tablet views
+  - [ ] 8.3 Add micro-interactions and smooth transitions
+  - [ ] 8.4 Optimize typography and spacing throughout application
+  - [ ] 8.5 Conduct accessibility audit and implement improvements
+  - [ ] 8.6 Add application favicon and meta tags
+- [ ] 9.0 Testing and Quality Assurance
+  - [ ] 9.1 Write integration tests for complete user workflows
+  - [ ] 9.2 Perform cross-browser testing
+  - [ ] 9.3 Test with various GPU and model combinations
+  - [ ] 9.4 Validate calculation accuracy against known vLLM configurations
+  - [ ] 9.5 Performance testing and optimization
+  - [ ] 9.6 Final bug fixes and edge case handling
+- [ ] 10.0 Deployment and CI/CD Setup
+  - [ ] 10.1 Create GitHub Actions workflow for automated building
+  - [ ] 10.2 Configure deployment to GitHub Pages
+  - [ ] 10.3 Set up automated testing in CI pipeline
+  - [ ] 10.4 Configure build optimization for production
+  - [ ] 10.5 Update README with usage instructions and documentation
+  - [ ] 10.6 Verify production deployment and conduct final testing
