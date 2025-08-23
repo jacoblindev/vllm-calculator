@@ -1,38 +1,68 @@
 [
   {
-    "name": "gpt-oss-120b",
-    "huggingface_id": "gpt-oss/gpt-oss-120b"
+    "name": "gpt-oss-120b (FP16)",
+    "huggingface_id": "gpt-oss/gpt-oss-120b",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   },
   {
-    "name": "gpt-oss-20b",
-    "huggingface_id": "gpt-oss/gpt-oss-20b"
+    "name": "gpt-oss-20b (FP16)",
+    "huggingface_id": "gpt-oss/gpt-oss-20b",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   },
   {
-    "name": "gemma-3-27b-it",
-    "huggingface_id": "google/gemma-3-27b-it"
+    "name": "gemma-3-27b-it (FP16)",
+    "huggingface_id": "google/gemma-3-27b-it",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   },
   {
-    "name": "Mistral-Small-3.2-24B-Instruct-2506",
-    "huggingface_id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506"
+    "name": "Mistral-Small-3.2-24B-Instruct-2506 (FP16)",
+    "huggingface_id": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   },
   {
-    "name": "Phi-3-medium-4k-instruct",
-    "huggingface_id": "microsoft/Phi-3-medium-4k-instruct"
+    "name": "Phi-3-medium-4k-instruct (FP16)",
+    "huggingface_id": "microsoft/Phi-3-medium-4k-instruct",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   },
   {
-    "name": "Llama-3-8B-Instruct",
-    "huggingface_id": "meta-llama/Meta-Llama-3-8B-Instruct"
+    "name": "Llama-3-8B-Instruct (FP16)",
+    "huggingface_id": "meta-llama/Meta-Llama-3-8B-Instruct",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   },
   {
-    "name": "Command-R+",
-    "huggingface_id": "cohere/command-r-plus"
+    "name": "Llama-3-8B-Instruct (AWQ 4-bit)",
+    "huggingface_id": "casperhansen/llama-3-8b-instruct-awq",
+    "quantization": "awq",
+    "memory_factor": 0.25
   },
   {
-    "name": "bge-m3",
-    "huggingface_id": "BAAI/bge-m3"
+    "name": "Llama-3-8B-Instruct (GPTQ 4-bit)",
+    "huggingface_id": "hugging-quants/Meta-Llama-3-8B-Instruct-GPTQ-INT4",
+    "quantization": "gptq",
+    "memory_factor": 0.25
   },
   {
-    "name": "bge-reranker-v2-m3",
-    "huggingface_id": "BAAI/bge-reranker-v2-m3"
+    "name": "Command-R+ (FP16)",
+    "huggingface_id": "cohere/command-r-plus",
+    "quantization": "fp16",
+    "memory_factor": 1.0
+  },
+  {
+    "name": "bge-m3 (FP16)",
+    "huggingface_id": "BAAI/bge-m3",
+    "quantization": "fp16",
+    "memory_factor": 1.0
+  },
+  {
+    "name": "bge-reranker-v2-m3 (FP16)",
+    "huggingface_id": "BAAI/bge-reranker-v2-m3",
+    "quantization": "fp16",
+    "memory_factor": 1.0
   }
 ]

@@ -32,12 +32,14 @@ The core problem this tool solves is the complexity and time involved in finding
 
 ### FR2: Model Selection
 
-1. The user must be able to select one or more models from a predefined list of popular models from Hugging Face.
-2. When a user wants to add a custom model via its Hugging Face repository ID, the system will:
-    a. First, attempt to fetch the model's configuration details (e.g., parameter size) from the public, unauthenticated Hugging Face Hub API.
+1. The user must be able to select one or more models from a predefined list of popular models from Hugging Face, including different quantization versions (FP16, AWQ 4-bit, GPTQ 4-bit).
+2. The system must clearly display quantization information for each model variant, including expected memory reduction factors.
+3. When a user wants to add a custom model via its Hugging Face repository ID, the system will:
+    a. First, attempt to fetch the model's configuration details (e.g., parameter size, quantization type) from the public, unauthenticated Hugging Face Hub API.
     b. If the API call fails (e.g., due to rate-limiting, a gated/private model, or an invalid ID), the UI must not show an error. Instead, it should seamlessly present a form for the user to enter the required model information manually.
-    c. The form for manual entry must include clear, user-friendly instructions and direct links explaining where to find the necessary data on the model's Hugging Face page.
-3. The system must be able to handle calculations for multiple different models being served across the selected GPUs, whether they are from the predefined list or added manually.
+    c. The form for manual entry must include clear, user-friendly instructions and direct links explaining where to find the necessary data on the model's Hugging Face page, including quantization specifications.
+4. The system must be able to handle calculations for multiple different models being served across the selected GPUs, whether they are from the predefined list or added manually.
+5. The system must factor quantization types and memory reduction factors into all memory calculations.
 
 ### FR3: Configuration Output
 

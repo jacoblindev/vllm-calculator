@@ -44,12 +44,13 @@
   - [ ] 1.6 Configure ESLint and Prettier for code quality
 - [ ] 2.0 Core Calculation Engine Development
   - [ ] 2.1 Research and implement vLLM memory calculation formulas
-  - [ ] 2.2 Create calculation functions for throughput-optimized configurations
-  - [ ] 2.3 Create calculation functions for latency-optimized configurations
-  - [ ] 2.4 Create calculation functions for balanced configurations
-  - [ ] 2.5 Implement VRAM breakdown calculations (model weights, KV cache, swap, reserved)
-  - [ ] 2.6 Add parameter validation and error handling
-  - [ ] 2.7 Write comprehensive unit tests for all calculation functions
+  - [ ] 2.2 Implement quantization factor calculations for different formats (FP16, AWQ, GPTQ)
+  - [ ] 2.3 Create calculation functions for throughput-optimized configurations
+  - [ ] 2.4 Create calculation functions for latency-optimized configurations
+  - [ ] 2.5 Create calculation functions for balanced configurations
+  - [ ] 2.6 Implement VRAM breakdown calculations (model weights, KV cache, swap, reserved) with quantization support
+  - [ ] 2.7 Add parameter validation and error handling
+  - [ ] 2.8 Write comprehensive unit tests for all calculation functions including quantization scenarios
 - [ ] 3.0 GPU Selection Component Development
   - [ ] 3.1 Create GPU selector component with predefined list integration
   - [ ] 3.2 Implement quantity selection for each GPU type
@@ -58,13 +59,14 @@
   - [ ] 3.5 Style component according to design specifications
   - [ ] 3.6 Write unit tests for GPU selector component
 - [ ] 4.0 Model Selection Component Development
-  - [ ] 4.1 Create model selector component with predefined list integration
-  - [ ] 4.2 Implement Hugging Face API integration for custom model fetching
-  - [ ] 4.3 Create fallback manual entry form for model specifications
-  - [ ] 4.4 Add loading states and error handling for API calls
-  - [ ] 4.5 Implement multi-model selection functionality
-  - [ ] 4.6 Style component and add user guidance for manual entry
-  - [ ] 4.7 Write unit tests for model selector component
+  - [ ] 4.1 Create model selector component with predefined list integration including quantization variants
+  - [ ] 4.2 Implement clear display of quantization information and memory factors
+  - [ ] 4.3 Implement Hugging Face API integration for custom model fetching with quantization detection
+  - [ ] 4.4 Create fallback manual entry form for model specifications including quantization options
+  - [ ] 4.5 Add loading states and error handling for API calls
+  - [ ] 4.6 Implement multi-model selection functionality with quantization awareness
+  - [ ] 4.7 Style component and add user guidance for manual entry and quantization selection
+  - [ ] 4.8 Write unit tests for model selector component including quantization scenarios
 - [ ] 5.0 Configuration Output Component Development
   - [ ] 5.1 Create component to display three recommendation sets (throughput, latency, balanced)
   - [ ] 5.2 Implement parameter explanations for each vLLM setting
@@ -96,8 +98,8 @@
 - [ ] 9.0 Testing and Quality Assurance
   - [ ] 9.1 Write integration tests for complete user workflows
   - [ ] 9.2 Perform cross-browser testing
-  - [ ] 9.3 Test with various GPU and model combinations
-  - [ ] 9.4 Validate calculation accuracy against known vLLM configurations
+  - [ ] 9.3 Test with various GPU and model combinations including quantized variants
+  - [ ] 9.4 Validate calculation accuracy against known vLLM configurations with different quantization formats
   - [ ] 9.5 Performance testing and optimization
   - [ ] 9.6 Final bug fixes and edge case handling
 - [ ] 10.0 Deployment and CI/CD Setup
