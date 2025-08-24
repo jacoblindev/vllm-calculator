@@ -1,30 +1,20 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+// Tailwind CSS test component
 </script>
 
 <template>
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="/vite.svg" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://vuejs.org/" target="_blank">
-      <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-    </a>
+  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-gray-900 mb-4">vLLM Configuration Calculator</h1>
+      <p class="text-xl text-gray-600">Configure optimal vLLM parameters for your GPU and model setup</p>
+    </div>
+    <div class="bg-white p-8 rounded-lg shadow-lg">
+      <p class="text-green-600 font-semibold">✅ Tailwind CSS is working!</p>
+      <p class="text-gray-700 mt-2">This confirms the setup is successful.</p>
+    </div>
   </div>
-  <HelloWorld msg="Vite + Vue" />
 </template>
 
 <style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
+/* Tailwind CSS classes handle the styling */
 </style>
