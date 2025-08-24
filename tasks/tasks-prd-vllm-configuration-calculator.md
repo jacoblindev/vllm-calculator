@@ -39,7 +39,7 @@
   - [x] 1.1 Initialize Vue.js project with Vite
   - [x] 1.2 Install and configure Tailwind CSS
   - [x] 1.3 Install Chart.js and Vue Chart.js integration
-  - [ ] 1.4 Set up Jest testing framework
+  - [x] 1.4 Set up Jest testing framework
   - [ ] 1.5 Create basic project structure and directories
   - [ ] 1.6 Configure ESLint and Prettier for code quality
 - [ ] 2.0 Core Calculation Engine Development
