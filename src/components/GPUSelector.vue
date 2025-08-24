@@ -1,7 +1,7 @@
 <template>
   <div class="bg-white rounded-lg shadow-lg p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">Select GPUs</h2>
-    
+
     <!-- Predefined GPU Selection -->
     <div class="mb-6">
       <h3 class="text-lg font-semibold text-gray-700 mb-4">Available GPUs</h3>
@@ -10,7 +10,11 @@
           v-for="gpu in availableGPUs"
           :key="gpu.name"
           class="border rounded-lg p-4 cursor-pointer transition-colors"
-          :class="isGPUSelected(gpu) ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'"
+          :class="
+            isGPUSelected(gpu)
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-300 hover:border-gray-400'
+          "
           @click="toggleGPU(gpu)"
         >
           <div class="flex justify-between items-center">
@@ -40,7 +44,9 @@
       <h3 class="text-lg font-semibold text-gray-700 mb-4">Add Custom GPU</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
         <div>
-          <label for="custom-gpu-name" class="block text-sm font-medium text-gray-700 mb-2">GPU Name</label>
+          <label for="custom-gpu-name" class="block text-sm font-medium text-gray-700 mb-2"
+            >GPU Name</label
+          >
           <input
             id="custom-gpu-name"
             v-model="customGPU.name"
@@ -50,7 +56,9 @@
           />
         </div>
         <div>
-          <label for="custom-gpu-vram" class="block text-sm font-medium text-gray-700 mb-2">VRAM (GB)</label>
+          <label for="custom-gpu-vram" class="block text-sm font-medium text-gray-700 mb-2"
+            >VRAM (GB)</label
+          >
           <input
             id="custom-gpu-vram"
             v-model.number="customGPU.vram_gb"
@@ -86,10 +94,7 @@
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-600">{{ selection.gpu.vram_gb }}GB VRAM</span>
             <span class="text-sm text-gray-600">Qty: {{ selection.quantity }}</span>
-            <button
-              @click="removeGPU(selection.gpu)"
-              class="text-red-600 hover:text-red-800"
-            >
+            <button @click="removeGPU(selection.gpu)" class="text-red-600 hover:text-red-800">
               ✕
             </button>
           </div>
@@ -116,8 +121,8 @@ const emit = defineEmits(['update:selectedGPUs'])
 const props = defineProps({
   selectedGPUs: {
     type: Array,
-    default: () => []
-  }
+    default: () => [],
+  },
 })
 
 // Reactive data
@@ -125,18 +130,17 @@ const availableGPUs = ref([])
 const selectedGPUs = ref(props.selectedGPUs)
 const customGPU = ref({
   name: '',
-  vram_gb: null
+  vram_gb: null,
 })
 
 // Computed properties
 const isCustomGPUValid = computed(() => {
-  return customGPU.value.name.trim().length > 0 && 
-         customGPU.value.vram_gb > 0
+  return customGPU.value.name.trim().length > 0 && customGPU.value.vram_gb > 0
 })
 
 const totalVRAM = computed(() => {
   return selectedGPUs.value.reduce((total, selection) => {
-    return total + (selection.gpu.vram_gb * selection.quantity)
+    return total + selection.gpu.vram_gb * selection.quantity
   }, 0)
 })
 
@@ -155,16 +159,16 @@ const loadGPUs = async () => {
   }
 }
 
-const isGPUSelected = (gpu) => {
+const isGPUSelected = gpu => {
   return selectedGPUs.value.some(selection => selection.gpu.name === gpu.name)
 }
 
-const getGPUQuantity = (gpu) => {
+const getGPUQuantity = gpu => {
   const selection = selectedGPUs.value.find(s => s.gpu.name === gpu.name)
   return selection ? selection.quantity : 1
 }
 
-const toggleGPU = (gpu) => {
+const toggleGPU = gpu => {
   if (isGPUSelected(gpu)) {
     removeGPU(gpu)
   } else {
@@ -174,19 +178,17 @@ const toggleGPU = (gpu) => {
 
 const addGPU = (gpu, quantity = 1) => {
   if (!validateGPU(gpu)) return
-  
+
   selectedGPUs.value.push({
     gpu: { ...gpu },
-    quantity: quantity
+    quantity: quantity,
   })
-  
+
   emit('update:selectedGPUs', selectedGPUs.value)
 }
 
-const removeGPU = (gpu) => {
-  selectedGPUs.value = selectedGPUs.value.filter(
-    selection => selection.gpu.name !== gpu.name
-  )
+const removeGPU = gpu => {
+  selectedGPUs.value = selectedGPUs.value.filter(selection => selection.gpu.name !== gpu.name)
   emit('update:selectedGPUs', selectedGPUs.value)
 }
 
@@ -200,14 +202,14 @@ const updateGPUQuantity = (gpu, newQuantity) => {
 
 const addCustomGPU = () => {
   if (!isCustomGPUValid.value) return
-  
+
   const gpu = createCustomGPU(customGPU.value.name, customGPU.value.vram_gb)
   addGPU(gpu, 1)
-  
+
   // Reset form
   customGPU.value = {
     name: '',
-    vram_gb: null
+    vram_gb: null,
   }
 }
 

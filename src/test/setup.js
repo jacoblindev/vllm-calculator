@@ -8,14 +8,14 @@ global.vi = vi
 // Mock Chart.js for testing
 vi.mock('chart.js', () => ({
   Chart: {
-    register: vi.fn()
+    register: vi.fn(),
   },
   Title: vi.fn(),
   Tooltip: vi.fn(),
   Legend: vi.fn(),
   BarElement: vi.fn(),
   CategoryScale: vi.fn(),
-  LinearScale: vi.fn()
+  LinearScale: vi.fn(),
 }))
 
 // Mock vue-chartjs
@@ -23,11 +23,11 @@ vi.mock('vue-chartjs', () => ({
   Bar: {
     name: 'Bar',
     template: '<div data-testid="bar-chart">Bar Chart</div>',
-    props: ['data', 'options']
-  }
+    props: ['data', 'options'],
+  },
 }))
 
 // Configure Vue Test Utils
 config.global.stubs = {
-  teleport: true
+  teleport: true,
 }

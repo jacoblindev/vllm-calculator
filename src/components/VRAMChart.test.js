@@ -9,21 +9,23 @@ describe('VRAMChart.vue', () => {
         title: 'Test Chart',
         data: {
           labels: ['Test GPU'],
-          datasets: [{
-            label: 'VRAM (GB)',
-            backgroundColor: '#3B82F6',
-            data: [24]
-          }]
-        }
-      }
+          datasets: [
+            {
+              label: 'VRAM (GB)',
+              backgroundColor: '#3B82F6',
+              data: [24],
+            },
+          ],
+        },
+      },
     })
-    
+
     expect(wrapper.exists()).toBe(true)
   })
 
   it('uses default props when not provided', () => {
     const wrapper = mount(VRAMChart)
-    
+
     expect(wrapper.exists()).toBe(true)
   })
 
@@ -31,16 +33,16 @@ describe('VRAMChart.vue', () => {
     const customTitle = 'Custom VRAM Chart'
     const wrapper = mount(VRAMChart, {
       props: {
-        title: customTitle
-      }
+        title: customTitle,
+      },
     })
-    
+
     expect(wrapper.props('title')).toBe(customTitle)
   })
 
   it('renders with bar chart component', () => {
     const wrapper = mount(VRAMChart)
-    
+
     expect(wrapper.find('[data-testid="bar-chart"]').exists()).toBe(true)
   })
 })

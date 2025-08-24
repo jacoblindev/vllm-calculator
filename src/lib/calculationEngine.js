@@ -8,20 +8,20 @@
  * @returns {number} Estimated VRAM usage in GB
  */
 export function calculateVRAMUsage(
-  modelSizeGB, 
-  quantizationFactor = 1, 
-  batchSize = 1, 
-  sequenceLength = 2048, 
+  modelSizeGB,
+  quantizationFactor = 1,
+  batchSize = 1,
+  sequenceLength = 2048,
   overheadFactor = 1.2
 ) {
   if (modelSizeGB <= 0) {
     throw new Error('Model size must be positive')
   }
-  
+
   const baseMemory = modelSizeGB * quantizationFactor
-  const activationMemory = (batchSize * sequenceLength * 0.001) // Simplified calculation
+  const activationMemory = batchSize * sequenceLength * 0.001 // Simplified calculation
   const totalMemory = (baseMemory + activationMemory) * overheadFactor
-  
+
   return Math.round(totalMemory * 100) / 100 // Round to 2 decimal places
 }
 

@@ -12,14 +12,14 @@ describe('calculationEngine', () => {
     it('applies quantization factor correctly', () => {
       const fp16Usage = calculateVRAMUsage(7, 1)
       const quantizedUsage = calculateVRAMUsage(7, 0.5)
-      
+
       expect(quantizedUsage).toBeLessThan(fp16Usage)
     })
 
     it('increases usage with larger batch size', () => {
       const smallBatch = calculateVRAMUsage(7, 1, 1)
       const largeBatch = calculateVRAMUsage(7, 1, 4)
-      
+
       expect(largeBatch).toBeGreaterThan(smallBatch)
     })
 

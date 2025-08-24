@@ -1,0 +1,17 @@
+# Build outputs
+dist/
+dist-ssr/
+coverage/
+
+# Dependencies
+node_modules/
+
+# Generated files
+*.log
+*.tgz
+*.zip
+
+# Cache directories
+.cache/
+.vscode/
+.idea/
