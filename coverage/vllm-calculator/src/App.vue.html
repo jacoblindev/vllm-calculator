@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/49</span>
+                <span class='fraction'>0/46</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/49</span>
+                <span class='fraction'>0/46</span>
             </div>
         
             
@@ -141,8 +141,7 @@
 <a name='L76'></a><a href='#L76'>76</a>
 <a name='L77'></a><a href='#L77'>77</a>
 <a name='L78'></a><a href='#L78'>78</a>
-<a name='L79'></a><a href='#L79'>79</a>
-<a name='L80'></a><a href='#L80'>80</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L79'></a><a href='#L79'>79</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -205,9 +204,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -230,7 +228,7 @@
   Legend,
   BarElement,
   CategoryScale,
-  LinearScale
+  LinearScale,
 } from 'chart.js'
 <span class="cstat-no" title="statement not covered" >import { Bar } from 'vue-chartjs'</span>
 &nbsp;
@@ -244,9 +242,9 @@
 <span class="cstat-no" title="statement not covered" >    {</span>
 <span class="cstat-no" title="statement not covered" >      label: 'VRAM (GB)',</span>
 <span class="cstat-no" title="statement not covered" >      backgroundColor: ['#3B82F6', '#EF4444', '#10B981', '#F59E0B'],</span>
-<span class="cstat-no" title="statement not covered" >      data: [80, 24, 80, 32]</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >  ]</span>
+<span class="cstat-no" title="statement not covered" >      data: [80, 24, 80, 32],</span>
+<span class="cstat-no" title="statement not covered" >    },</span>
+<span class="cstat-no" title="statement not covered" >  ],</span>
 <span class="cstat-no" title="statement not covered" >})</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >const chartOptions = ref({</span>
@@ -254,21 +252,21 @@
 <span class="cstat-no" title="statement not covered" >  plugins: {</span>
 <span class="cstat-no" title="statement not covered" >    title: {</span>
 <span class="cstat-no" title="statement not covered" >      display: true,</span>
-<span class="cstat-no" title="statement not covered" >      text: 'GPU VRAM Comparison'</span>
+<span class="cstat-no" title="statement not covered" >      text: 'GPU VRAM Comparison',</span>
 <span class="cstat-no" title="statement not covered" >    },</span>
 <span class="cstat-no" title="statement not covered" >    legend: {</span>
-<span class="cstat-no" title="statement not covered" >      display: true</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >      display: true,</span>
+<span class="cstat-no" title="statement not covered" >    },</span>
 <span class="cstat-no" title="statement not covered" >  },</span>
 <span class="cstat-no" title="statement not covered" >  scales: {</span>
 <span class="cstat-no" title="statement not covered" >    y: {</span>
 <span class="cstat-no" title="statement not covered" >      beginAtZero: true,</span>
 <span class="cstat-no" title="statement not covered" >      title: {</span>
 <span class="cstat-no" title="statement not covered" >        display: true,</span>
-<span class="cstat-no" title="statement not covered" >        text: 'VRAM (GB)'</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
-<span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >        text: 'VRAM (GB)',</span>
+<span class="cstat-no" title="statement not covered" >      },</span>
+<span class="cstat-no" title="statement not covered" >    },</span>
+<span class="cstat-no" title="statement not covered" >  },</span>
 <span class="cstat-no" title="statement not covered" >})</span>
 &lt;/script&gt;
 &nbsp;
@@ -276,9 +274,11 @@
 <span class="cstat-no" title="statement not covered" >  &lt;div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4"&gt;</span>
     &lt;div class="text-center mb-8"&gt;
       &lt;h1 class="text-4xl font-bold text-gray-900 mb-4"&gt;vLLM Configuration Calculator&lt;/h1&gt;
-      &lt;p class="text-xl text-gray-600"&gt;Configure optimal vLLM parameters for your GPU and model setup&lt;/p&gt;
+      &lt;p class="text-xl text-gray-600"&gt;
+        Configure optimal vLLM parameters for your GPU and model setup
+      &lt;/p&gt;
     &lt;/div&gt;
-    
+&nbsp;
     &lt;div class="bg-white p-8 rounded-lg shadow-lg mb-8 max-w-md"&gt;
       &lt;p class="text-green-600 font-semibold"&gt;✅ Tailwind CSS is working!&lt;/p&gt;
       &lt;p class="text-gray-700 mt-2"&gt;This confirms the styling setup is successful.&lt;/p&gt;
@@ -287,10 +287,7 @@
 <span class="cstat-no" title="statement not covered" >    &lt;div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-4xl"&gt;</span>
 <span class="cstat-no" title="statement not covered" >      &lt;h2 class="text-2xl font-bold text-gray-900 mb-6 text-center"&gt;Chart.js Integration Test&lt;/h2&gt;</span>
 <span class="cstat-no" title="statement not covered" >      &lt;div class="h-96"&gt;</span>
-<span class="cstat-no" title="statement not covered" >        &lt;Bar</span>
-<span class="cstat-no" title="statement not covered" >          :data="chartData"</span>
-<span class="cstat-no" title="statement not covered" >          :options="chartOptions"</span>
-<span class="cstat-no" title="statement not covered" >        /&gt;</span>
+<span class="cstat-no" title="statement not covered" >        &lt;Bar :data="chartData" :options="chartOptions" /&gt;</span>
 <span class="cstat-no" title="statement not covered" >      &lt;/div&gt;</span>
 <span class="cstat-no" title="statement not covered" >      &lt;p class="text-green-600 font-semibold text-center mt-4"&gt;✅ Chart.js is working!&lt;/p&gt;</span>
 <span class="cstat-no" title="statement not covered" >    &lt;/div&gt;</span>
@@ -307,7 +304,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-08-24T06:14:40.356Z
+                at 2025-08-24T17:09:05.867Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
