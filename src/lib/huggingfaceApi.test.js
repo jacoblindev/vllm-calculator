@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fetchModelInfo, extractModelSize, detectQuantizationType, getQuantizationFactor } from './huggingfaceApi.js'
+import {
+  fetchModelInfo,
+  extractModelSize,
+  detectQuantizationType,
+  getQuantizationFactor,
+} from './huggingfaceApi.js'
 
 // Mock fetch globally
 global.fetch = vi.fn()
@@ -13,20 +18,20 @@ describe('huggingfaceApi', () => {
     it('successfully fetches model info', async () => {
       const mockModelInfo = {
         id: 'test-model',
-        tags: ['pytorch', 'text-generation']
+        tags: ['pytorch', 'text-generation'],
       }
       const mockConfig = {
-        n_parameters: 7000000000
+        n_parameters: 7000000000,
       }
 
       fetch
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockModelInfo)
+          json: () => Promise.resolve(mockModelInfo),
         })
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve(mockConfig)
+          json: () => Promise.resolve(mockConfig),
         })
 
       const result = await fetchModelInfo('test-model')
@@ -39,7 +44,7 @@ describe('huggingfaceApi', () => {
     it('handles API failures gracefully', async () => {
       fetch.mockResolvedValueOnce({
         ok: false,
-        status: 404
+        status: 404,
       })
 
       const result = await fetchModelInfo('nonexistent-model')
@@ -62,7 +67,7 @@ describe('huggingfaceApi', () => {
     it('extracts size from n_parameters', () => {
       const modelInfo = {
         success: true,
-        config: { n_parameters: 7000000000 }
+        config: { n_parameters: 7000000000 },
       }
 
       const size = extractModelSize(modelInfo)
@@ -72,7 +77,7 @@ describe('huggingfaceApi', () => {
     it('extracts size from num_parameters', () => {
       const modelInfo = {
         success: true,
-        config: { num_parameters: 13000000000 }
+        config: { num_parameters: 13000000000 },
       }
 
       const size = extractModelSize(modelInfo)
@@ -83,7 +88,7 @@ describe('huggingfaceApi', () => {
       const modelInfo = {
         success: true,
         config: {},
-        id: 'llama-7b-chat'
+        id: 'llama-7b-chat',
       }
 
       const size = extractModelSize(modelInfo)
@@ -102,7 +107,7 @@ describe('huggingfaceApi', () => {
     it('detects AWQ from tags', () => {
       const modelInfo = {
         success: true,
-        tags: ['awq', 'pytorch']
+        tags: ['awq', 'pytorch'],
       }
 
       const type = detectQuantizationType(modelInfo)
@@ -113,7 +118,7 @@ describe('huggingfaceApi', () => {
       const modelInfo = {
         success: true,
         id: 'llama-7b-gptq',
-        tags: []
+        tags: [],
       }
 
       const type = detectQuantizationType(modelInfo)
@@ -124,7 +129,7 @@ describe('huggingfaceApi', () => {
       const modelInfo = {
         success: true,
         id: 'llama-7b-chat',
-        tags: ['pytorch']
+        tags: ['pytorch'],
       }
 
       const type = detectQuantizationType(modelInfo)

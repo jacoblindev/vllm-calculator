@@ -1,9 +1,6 @@
 <template>
   <div class="w-full h-full">
-    <Bar
-      :data="chartData"
-      :options="chartOptions"
-    />
+    <Bar :data="chartData" :options="chartOptions" />
   </div>
 </template>
 
@@ -16,7 +13,7 @@ import {
   Legend,
   BarElement,
   CategoryScale,
-  LinearScale
+  LinearScale,
 } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 
@@ -27,19 +24,21 @@ ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 const props = defineProps({
   title: {
     type: String,
-    default: 'VRAM Usage Chart'
+    default: 'VRAM Usage Chart',
   },
   data: {
     type: Object,
     default: () => ({
       labels: ['Sample GPU'],
-      datasets: [{
-        label: 'VRAM (GB)',
-        backgroundColor: '#3B82F6',
-        data: [24]
-      }]
-    })
-  }
+      datasets: [
+        {
+          label: 'VRAM (GB)',
+          backgroundColor: '#3B82F6',
+          data: [24],
+        },
+      ],
+    }),
+  },
 })
 
 // Computed chart data
@@ -52,20 +51,20 @@ const chartOptions = ref({
   plugins: {
     title: {
       display: true,
-      text: props.title
+      text: props.title,
     },
     legend: {
-      display: true
-    }
+      display: true,
+    },
   },
   scales: {
     y: {
       beginAtZero: true,
       title: {
         display: true,
-        text: 'VRAM (GB)'
-      }
-    }
-  }
+        text: 'VRAM (GB)',
+      },
+    },
+  },
 })
 </script>

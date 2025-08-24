@@ -1,7 +1,7 @@
 <template>
   <div class="bg-white rounded-lg shadow-lg p-6">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">Select Models</h2>
-    
+
     <!-- Predefined Model Selection -->
     <div class="mb-6">
       <h3 class="text-lg font-semibold text-gray-700 mb-4">Popular Models</h3>
@@ -10,16 +10,24 @@
           v-for="model in availableModels"
           :key="model.name + model.quantization"
           class="border rounded-lg p-4 cursor-pointer transition-colors"
-          :class="isModelSelected(model) ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'"
+          :class="
+            isModelSelected(model)
+              ? 'border-blue-500 bg-blue-50'
+              : 'border-gray-300 hover:border-gray-400'
+          "
           @click="toggleModel(model)"
         >
           <div class="flex justify-between items-start">
             <div class="flex-1">
               <p class="font-medium text-gray-900">{{ model.name }}</p>
-              <p class="text-sm text-gray-600 mt-1">{{ model.size_gb }}GB • {{ model.quantization.toUpperCase() }}</p>
+              <p class="text-sm text-gray-600 mt-1">
+                {{ model.size_gb }}GB • {{ model.quantization.toUpperCase() }}
+              </p>
               <div class="flex items-center mt-2">
-                <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
-                      :class="getQuantizationBadgeClass(model.quantization)">
+                <span
+                  class="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
+                  :class="getQuantizationBadgeClass(model.quantization)"
+                >
                   {{ model.quantization.toUpperCase() }}
                 </span>
                 <span class="ml-2 text-xs text-gray-500">
@@ -28,9 +36,7 @@
               </div>
               <p v-if="model.hf_id" class="text-xs text-gray-500 mt-1">{{ model.hf_id }}</p>
             </div>
-            <div v-if="isModelSelected(model)" class="ml-4 text-blue-600">
-              ✓
-            </div>
+            <div v-if="isModelSelected(model)" class="ml-4 text-blue-600">✓</div>
           </div>
         </div>
       </div>
@@ -52,7 +58,13 @@
             class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <p class="text-xs text-gray-500 mt-1">
-            Find models at <a href="https://huggingface.co/models" target="_blank" class="text-blue-600 hover:underline">huggingface.co/models</a>
+            Find models at
+            <a
+              href="https://huggingface.co/models"
+              target="_blank"
+              class="text-blue-600 hover:underline"
+              >huggingface.co/models</a
+            >
           </p>
         </div>
         <div>
@@ -90,7 +102,9 @@
       </p>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div>
-          <label for="manual-model-name" class="block text-sm font-medium text-gray-700 mb-2">Model Name</label>
+          <label for="manual-model-name" class="block text-sm font-medium text-gray-700 mb-2"
+            >Model Name</label
+          >
           <input
             id="manual-model-name"
             v-model="manualModel.name"
@@ -100,7 +114,9 @@
           />
         </div>
         <div>
-          <label for="manual-model-size" class="block text-sm font-medium text-gray-700 mb-2">Size (GB)</label>
+          <label for="manual-model-size" class="block text-sm font-medium text-gray-700 mb-2"
+            >Size (GB)</label
+          >
           <input
             id="manual-model-size"
             v-model.number="manualModel.size_gb"
@@ -113,7 +129,9 @@
           />
         </div>
         <div>
-          <label for="manual-quantization" class="block text-sm font-medium text-gray-700 mb-2">Quantization</label>
+          <label for="manual-quantization" class="block text-sm font-medium text-gray-700 mb-2"
+            >Quantization</label
+          >
           <select
             id="manual-quantization"
             v-model="manualModel.quantization"
@@ -149,8 +167,10 @@
             <span class="font-medium">{{ model.name }}</span>
             <div class="flex items-center space-x-2 mt-1">
               <span class="text-sm text-gray-600">{{ model.size_gb }}GB</span>
-              <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
-                    :class="getQuantizationBadgeClass(model.quantization)">
+              <span
+                class="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
+                :class="getQuantizationBadgeClass(model.quantization)"
+              >
                 {{ model.quantization.toUpperCase() }}
               </span>
               <span class="text-xs text-gray-500">
@@ -158,12 +178,7 @@
               </span>
             </div>
           </div>
-          <button
-            @click="removeModel(model)"
-            class="text-red-600 hover:text-red-800"
-          >
-            ✕
-          </button>
+          <button @click="removeModel(model)" class="text-red-600 hover:text-red-800">✕</button>
         </div>
       </div>
     </div>
@@ -173,15 +188,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { loadModelData, validateModel, createCustomModel } from '../lib/dataLoader.js'
-import { fetchModelInfo, extractModelSize, detectQuantizationType, getQuantizationFactor } from '../lib/huggingfaceApi.js'
+import { fetchModelInfo, extractModelSize, getQuantizationFactor } from '../lib/huggingfaceApi.js'
 
 // Props and emits
 const emit = defineEmits(['update:selectedModels'])
 const props = defineProps({
   selectedModels: {
     type: Array,
-    default: () => []
-  }
+    default: () => [],
+  },
 })
 
 // Reactive data
@@ -194,13 +209,12 @@ const showManualEntry = ref(false)
 const manualModel = ref({
   name: '',
   size_gb: null,
-  quantization: 'fp16'
+  quantization: 'fp16',
 })
 
 // Computed properties
 const isManualModelValid = computed(() => {
-  return manualModel.value.name.trim().length > 0 && 
-         manualModel.value.size_gb > 0
+  return manualModel.value.name.trim().length > 0 && manualModel.value.size_gb > 0
 })
 
 // Methods
@@ -212,13 +226,13 @@ const loadModels = async () => {
   }
 }
 
-const isModelSelected = (model) => {
-  return selectedModels.value.some(m => 
-    m.name === model.name && m.quantization === model.quantization
+const isModelSelected = model => {
+  return selectedModels.value.some(
+    m => m.name === model.name && m.quantization === model.quantization
   )
 }
 
-const toggleModel = (model) => {
+const toggleModel = model => {
   if (isModelSelected(model)) {
     removeModel(model)
   } else {
@@ -226,33 +240,32 @@ const toggleModel = (model) => {
   }
 }
 
-const addModel = (model) => {
+const addModel = model => {
   if (!validateModel(model)) return
-  
+
   selectedModels.value.push({ ...model })
   emit('update:selectedModels', selectedModels.value)
 }
 
-const removeModel = (model) => {
-  selectedModels.value = selectedModels.value.filter(m => 
-    !(m.name === model.name && m.quantization === model.quantization)
+const removeModel = model => {
+  selectedModels.value = selectedModels.value.filter(
+    m => !(m.name === model.name && m.quantization === model.quantization)
   )
   emit('update:selectedModels', selectedModels.value)
 }
 
 const fetchHuggingFaceModel = async () => {
   if (!hfModelId.value.trim()) return
-  
+
   isLoadingHF.value = true
   showManualEntry.value = false
-  
+
   try {
     const modelInfo = await fetchModelInfo(hfModelId.value.trim())
-    
+
     if (modelInfo.success) {
       const size = extractModelSize(modelInfo)
-      const detectedQuantization = detectQuantizationType(modelInfo)
-      
+
       if (size) {
         const model = createCustomModel(
           modelInfo.id || hfModelId.value,
@@ -261,7 +274,7 @@ const fetchHuggingFaceModel = async () => {
           getQuantizationFactor(hfQuantization.value)
         )
         model.hf_id = hfModelId.value
-        
+
         addModel(model)
         hfModelId.value = ''
       } else {
@@ -285,33 +298,33 @@ const fetchHuggingFaceModel = async () => {
 
 const addManualModel = () => {
   if (!isManualModelValid.value) return
-  
+
   const model = createCustomModel(
     manualModel.value.name,
     manualModel.value.size_gb,
     manualModel.value.quantization,
     getQuantizationFactor(manualModel.value.quantization)
   )
-  
+
   addModel(model)
-  
+
   // Reset forms
   manualModel.value = {
     name: '',
     size_gb: null,
-    quantization: 'fp16'
+    quantization: 'fp16',
   }
   showManualEntry.value = false
   hfModelId.value = ''
 }
 
-const getQuantizationBadgeClass = (quantization) => {
+const getQuantizationBadgeClass = quantization => {
   const classes = {
-    'fp16': 'bg-blue-100 text-blue-800',
-    'awq': 'bg-green-100 text-green-800',
-    'gptq': 'bg-purple-100 text-purple-800',
-    'ggml': 'bg-orange-100 text-orange-800',
-    'gguf': 'bg-orange-100 text-orange-800'
+    fp16: 'bg-blue-100 text-blue-800',
+    awq: 'bg-green-100 text-green-800',
+    gptq: 'bg-purple-100 text-purple-800',
+    ggml: 'bg-orange-100 text-orange-800',
+    gguf: 'bg-orange-100 text-orange-800',
   }
   return classes[quantization] || 'bg-gray-100 text-gray-800'
 }

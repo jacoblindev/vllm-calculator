@@ -18,10 +18,10 @@ export async function loadGPUData() {
     console.error('Error loading GPU data:', error)
     // Return fallback data
     return [
-      { name: "NVIDIA A100 (80GB)", vram_gb: 80 },
-      { name: "NVIDIA H100 (80GB)", vram_gb: 80 },
-      { name: "NVIDIA RTX 4090", vram_gb: 24 },
-      { name: "NVIDIA V100 (32GB)", vram_gb: 32 }
+      { name: 'NVIDIA A100 (80GB)', vram_gb: 80 },
+      { name: 'NVIDIA H100 (80GB)', vram_gb: 80 },
+      { name: 'NVIDIA RTX 4090', vram_gb: 24 },
+      { name: 'NVIDIA V100 (32GB)', vram_gb: 32 },
     ]
   }
 }
@@ -43,19 +43,19 @@ export async function loadModelData() {
     // Return fallback data
     return [
       {
-        name: "Llama 2 7B",
-        hf_id: "meta-llama/Llama-2-7b-hf",
+        name: 'Llama 2 7B',
+        hf_id: 'meta-llama/Llama-2-7b-hf',
         size_gb: 13.5,
-        quantization: "fp16",
-        memory_factor: 1.0
+        quantization: 'fp16',
+        memory_factor: 1.0,
       },
       {
-        name: "Llama 2 13B",
-        hf_id: "meta-llama/Llama-2-13b-hf",
+        name: 'Llama 2 13B',
+        hf_id: 'meta-llama/Llama-2-13b-hf',
         size_gb: 26.0,
-        quantization: "fp16",
-        memory_factor: 1.0
-      }
+        quantization: 'fp16',
+        memory_factor: 1.0,
+      },
     ]
   }
 }
@@ -67,7 +67,7 @@ export async function loadModelData() {
  */
 export function validateGPU(gpu) {
   if (!gpu) return false
-  
+
   return (
     typeof gpu.name === 'string' &&
     gpu.name.trim().length > 0 &&
@@ -104,7 +104,7 @@ export function createCustomGPU(name, vramGB) {
   return {
     name: name.trim(),
     vram_gb: vramGB,
-    custom: true
+    custom: true,
   }
 }
 
@@ -122,6 +122,6 @@ export function createCustomModel(name, sizeGB, quantization = 'fp16', memoryFac
     size_gb: sizeGB,
     quantization,
     memory_factor: memoryFactor,
-    custom: true
+    custom: true,
   }
 }

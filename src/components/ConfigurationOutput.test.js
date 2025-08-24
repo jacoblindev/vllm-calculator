@@ -10,18 +10,16 @@ Object.assign(navigator, {
 })
 
 describe('ConfigurationOutput.vue', () => {
-  const mockGPUs = [
-    { gpu: { name: "NVIDIA A100", vram: 80 }, quantity: 2 }
-  ]
+  const mockGPUs = [{ gpu: { name: 'NVIDIA A100', vram: 80 }, quantity: 2 }]
 
   const mockModels = [
     {
-      name: "Llama 2 7B",
-      hf_id: "meta-llama/Llama-2-7b-hf",
+      name: 'Llama 2 7B',
+      hf_id: 'meta-llama/Llama-2-7b-hf',
       size: 13.5,
-      quantization: "fp16",
-      memory_factor: 1.0
-    }
+      quantization: 'fp16',
+      memory_factor: 1.0,
+    },
   ]
 
   beforeEach(() => {
@@ -30,7 +28,7 @@ describe('ConfigurationOutput.vue', () => {
 
   it('renders component correctly', () => {
     const wrapper = mount(ConfigurationOutput)
-    
+
     expect(wrapper.find('h2').text()).toBe('vLLM Configuration Recommendations')
     expect(wrapper.exists()).toBe(true)
   })
@@ -39,10 +37,10 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: [],
-        selectedModels: []
-      }
+        selectedModels: [],
+      },
     })
-    
+
     expect(wrapper.text()).toContain('Select GPUs and models to see configuration recommendations')
     expect(wrapper.vm.hasConfiguration).toBe(false)
   })
@@ -51,13 +49,13 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     expect(wrapper.vm.hasConfiguration).toBe(true)
     expect(wrapper.vm.configurations.length).toBe(3)
-    
+
     // Check that all three configuration types exist
     const configTypes = wrapper.vm.configurations.map(c => c.type)
     expect(configTypes).toContain('throughput')
@@ -69,10 +67,10 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     expect(wrapper.vm.totalVRAM).toBe(160) // 80 * 2
   })
 
@@ -80,10 +78,10 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     expect(wrapper.vm.totalModelSize).toBe(13.5) // 13.5 * 1.0
   })
 
@@ -91,19 +89,19 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     const configs = wrapper.vm.configurations
     const throughputConfig = configs.find(c => c.type === 'throughput')
     const latencyConfig = configs.find(c => c.type === 'latency')
     const balancedConfig = configs.find(c => c.type === 'balanced')
-    
+
     expect(throughputConfig).toBeDefined()
     expect(latencyConfig).toBeDefined()
     expect(balancedConfig).toBeDefined()
-    
+
     // Each config should have 6 parameters
     expect(throughputConfig.parameters.length).toBe(6)
     expect(latencyConfig.parameters.length).toBe(6)
@@ -114,17 +112,17 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     // Default should be throughput
     expect(wrapper.vm.activeTab).toBe('throughput')
-    
+
     // Switch to latency tab
     wrapper.vm.activeTab = 'latency'
     await wrapper.vm.$nextTick()
-    
+
     expect(wrapper.vm.activeTab).toBe('latency')
   })
 
@@ -132,12 +130,12 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     const configs = wrapper.vm.configurations
-    
+
     configs.forEach(config => {
       expect(config.command).toBeTruthy()
       expect(config.command).toContain('python -m vllm.entrypoints.openai.api_server')
@@ -152,29 +150,29 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs, // 2 GPUs
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     const configs = wrapper.vm.configurations
-    
+
     configs.forEach(config => {
       expect(config.command).toContain('--tensor-parallel-size 2')
     })
   })
 
   it('does not include tensor parallel for single GPU', () => {
-    const singleGPU = [{ gpu: { name: "NVIDIA A100", vram_gb: 80 }, quantity: 1 }]
-    
+    const singleGPU = [{ gpu: { name: 'NVIDIA A100', vram_gb: 80 }, quantity: 1 }]
+
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: singleGPU,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     const configs = wrapper.vm.configurations
-    
+
     configs.forEach(config => {
       expect(config.command).not.toContain('--tensor-parallel-size')
     })
@@ -184,15 +182,15 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     const testCommand = 'test command'
     navigator.clipboard.writeText.mockResolvedValue()
-    
+
     await wrapper.vm.copyCommand(testCommand)
-    
+
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(testCommand)
     expect(wrapper.vm.copiedCommand).toBe(testCommand)
   })
@@ -201,18 +199,18 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: [],
-        selectedModels: []
-      }
+        selectedModels: [],
+      },
     })
-    
+
     wrapper.vm.activeTab = 'latency'
-    
+
     // Update props to trigger configuration
     await wrapper.setProps({
       selectedGPUs: mockGPUs,
-      selectedModels: mockModels
+      selectedModels: mockModels,
     })
-    
+
     expect(wrapper.vm.activeTab).toBe('throughput')
   })
 
@@ -220,12 +218,12 @@ describe('ConfigurationOutput.vue', () => {
     const wrapper = mount(ConfigurationOutput, {
       props: {
         selectedGPUs: mockGPUs,
-        selectedModels: mockModels
-      }
+        selectedModels: mockModels,
+      },
     })
-    
+
     const configs = wrapper.vm.configurations
-    
+
     configs.forEach(config => {
       config.parameters.forEach(param => {
         expect(param).toHaveProperty('name')
