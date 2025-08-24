@@ -36,7 +36,7 @@
 ## Tasks
 
 - [ ] 1.0 Project Setup and Infrastructure
-  - [ ] 1.1 Initialize Vue.js project with Vite
+  - [x] 1.1 Initialize Vue.js project with Vite
   - [ ] 1.2 Install and configure Tailwind CSS
   - [ ] 1.3 Install Chart.js and Vue Chart.js integration
   - [ ] 1.4 Set up Jest testing framework
