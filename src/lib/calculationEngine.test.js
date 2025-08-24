@@ -7,23 +7,37 @@ import {
   calculateActivationMemory,
   estimateModelArchitecture,
   calculateVLLMMemoryUsage,
+  calculateQuantizationFactor,
+  getSupportedQuantizationFormats,
+  compareQuantizationFormats,
+  estimateQuantizationQualityImpact,
+  generateQuantizationRecommendation,
 } from './calculationEngine.js'
 
 describe('calculationEngine', () => {
   describe('calculateModelWeightsMemory', () => {
     it('calculates FP16 model weights correctly', () => {
       const result = calculateModelWeightsMemory(7, 'fp16')
-      expect(result).toBe(14) // 7B params * 2 bytes = 14GB
+      expect(result.totalMemory).toBe(14) // 7B params * 2 bytes = 14GB
+      expect(result.baseMemory).toBe(14)
+      expect(result.quantization.format).toBe('fp16')
+      expect(result.quantization.bytesPerParam).toBe(2)
     })
 
     it('calculates FP32 model weights correctly', () => {
       const result = calculateModelWeightsMemory(7, 'fp32')
-      expect(result).toBe(28) // 7B params * 4 bytes = 28GB
+      expect(result.totalMemory).toBe(28) // 7B params * 4 bytes = 28GB
+      expect(result.baseMemory).toBe(28)
+      expect(result.quantization.format).toBe('fp32')
+      expect(result.quantization.bytesPerParam).toBe(4)
     })
 
     it('calculates quantized model weights correctly', () => {
       const result = calculateModelWeightsMemory(7, 'int4')
-      expect(result).toBe(3.5) // 7B params * 0.5 bytes = 3.5GB
+      expect(result.totalMemory).toBe(3.5) // 7B params * 0.5 bytes = 3.5GB
+      expect(result.baseMemory).toBe(3.5)
+      expect(result.quantization.format).toBe('int4')
+      expect(result.quantization.bytesPerParam).toBe(0.5)
     })
 
     it('throws error for invalid parameters', () => {
@@ -31,8 +45,8 @@ describe('calculationEngine', () => {
       expect(() => calculateModelWeightsMemory(0)).toThrow('Number of parameters must be positive')
     })
 
-    it('throws error for unsupported precision', () => {
-      expect(() => calculateModelWeightsMemory(7, 'invalid')).toThrow('Unsupported precision: invalid')
+    it('throws error for unsupported quantization format', () => {
+      expect(() => calculateModelWeightsMemory(7, 'invalid')).toThrow('Unsupported quantization format: invalid')
     })
   })
 
@@ -210,6 +224,121 @@ describe('calculationEngine', () => {
     it('handles edge cases', () => {
       expect(canRunOnGPU(0, 0)).toBe(true)
       expect(canRunOnGPU(0, 1)).toBe(false)
+    })
+  })
+
+  // New quantization tests
+  describe('calculateQuantizationFactor', () => {
+    it('returns correct quantization info for fp16', () => {
+      const result = calculateQuantizationFactor('fp16')
+      expect(result.format).toBe('fp16')
+      expect(result.bytesPerParam).toBe(2)
+      expect(result.bitsPerParam).toBe(16)
+      expect(result.memoryFactor).toBe(0.5)
+      expect(result.qualityLoss).toBe(0.01)
+    })
+
+    it('returns correct quantization info for int4', () => {
+      const result = calculateQuantizationFactor('int4')
+      expect(result.format).toBe('int4')
+      expect(result.bytesPerParam).toBe(0.5)
+      expect(result.bitsPerParam).toBe(4)
+      expect(result.memoryFactor).toBe(0.125)
+      expect(result.qualityLoss).toBe(0.05)
+    })
+
+    it('returns correct quantization info for awq', () => {
+      const result = calculateQuantizationFactor('awq')
+      expect(result.format).toBe('awq')
+      expect(result.bytesPerParam).toBe(0.5)
+      expect(result.bitsPerParam).toBe(4)
+      expect(result.memoryFactor).toBe(0.145) // 0.125 + 0.02 overhead
+      expect(result.qualityLoss).toBe(0.03)
+    })
+
+    it('throws error for unsupported format', () => {
+      expect(() => calculateQuantizationFactor('invalid')).toThrow('Unsupported quantization format: invalid')
+    })
+  })
+
+  describe('getSupportedQuantizationFormats', () => {
+    it('returns array of supported formats', () => {
+      const formats = getSupportedQuantizationFormats()
+      expect(Array.isArray(formats)).toBe(true)
+      expect(formats.length).toBeGreaterThan(0)
+      expect(formats.includes('fp16')).toBe(true)
+      expect(formats.includes('fp32')).toBe(true)
+      expect(formats.includes('awq')).toBe(true)
+      expect(formats.includes('gptq')).toBe(true)
+    })
+  })
+
+  describe('compareQuantizationFormats', () => {
+    it('compares memory usage correctly', () => {
+      const comparison = compareQuantizationFormats(['fp32', 'fp16', 'int4'])
+      expect(Array.isArray(comparison)).toBe(true)
+      expect(comparison.length).toBe(3)
+      
+      const fp32 = comparison.find(c => c.format === 'fp32')
+      const fp16 = comparison.find(c => c.format === 'fp16')
+      const int4 = comparison.find(c => c.format === 'int4')
+      
+      expect(fp32.memoryFactor).toBe(1)
+      expect(fp16.memoryFactor).toBe(0.5)
+      expect(int4.memoryFactor).toBe(0.125)
+    })
+
+    it('handles empty array', () => {
+      const comparison = compareQuantizationFormats([])
+      expect(comparison).toEqual([])
+    })
+
+    it('throws error for invalid format', () => {
+      expect(() => compareQuantizationFormats(['invalid'])).toThrow('Unsupported quantization format: invalid')
+    })
+  })
+
+  describe('estimateQuantizationQualityImpact', () => {
+    it('estimates quality impact correctly', () => {
+      const impact = estimateQuantizationQualityImpact('fp16', 7)
+      expect(impact.qualityLoss).toBe(0.01)
+      expect(impact.recommendation).toContain('Recommended for most production')
+      
+      const impactInt4 = estimateQuantizationQualityImpact('int4', 7)
+      expect(impactInt4.qualityLoss).toBe(0.05)
+      expect(impactInt4.recommendation).toContain('Extreme memory savings')
+    })
+
+    it('handles different quantization formats', () => {
+      const awqImpact = estimateQuantizationQualityImpact('awq', 7)
+      expect(awqImpact.qualityLoss).toBe(0.03)
+      expect(awqImpact.recommendation).toContain('Excellent for')
+      
+      const gptqImpact = estimateQuantizationQualityImpact('gptq', 7)
+      expect(gptqImpact.qualityLoss).toBe(0.04)
+      expect(gptqImpact.recommendation).toContain('Good for memory-constrained')
+    })
+  })
+
+  describe('generateQuantizationRecommendation', () => {
+    it('recommends appropriate quantization for large GPU', () => {
+      const recommendation = generateQuantizationRecommendation(40, 7)
+      expect(recommendation.recommendedFormat).toBe('fp16')
+      expect(recommendation.canFit).toBe(true)
+      expect(recommendation.reason).toContain('Sufficient VRAM')
+    })
+
+    it('recommends quantization for limited GPU', () => {
+      const recommendation = generateQuantizationRecommendation(8, 7, { includeKVCache: false }) // Use 8GB for 7B model to require quantization
+      expect(['awq', 'gptq', 'int8', 'int4'].includes(recommendation.recommendedFormat)).toBe(true)
+      expect(recommendation.canFit).toBe(true)
+      expect(recommendation.reason).toContain('Limited VRAM')
+    })
+
+    it('handles insufficient VRAM cases', () => {
+      const recommendation = generateQuantizationRecommendation(4, 70)
+      expect(recommendation.canFit).toBe(false)
+      expect(recommendation.reason).toContain('Model too large')
     })
   })
 })

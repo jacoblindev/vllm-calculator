@@ -14,12 +14,314 @@
  */
 
 /**
- * Calculate model weights memory usage
- * @param {number} numParams - Number of parameters in billions (e.g., 7 for 7B)
- * @param {string} precision - Model precision ('fp16', 'fp32', 'int8', 'int4')
- * @returns {number} Model weights memory in GB
+ * Quantization formats supported by vLLM and their characteristics
  */
-export function calculateModelWeightsMemory(numParams, precision = 'fp16') {
+const QUANTIZATION_FORMATS = {
+  // Standard precision formats
+  fp32: {
+    bitsPerParam: 32,
+    bytesPerParam: 4,
+    memoryEfficiency: 1.0,
+    qualityLoss: 0.0,
+    description: 'Full precision floating point',
+  },
+  fp16: {
+    bitsPerParam: 16,
+    bytesPerParam: 2,
+    memoryEfficiency: 0.5,
+    qualityLoss: 0.01,
+    description: 'Half precision floating point',
+  },
+  bf16: {
+    bitsPerParam: 16,
+    bytesPerParam: 2,
+    memoryEfficiency: 0.5,
+    qualityLoss: 0.005,
+    description: 'Brain floating point 16',
+  },
+  
+  // Integer quantization
+  int8: {
+    bitsPerParam: 8,
+    bytesPerParam: 1,
+    memoryEfficiency: 0.25,
+    qualityLoss: 0.02,
+    description: 'Dynamic 8-bit integer quantization',
+  },
+  int4: {
+    bitsPerParam: 4,
+    bytesPerParam: 0.5,
+    memoryEfficiency: 0.125,
+    qualityLoss: 0.05,
+    description: 'Static 4-bit integer quantization',
+  },
+  
+  // Advanced quantization schemes
+  awq: {
+    bitsPerParam: 4,
+    bytesPerParam: 0.5,
+    memoryEfficiency: 0.125,
+    qualityLoss: 0.03,
+    description: 'Activation-aware Weight Quantization (4-bit)',
+    overhead: 0.02, // Small overhead for activation statistics
+  },
+  gptq: {
+    bitsPerParam: 4,
+    bytesPerParam: 0.5,
+    memoryEfficiency: 0.125,
+    qualityLoss: 0.04,
+    description: 'GPTQ post-training quantization (4-bit)',
+    overhead: 0.01, // Minimal overhead
+  },
+  ggml: {
+    bitsPerParam: 4,
+    bytesPerParam: 0.5,
+    memoryEfficiency: 0.125,
+    qualityLoss: 0.06,
+    description: 'GGML quantization format',
+    overhead: 0.015,
+  },
+  
+  // Mixed precision formats
+  'awq-gemm': {
+    bitsPerParam: 4,
+    bytesPerParam: 0.5,
+    memoryEfficiency: 0.125,
+    qualityLoss: 0.025,
+    description: 'AWQ with optimized GEMM kernels',
+    overhead: 0.03,
+  },
+  'gptq-exllama': {
+    bitsPerParam: 4,
+    bytesPerParam: 0.5,
+    memoryEfficiency: 0.125,
+    qualityLoss: 0.035,
+    description: 'GPTQ with ExLlama acceleration',
+    overhead: 0.025,
+  },
+}
+
+/**
+ * Calculate quantization factor for a given format
+ * @param {string} format - Quantization format (e.g., 'fp16', 'awq', 'gptq')
+ * @param {object} options - Additional options
+ * @param {boolean} options.includeOverhead - Whether to include format-specific overhead
+ * @returns {object} Quantization information including memory factor and quality impact
+ */
+export function calculateQuantizationFactor(format, options = {}) {
+  const { includeOverhead = true } = options
+  
+  const quantInfo = QUANTIZATION_FORMATS[format.toLowerCase()]
+  if (!quantInfo) {
+    throw new Error(`Unsupported quantization format: ${format}`)
+  }
+  
+  let memoryFactor = quantInfo.memoryEfficiency
+  
+  // Add overhead if applicable and requested
+  if (includeOverhead && quantInfo.overhead) {
+    memoryFactor += quantInfo.overhead
+  }
+  
+  return {
+    format: format.toLowerCase(),
+    bitsPerParam: quantInfo.bitsPerParam,
+    bytesPerParam: quantInfo.bytesPerParam,
+    memoryFactor: Math.round(memoryFactor * 1000) / 1000, // Round to 3 decimal places
+    qualityLoss: quantInfo.qualityLoss,
+    description: quantInfo.description,
+    overhead: quantInfo.overhead || 0,
+  }
+}
+
+/**
+ * Get all supported quantization formats
+ * @returns {Array} Array of supported format names
+ */
+export function getSupportedQuantizationFormats() {
+  return Object.keys(QUANTIZATION_FORMATS)
+}
+
+/**
+ * Compare quantization formats
+ * @param {Array<string>} formats - Array of format names to compare
+ * @returns {Array} Array of quantization info objects sorted by memory efficiency
+ */
+export function compareQuantizationFormats(formats) {
+  const comparisons = formats.map(format => calculateQuantizationFactor(format))
+  
+  // Sort by memory efficiency (lower memory usage first)
+  return comparisons.sort((a, b) => a.memoryFactor - b.memoryFactor)
+}
+
+/**
+ * Estimate quality degradation for quantization
+ * @param {string} format - Quantization format
+ * @param {number} modelSize - Model size in billions of parameters
+ * @returns {object} Quality impact estimation
+ */
+export function estimateQuantizationQualityImpact(format, modelSize) {
+  const quantInfo = calculateQuantizationFactor(format)
+  
+  // Larger models generally handle quantization better
+  const sizeAdjustment = Math.max(0.5, Math.min(1.0, modelSize / 7)) // Normalize around 7B
+  const adjustedQualityLoss = quantInfo.qualityLoss * (2 - sizeAdjustment)
+  
+  let impactLevel = 'minimal'
+  if (adjustedQualityLoss > 0.05) impactLevel = 'high'
+  else if (adjustedQualityLoss > 0.02) impactLevel = 'moderate'
+  else if (adjustedQualityLoss > 0.01) impactLevel = 'low'
+  
+  return {
+    format: quantInfo.format,
+    qualityLoss: Math.round(adjustedQualityLoss * 1000) / 1000,
+    impactLevel,
+    memorySavings: Math.round((1 - quantInfo.memoryFactor) * 100),
+    recommendation: generateQuantizationRecommendationText(quantInfo, modelSize),
+  }
+}
+
+/**
+ * Generate quantization recommendation text based on format and model size
+ * @param {object} quantInfo - Quantization information
+ * @param {number} modelSize - Model size in billions of parameters
+ * @returns {string} Recommendation text
+ */
+function generateQuantizationRecommendationText(quantInfo, modelSize) {
+  const memorySavings = (1 - quantInfo.memoryFactor) * 100
+  
+  if (quantInfo.format === 'fp32') {
+    return 'Use only for research or when maximum precision is required'
+  }
+  
+  if (quantInfo.format === 'fp16' || quantInfo.format === 'bf16') {
+    return 'Recommended for most production deployments with good balance of speed and quality'
+  }
+  
+  if (quantInfo.format.includes('awq')) {
+    return `Excellent for ${modelSize >= 7 ? 'large' : 'smaller'} models, ~${memorySavings.toFixed(0)}% memory savings with minimal quality loss`
+  }
+  
+  if (quantInfo.format.includes('gptq')) {
+    return `Good for memory-constrained environments, ${memorySavings.toFixed(0)}% memory reduction`
+  }
+  
+  if (quantInfo.format === 'int8') {
+    return 'Use when memory is very limited, may impact quality on smaller models'
+  }
+  
+  if (quantInfo.format === 'int4') {
+    return 'Extreme memory savings but significant quality trade-offs for most models'
+  }
+  
+  return `${memorySavings.toFixed(0)}% memory savings - evaluate quality trade-offs for your use case`
+}
+
+/**
+ * Generate quantization recommendation based on available VRAM and model size
+ * @param {number} vramGB - Available VRAM in GB
+ * @param {number} modelParams - Model size in billions of parameters
+ * @param {object} options - Additional options
+ * @returns {object} Recommendation including format, feasibility, and reasoning
+ */
+export function generateQuantizationRecommendation(vramGB, modelParams, options = {}) {
+  const { batchSize = 1, maxSeqLen = 2048, includeKVCache = true } = options
+  
+  // Try different quantization formats in order of preference
+  const formatPriority = ['fp16', 'awq', 'gptq', 'int8', 'int4']
+  
+  for (const format of formatPriority) {
+    try {
+      // Calculate total memory usage with this quantization
+      const modelWeights = calculateModelWeightsMemory(modelParams, format)
+      let totalMemory = modelWeights.totalMemory
+      
+      if (includeKVCache) {
+        // Add estimated KV cache and activations
+        const estimatedArch = estimateModelArchitecture(modelParams)
+        const kvCache = calculateKVCacheMemory(batchSize, maxSeqLen, estimatedArch.layers, estimatedArch.hiddenSize, estimatedArch.numHeads, format)
+        const activations = calculateActivationMemory(batchSize, maxSeqLen, estimatedArch.hiddenSize, estimatedArch.layers)
+        const systemOverhead = calculateSystemOverhead(modelWeights.totalMemory, batchSize)
+        
+        totalMemory += kvCache + activations + systemOverhead
+      }
+      
+      if (totalMemory <= vramGB * 0.9) { // 90% utilization max
+        const memoryUtilization = Math.round((totalMemory / vramGB) * 100)
+        
+        let reason = ''
+        if (format === 'fp16') {
+          reason = `Sufficient VRAM available (${memoryUtilization}% utilization). Recommended for best quality.`
+        } else {
+          reason = `Limited VRAM requires quantization (${memoryUtilization}% utilization). ${format.toUpperCase()} provides good balance.`
+        }
+        
+        return {
+          recommendedFormat: format,
+          canFit: true,
+          memoryUsageGB: Math.round(totalMemory * 1000) / 1000,
+          memoryUtilizationPercent: memoryUtilization,
+          reason: reason,
+          qualityImpact: QUANTIZATION_FORMATS[format]?.qualityLoss || 0,
+        }
+      }
+    } catch {
+      // Skip this format if calculation fails
+      continue
+    }
+  }
+  
+  // If no format fits, return recommendation with lowest memory usage
+  const minFormat = formatPriority[formatPriority.length - 1]
+  const modelWeights = calculateModelWeightsMemory(modelParams, minFormat)
+  
+  return {
+    recommendedFormat: minFormat,
+    canFit: false,
+    memoryUsageGB: Math.round(modelWeights.totalMemory * 1000) / 1000,
+    memoryUtilizationPercent: Math.round((modelWeights.totalMemory / vramGB) * 100),
+    reason: `Model too large for available VRAM even with maximum quantization. Consider model parallelism or larger GPU.`,
+    qualityImpact: QUANTIZATION_FORMATS[minFormat]?.qualityLoss || 0,
+  }
+}
+
+/**
+ * Calculate model weights memory usage with quantization support
+ * @param {number} numParams - Number of parameters in billions (e.g., 7 for 7B)
+ * @param {string} quantization - Quantization format ('fp16', 'awq', 'gptq', etc.)
+ * @param {object} options - Additional options
+ * @param {boolean} options.includeOverhead - Include quantization overhead
+ * @returns {object} Model weights memory info including total GB and breakdown
+ */
+export function calculateModelWeightsMemory(numParams, quantization = 'fp16', options = {}) {
+  if (numParams <= 0) {
+    throw new Error('Number of parameters must be positive')
+  }
+
+  const quantInfo = calculateQuantizationFactor(quantization, options)
+  
+  // Base memory for weights
+  const baseMemoryGB = numParams * quantInfo.bytesPerParam
+  
+  // Additional overhead for quantization metadata (scales, zeros, etc.)
+  const overheadGB = quantInfo.overhead ? numParams * quantInfo.overhead : 0
+  
+  const totalMemoryGB = baseMemoryGB + overheadGB
+
+  return {
+    baseMemory: Math.round(baseMemoryGB * 1000) / 1000,
+    overhead: Math.round(overheadGB * 1000) / 1000,
+    totalMemory: Math.round(totalMemoryGB * 1000) / 1000,
+    quantization: quantInfo,
+    memorySavingsPercent: Math.round((1 - quantInfo.memoryFactor) * 100),
+  }
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use calculateModelWeightsMemory with quantization parameter instead
+ */
+export function calculateModelWeightsMemoryLegacy(numParams, precision = 'fp16') {
   if (numParams <= 0) {
     throw new Error('Number of parameters must be positive')
   }
@@ -120,6 +422,23 @@ export function calculateActivationMemory(
 }
 
 /**
+ * Calculate system overhead for vLLM runtime
+ * @param {number} modelMemoryGB - Model memory usage in GB
+ * @param {number} batchSize - Batch size
+ * @returns {number} System overhead in GB
+ */
+export function calculateSystemOverhead(modelMemoryGB, batchSize = 1) {
+  // Base system overhead for vLLM runtime
+  const baseOverheadGB = 0.5
+  
+  // Additional overhead scales with model size and batch size
+  const modelOverhead = modelMemoryGB * 0.05 // 5% of model size
+  const batchOverhead = (batchSize - 1) * 0.1 // Additional overhead per batch item
+  
+  return baseOverheadGB + modelOverhead + batchOverhead
+}
+
+/**
  * Estimate model architecture parameters from parameter count
  * @param {number} numParams - Number of parameters in billions
  * @returns {object} Estimated architecture parameters
@@ -183,7 +502,12 @@ export function calculateVLLMMemoryUsage(config) {
   const arch = architecture || estimateModelArchitecture(numParams || (modelSizeGB / 2)) // Rough estimate: 2GB per billion params for fp16
 
   // Calculate individual components
-  const modelWeights = modelSizeGB || calculateModelWeightsMemory(numParams, modelPrecision)
+  const modelWeightsResult = modelSizeGB 
+    ? { totalMemory: modelSizeGB, baseMemory: modelSizeGB, overhead: 0 }
+    : calculateModelWeightsMemory(numParams, modelPrecision)
+  
+  const modelWeights = modelWeightsResult.totalMemory || modelWeightsResult
+  
   const kvCache = calculateKVCacheMemory(
     batchSize,
     maxSeqLen,
@@ -212,6 +536,7 @@ export function calculateVLLMMemoryUsage(config) {
     activations: Math.round(activations * 1000) / 1000,
     systemOverhead: Math.round(systemOverhead * 1000) / 1000,
     totalMemory: Math.round(totalMemory * 1000) / 1000,
+    quantization: modelWeightsResult.quantization || null,
     breakdown: {
       modelWeightsPercent: Math.round((modelWeights / totalMemory) * 100),
       kvCachePercent: Math.round((kvCache / totalMemory) * 100),
