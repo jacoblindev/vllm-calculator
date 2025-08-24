@@ -1,8 +1,169 @@
 import { describe, it, expect } from 'vitest'
-import { calculateVRAMUsage, canRunOnGPU } from './calculationEngine.js'
+import {
+  calculateVRAMUsage,
+  canRunOnGPU,
+  calculateModelWeightsMemory,
+  calculateKVCacheMemory,
+  calculateActivationMemory,
+  estimateModelArchitecture,
+  calculateVLLMMemoryUsage,
+} from './calculationEngine.js'
 
 describe('calculationEngine', () => {
-  describe('calculateVRAMUsage', () => {
+  describe('calculateModelWeightsMemory', () => {
+    it('calculates FP16 model weights correctly', () => {
+      const result = calculateModelWeightsMemory(7, 'fp16')
+      expect(result).toBe(14) // 7B params * 2 bytes = 14GB
+    })
+
+    it('calculates FP32 model weights correctly', () => {
+      const result = calculateModelWeightsMemory(7, 'fp32')
+      expect(result).toBe(28) // 7B params * 4 bytes = 28GB
+    })
+
+    it('calculates quantized model weights correctly', () => {
+      const result = calculateModelWeightsMemory(7, 'int4')
+      expect(result).toBe(3.5) // 7B params * 0.5 bytes = 3.5GB
+    })
+
+    it('throws error for invalid parameters', () => {
+      expect(() => calculateModelWeightsMemory(-1)).toThrow('Number of parameters must be positive')
+      expect(() => calculateModelWeightsMemory(0)).toThrow('Number of parameters must be positive')
+    })
+
+    it('throws error for unsupported precision', () => {
+      expect(() => calculateModelWeightsMemory(7, 'invalid')).toThrow('Unsupported precision: invalid')
+    })
+  })
+
+  describe('calculateKVCacheMemory', () => {
+    it('calculates KV cache memory correctly', () => {
+      const result = calculateKVCacheMemory(1, 2048, 32, 4096, 32, 'fp16')
+      expect(result).toBeTypeOf('number')
+      expect(result).toBeGreaterThan(0)
+    })
+
+    it('scales with batch size', () => {
+      const batch1 = calculateKVCacheMemory(1, 2048, 32, 4096, 32, 'fp16')
+      const batch4 = calculateKVCacheMemory(4, 2048, 32, 4096, 32, 'fp16')
+      expect(batch4).toBeCloseTo(batch1 * 4, 1)
+    })
+
+    it('scales with sequence length', () => {
+      const seq1k = calculateKVCacheMemory(1, 1024, 32, 4096, 32, 'fp16')
+      const seq2k = calculateKVCacheMemory(1, 2048, 32, 4096, 32, 'fp16')
+      expect(seq2k).toBeCloseTo(seq1k * 2, 1)
+    })
+
+    it('throws error for invalid parameters', () => {
+      expect(() => calculateKVCacheMemory(-1, 2048, 32, 4096, 32)).toThrow('All parameters must be positive')
+      expect(() => calculateKVCacheMemory(1, -1, 32, 4096, 32)).toThrow('All parameters must be positive')
+    })
+  })
+
+  describe('calculateActivationMemory', () => {
+    it('calculates activation memory correctly', () => {
+      const result = calculateActivationMemory(1, 512, 4096, 32, 'fp16')
+      expect(result).toBeTypeOf('number')
+      expect(result).toBeGreaterThan(0)
+    })
+
+    it('scales with batch size', () => {
+      const batch1 = calculateActivationMemory(1, 512, 4096, 32, 'fp16')
+      const batch2 = calculateActivationMemory(2, 512, 4096, 32, 'fp16')
+      expect(batch2).toBeCloseTo(batch1 * 2, 1)
+    })
+
+    it('throws error for invalid parameters', () => {
+      expect(() => calculateActivationMemory(-1, 512, 4096, 32)).toThrow('All parameters must be positive')
+    })
+  })
+
+  describe('estimateModelArchitecture', () => {
+    it('estimates 7B model architecture correctly', () => {
+      const arch = estimateModelArchitecture(7)
+      expect(arch).toEqual({ layers: 32, hiddenSize: 4096, numHeads: 32 })
+    })
+
+    it('estimates 13B model architecture correctly', () => {
+      const arch = estimateModelArchitecture(13)
+      expect(arch).toEqual({ layers: 40, hiddenSize: 5120, numHeads: 40 })
+    })
+
+    it('finds closest architecture for unknown sizes', () => {
+      const arch = estimateModelArchitecture(8) // Should map to 7B
+      expect(arch).toEqual({ layers: 32, hiddenSize: 4096, numHeads: 32 })
+    })
+  })
+
+  describe('calculateVLLMMemoryUsage', () => {
+    it('calculates complete memory breakdown', () => {
+      const result = calculateVLLMMemoryUsage({
+        modelSizeGB: 14,
+        numParams: 7,
+        batchSize: 1,
+        maxSeqLen: 2048,
+        seqLen: 512,
+      })
+
+      expect(result).toHaveProperty('modelWeights')
+      expect(result).toHaveProperty('kvCache')
+      expect(result).toHaveProperty('activations')
+      expect(result).toHaveProperty('systemOverhead')
+      expect(result).toHaveProperty('totalMemory')
+      expect(result).toHaveProperty('breakdown')
+
+      expect(result.totalMemory).toBeGreaterThan(result.modelWeights)
+      expect(result.breakdown.modelWeightsPercent).toBeGreaterThan(0)
+      expect(result.breakdown.modelWeightsPercent).toBeLessThanOrEqual(100)
+    })
+
+    it('works with only model size provided', () => {
+      const result = calculateVLLMMemoryUsage({
+        modelSizeGB: 14,
+        batchSize: 1,
+        maxSeqLen: 2048,
+      })
+
+      expect(result.modelWeights).toBe(14)
+      expect(result.totalMemory).toBeGreaterThan(14)
+    })
+
+    it('works with only parameter count provided', () => {
+      const result = calculateVLLMMemoryUsage({
+        numParams: 7,
+        batchSize: 1,
+        maxSeqLen: 2048,
+      })
+
+      expect(result.modelWeights).toBe(14) // 7B * 2 bytes for fp16
+      expect(result.totalMemory).toBeGreaterThan(14)
+    })
+
+    it('throws error when neither modelSizeGB nor numParams provided', () => {
+      expect(() =>
+        calculateVLLMMemoryUsage({
+          batchSize: 1,
+          maxSeqLen: 2048,
+        })
+      ).toThrow('Either modelSizeGB or numParams must be provided')
+    })
+
+    it('uses custom architecture when provided', () => {
+      const customArch = { layers: 24, hiddenSize: 2048, numHeads: 16 }
+      const result = calculateVLLMMemoryUsage({
+        modelSizeGB: 7,
+        batchSize: 1,
+        maxSeqLen: 2048,
+        architecture: customArch,
+      })
+
+      expect(result.totalMemory).toBeGreaterThan(0)
+    })
+  })
+
+  // Legacy function tests
+  describe('calculateVRAMUsage (legacy)', () => {
     it('calculates basic VRAM usage correctly', () => {
       const result = calculateVRAMUsage(7, 1, 1, 2048, 1.2)
       expect(result).toBeTypeOf('number')

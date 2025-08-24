@@ -55,7 +55,7 @@
   - [x] 1.5 Create basic project structure and directories
   - [x] 1.6 Configure ESLint and Prettier for code quality
 - [ ] 2.0 Core Calculation Engine Development
-  - [ ] 2.1 Research and implement vLLM memory calculation formulas
+  - [x] 2.1 Research and implement vLLM memory calculation formulas
   - [ ] 2.2 Implement quantization factor calculations for different formats (FP16, AWQ, GPTQ)
   - [ ] 2.3 Create calculation functions for throughput-optimized configurations
   - [ ] 2.4 Create calculation functions for latency-optimized configurations
