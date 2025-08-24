@@ -3,10 +3,12 @@
 ## Relevant Files
 
 - `package.json` - Project dependencies and scripts configuration
-- `vite.config.js` - Vite build configuration for Vue.js SPA
+- `vite.config.js` - Vite build configuration for Vue.js SPA with Vitest testing setup
 - `tailwind.config.js` - Tailwind CSS configuration file
+- `.nvmrc` - Node.js version specification for project consistency
 - `src/main.js` - Vue.js application entry point
 - `src/App.vue` - Main application component and layout
+- `src/test/setup.js` - Vitest global test setup and mocking configuration
 - `src/components/GPUSelector.vue` - GPU selection component with predefined and custom options
 - `src/components/GPUSelector.test.js` - Unit tests for GPU selector component
 - `src/components/ModelSelector.vue` - Model selection component with Hugging Face integration
@@ -23,15 +25,25 @@
 - `src/lib/dataLoader.test.js` - Unit tests for data loader utilities
 - `public/index.html` - Main HTML template
 - `.github/workflows/deploy.yml` - GitHub Actions workflow for deployment
-- `jest.config.js` - Jest testing configuration
 - `README.md` - Project documentation
 
 ### Notes
 
 - Unit tests should be placed alongside the code files they are testing in the same directory
-- Use `npm test` to run all tests
+- Use `npm test` to run all tests in watch mode
+- Use `npm run test:run` to run tests once (CI/CD)
+- Use `npm run test:ui` to open Vitest web UI for debugging
+- Use `npm run test:coverage` to generate coverage reports
 - Use `npm run dev` to start the development server
 - Use `npm run build` to build the production version
+- Node.js 20.19.4+ is required (specified in .nvmrc and package.json engines)
+
+### Technical Implementation Notes
+
+- **Tailwind CSS v4**: Using modern CSS-first approach without PostCSS dependencies
+- **Vitest**: Chosen over Jest for better Vite integration and modern testing features
+- **Chart.js Mocking**: Chart.js components are properly mocked in test setup for component testing
+- **Node Version Management**: .nvmrc file ensures consistent Node.js version across development environments
 
 ## Tasks
 
@@ -39,7 +51,7 @@
   - [x] 1.1 Initialize Vue.js project with Vite
   - [x] 1.2 Install and configure Tailwind CSS
   - [x] 1.3 Install Chart.js and Vue Chart.js integration
-  - [x] 1.4 Set up Jest testing framework
+  - [x] 1.4 Set up Vitest testing framework
   - [ ] 1.5 Create basic project structure and directories
   - [ ] 1.6 Configure ESLint and Prettier for code quality
 - [ ] 2.0 Core Calculation Engine Development

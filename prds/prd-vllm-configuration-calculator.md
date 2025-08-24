@@ -84,7 +84,7 @@ The core problem this tool solves is the complexity and time involved in finding
 
 * **Aesthetic:** The application will have a clean, modern, and developer-focused aesthetic. The design should prioritize clarity, readability, and ease of use. The look and feel should be similar to professional tech sites like Vercel or Stripe, with a spacious layout and a focus on typography.
 * **Frontend Framework:** The application will be built using **Vue.js**.
-* **Styling:** **Tailwind CSS** will be used for all styling to ensure a consistent and maintainable utility-first CSS workflow.
+* **Styling:** **Tailwind CSS** will be used for all styling to ensure a consistent and maintainable utility-first CSS workflow. Tailwind v4 with CSS-first approach will be used (no PostCSS required).
 * **UI:** The interface should be clean, modern, and responsive, ensuring usability on standard desktop screen sizes. A clear separation between the "Inputs" (GPU/Model selection) and "Outputs" (Recommendations) sections is crucial.
 * **Output Display:** The three recommendation sets (Throughput, Latency, Balanced) should be displayed clearly, perhaps using a tabbed interface or distinct cards to allow for easy comparison.
 * **Data Visualization:** VRAM usage will be visualized using charts created with the **Chart.js** library. The charts should be easy to read and clearly labeled.
@@ -93,7 +93,10 @@ The core problem this tool solves is the complexity and time involved in finding
 
 * **Deployment:** The application will be deployed as a static site to **GitHub Pages**.
 * **CI/CD:** A **GitHub Actions** workflow will be set up to automatically build and deploy the Vue.js application to the `gh-pages` branch upon pushes to the `main` branch.
-* **Frontend Dependencies:** The project will use **Vue.js**, **Tailwind CSS**, and **Chart.js**.
+* **Frontend Dependencies:** The project will use **Vue.js 3.5+**, **Tailwind CSS 4.1+**, **Chart.js 4.5+**, and **vue-chartjs 5.3+**.
+* **Build System:** **Vite 7.1+** will be used as the build tool for fast development and optimized production builds.
+* **Node.js Requirements:** Node.js 20.19.4+ is required for compatibility with Vite 7.x.
+* **Testing Framework:** **Vitest** will be used for unit testing, providing fast and modern testing capabilities that integrate seamlessly with Vite. Tests will include component testing with @vue/test-utils and utility function testing.
 * **Model/GPU Data:** The predefined lists of GPUs and models will be stored in a simple format (e.g., JSON) within the repository.
 * **Hugging Face Integration:** All interactions with the Hugging Face Hub will be done client-side via its public, unauthenticated API endpoints. To handle potential rate-limiting or access issues with private/gated models, the application will implement a fallback mechanism that allows users to input model details manually. No API keys will be stored in the application.
 * **Calculation Logic:** The core logic for calculating the parameters will be based on established formulas and heuristics related to vLLM memory management. This may require research and referencing the document `docs/vLLM 參數對 GPU 記憶體使用量的關係與估算.pdf`.
