@@ -101,6 +101,309 @@ const QUANTIZATION_FORMATS = {
   },
 }
 
+// ============================================================================
+// VALIDATION FRAMEWORK
+// ============================================================================
+
+/**
+ * Custom error classes for validation failures
+ */
+class ValidationError extends Error {
+  constructor(message, field = null, value = null) {
+    super(message)
+    this.name = 'ValidationError'
+    this.field = field
+    this.value = value
+  }
+}
+
+class ConfigurationError extends Error {
+  constructor(message, config = null) {
+    super(message)
+    this.name = 'ConfigurationError'
+    this.config = config
+  }
+}
+
+class MemoryError extends Error {
+  constructor(message, required = null, available = null) {
+    super(message)
+    this.name = 'MemoryError'
+    this.required = required
+    this.available = available
+  }
+}
+
+/**
+ * Basic type validation utilities
+ */
+const Validators = {
+  /**
+   * Validate that value is a number within optional range
+   */
+  number(value, min = -Infinity, max = Infinity, fieldName = 'value') {
+    if (typeof value !== 'number' || isNaN(value)) {
+      throw new ValidationError(`${fieldName} must be a valid number`, fieldName, value)
+    }
+    if (value < min) {
+      throw new ValidationError(`${fieldName} must be at least ${min}`, fieldName, value)
+    }
+    if (value > max) {
+      throw new ValidationError(`${fieldName} must be at most ${max}`, fieldName, value)
+    }
+    return value
+  },
+
+  /**
+   * Validate that value is a positive number
+   */
+  positiveNumber(value, fieldName = 'value') {
+    return this.number(value, 0.000001, Infinity, fieldName)
+  },
+
+  /**
+   * Validate that value is a positive integer
+   */
+  positiveInteger(value, fieldName = 'value') {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new ValidationError(`${fieldName} must be a positive integer`, fieldName, value)
+    }
+    return value
+  },
+
+  /**
+   * Validate that value is one of the allowed values
+   */
+  enum(value, allowedValues, fieldName = 'value') {
+    if (!allowedValues.includes(value)) {
+      throw new ValidationError(
+        `${fieldName} must be one of: ${allowedValues.join(', ')}`, 
+        fieldName, 
+        value
+      )
+    }
+    return value
+  },
+
+  /**
+   * Validate that value is a non-empty string
+   */
+  string(value, fieldName = 'value') {
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new ValidationError(`${fieldName} must be a non-empty string`, fieldName, value)
+    }
+    return value.trim()
+  },
+
+  /**
+   * Validate that value is an object with required fields
+   */
+  object(value, requiredFields = [], fieldName = 'value') {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new ValidationError(`${fieldName} must be an object`, fieldName, value)
+    }
+    
+    for (const field of requiredFields) {
+      if (!(field in value)) {
+        throw new ValidationError(
+          `${fieldName} must have required field: ${field}`, 
+          fieldName, 
+          value
+        )
+      }
+    }
+    return value
+  }
+}
+
+/**
+ * Domain-specific validation functions
+ */
+const VLLMValidators = {
+  /**
+   * Validate quantization format
+   */
+  quantizationFormat(format) {
+    if (!format) {
+      throw new ValidationError('Quantization format is required', 'quantization', format)
+    }
+    
+    const normalizedFormat = format.toLowerCase()
+    if (!QUANTIZATION_FORMATS[normalizedFormat]) {
+      const supportedFormats = Object.keys(QUANTIZATION_FORMATS).join(', ')
+      throw new ValidationError(
+        `Unsupported quantization format: ${format}. Supported formats: ${supportedFormats}`,
+        'quantization',
+        format
+      )
+    }
+    return normalizedFormat
+  },
+
+  /**
+   * Validate model specifications
+   */
+  modelSpecs(modelSpecs) {
+    Validators.object(modelSpecs, [], 'modelSpecs')
+    
+    // Validate either modelSizeGB or numParams is provided
+    if (!modelSpecs.modelSizeGB && !modelSpecs.numParams) {
+      throw new ValidationError(
+        'Either modelSizeGB or numParams must be provided',
+        'modelSpecs',
+        modelSpecs
+      )
+    }
+
+    if (modelSpecs.modelSizeGB) {
+      Validators.positiveNumber(modelSpecs.modelSizeGB, 'modelSpecs.modelSizeGB')
+      // Realistic model size validation (1MB to 1TB)
+      if (modelSpecs.modelSizeGB > 1000) {
+        throw new ValidationError(
+          'Model size exceeds realistic maximum (1TB)',
+          'modelSpecs.modelSizeGB',
+          modelSpecs.modelSizeGB
+        )
+      }
+    }
+
+    if (modelSpecs.numParams) {
+      Validators.positiveNumber(modelSpecs.numParams, 'modelSpecs.numParams')
+      // Realistic parameter count validation (1M to 10T parameters - raw count)
+      if (modelSpecs.numParams > 10000000000000) { // 10T parameters
+        throw new ValidationError(
+          'Parameter count exceeds realistic maximum (10T parameters)',
+          'modelSpecs.numParams',
+          modelSpecs.numParams
+        )
+      }
+    }
+
+    if (modelSpecs.layers !== undefined) {
+      Validators.positiveInteger(modelSpecs.layers, 'modelSpecs.layers')
+      if (modelSpecs.layers > 1000) {
+        throw new ValidationError(
+          'Layer count exceeds realistic maximum (1000)',
+          'modelSpecs.layers',
+          modelSpecs.layers
+        )
+      }
+    }
+
+    if (modelSpecs.hiddenSize !== undefined) {
+      Validators.positiveInteger(modelSpecs.hiddenSize, 'modelSpecs.hiddenSize')
+      if (modelSpecs.hiddenSize > 100000) {
+        throw new ValidationError(
+          'Hidden size exceeds realistic maximum (100,000)',
+          'modelSpecs.hiddenSize',
+          modelSpecs.hiddenSize
+        )
+      }
+    }
+
+    if (modelSpecs.numHeads !== undefined) {
+      Validators.positiveInteger(modelSpecs.numHeads, 'modelSpecs.numHeads')
+      if (modelSpecs.numHeads > 1000) {
+        throw new ValidationError(
+          'Number of attention heads exceeds realistic maximum (1000)',
+          'modelSpecs.numHeads',
+          modelSpecs.numHeads
+        )
+      }
+    }
+
+    return modelSpecs
+  },
+
+  /**
+   * Validate GPU specifications
+   */
+  gpuSpecs(gpuSpecs) {
+    Validators.object(gpuSpecs, [], 'gpuSpecs')
+
+    if (gpuSpecs.totalVRAMGB) {
+      Validators.positiveNumber(gpuSpecs.totalVRAMGB, 'gpuSpecs.totalVRAMGB')
+      // Realistic VRAM validation (1GB to 1TB)
+      if (gpuSpecs.totalVRAMGB > 1000) {
+        throw new ValidationError(
+          'Total VRAM exceeds realistic maximum (1TB)',
+          'gpuSpecs.totalVRAMGB',
+          gpuSpecs.totalVRAMGB
+        )
+      }
+    }
+
+    if (gpuSpecs.memoryBandwidthGBps) {
+      Validators.positiveNumber(gpuSpecs.memoryBandwidthGBps, 'gpuSpecs.memoryBandwidthGBps')
+      // Realistic memory bandwidth validation (10 GB/s to 10TB/s)
+      if (gpuSpecs.memoryBandwidthGBps > 10000) {
+        throw new ValidationError(
+          'Memory bandwidth exceeds realistic maximum (10TB/s)',
+          'gpuSpecs.memoryBandwidthGBps',
+          gpuSpecs.memoryBandwidthGBps
+        )
+      }
+    }
+
+    return gpuSpecs
+  },
+
+  /**
+   * Validate sequence length parameters
+   */
+  sequenceLength(seqLen, fieldName = 'sequenceLength') {
+    Validators.positiveInteger(seqLen, fieldName)
+    if (seqLen > 1000000) {
+      throw new ValidationError(
+        `${fieldName} exceeds realistic maximum (1M tokens)`,
+        fieldName,
+        seqLen
+      )
+    }
+    return seqLen
+  },
+
+  /**
+   * Validate batch size parameters
+   */
+  batchSize(batchSize, fieldName = 'batchSize') {
+    Validators.positiveInteger(batchSize, fieldName)
+    if (batchSize > 10000) {
+      throw new ValidationError(
+        `${fieldName} exceeds realistic maximum (10,000)`,
+        fieldName,
+        batchSize
+      )
+    }
+    return batchSize
+  },
+
+  /**
+   * Validate memory requirements vs availability
+   */
+  memoryRequirements(requiredMemoryGB, availableMemoryGB) {
+    Validators.positiveNumber(requiredMemoryGB, 'requiredMemoryGB')
+    Validators.positiveNumber(availableMemoryGB, 'availableMemoryGB')
+    
+    if (requiredMemoryGB > availableMemoryGB) {
+      throw new MemoryError(
+        `Insufficient memory: requires ${requiredMemoryGB.toFixed(2)}GB but only ${availableMemoryGB.toFixed(2)}GB available`,
+        requiredMemoryGB,
+        availableMemoryGB
+      )
+    }
+    
+    return true
+  }
+}
+
+// Export validation utilities for testing
+export { ValidationError, ConfigurationError, MemoryError, Validators, VLLMValidators }
+
+// ============================================================================
+// QUANTIZATION CALCULATIONS
+// ============================================================================
+
 /**
  * Calculate quantization factor for a given format
  * @param {string} format - Quantization format (e.g., 'fp16', 'awq', 'gptq')
@@ -109,12 +412,13 @@ const QUANTIZATION_FORMATS = {
  * @returns {object} Quantization information including memory factor and quality impact
  */
 export function calculateQuantizationFactor(format, options = {}) {
+  // Validate inputs
+  const normalizedFormat = VLLMValidators.quantizationFormat(format)
+  Validators.object(options, [], 'options')
+  
   const { includeOverhead = true } = options
   
-  const quantInfo = QUANTIZATION_FORMATS[format.toLowerCase()]
-  if (!quantInfo) {
-    throw new Error(`Unsupported quantization format: ${format}`)
-  }
+  const quantInfo = QUANTIZATION_FORMATS[normalizedFormat]
   
   let memoryFactor = quantInfo.memoryEfficiency
   
@@ -124,7 +428,7 @@ export function calculateQuantizationFactor(format, options = {}) {
   }
   
   return {
-    format: format.toLowerCase(),
+    format: normalizedFormat,
     bitsPerParam: quantInfo.bitsPerParam,
     bytesPerParam: quantInfo.bytesPerParam,
     memoryFactor: Math.round(memoryFactor * 1000) / 1000, // Round to 3 decimal places
@@ -294,11 +598,12 @@ export function generateQuantizationRecommendation(vramGB, modelParams, options 
  * @returns {object} Model weights memory info including total GB and breakdown
  */
 export function calculateModelWeightsMemory(numParams, quantization = 'fp16', options = {}) {
-  if (numParams <= 0) {
-    throw new Error('Number of parameters must be positive')
-  }
+  // Validate inputs
+  Validators.positiveNumber(numParams, 'numParams')
+  const normalizedQuantization = VLLMValidators.quantizationFormat(quantization)
+  Validators.object(options, [], 'options')
 
-  const quantInfo = calculateQuantizationFactor(quantization, options)
+  const quantInfo = calculateQuantizationFactor(normalizedQuantization, options)
   
   // Base memory for weights
   const baseMemoryGB = numParams * quantInfo.bytesPerParam
@@ -2208,11 +2513,17 @@ export function estimateBalancedMetrics(config, hardwareSpecs, optimizationLevel
  * @returns {object} Optimized vLLM configuration for balanced performance
  */
 export function calculateBalancedOptimizedConfig(params) {
+  // Validate input parameters
+  Validators.object(params, [], 'params')
+  
   // Handle both structured and flat parameter styles
   let gpuSpecs, modelSpecs, workloadSpecs
   
   if (params.gpuSpecs && params.modelSpecs) {
-    // Structured style
+    // Structured style - validate sub-objects
+    VLLMValidators.gpuSpecs(params.gpuSpecs)
+    VLLMValidators.modelSpecs(params.modelSpecs)
+    
     gpuSpecs = {
       totalVRAMGB: params.gpuSpecs.totalVRAMGB || params.gpu?.memory || params.totalVRAMGB || 80,
       memoryBandwidthGBps: params.gpuSpecs.memoryBandwidthGBps || params.memoryBandwidthGBps || 900,
@@ -2225,6 +2536,11 @@ export function calculateBalancedOptimizedConfig(params) {
     workloadSpecs = params.workloadSpecs || {}
   } else {
     // Flat style: extract from mixed object
+    // Validate required fields are present
+    if (!params.modelSizeGB && !params.numParams) {
+      throw new ValidationError('Either modelSizeGB or numParams must be provided', 'params', params)
+    }
+    
     gpuSpecs = {
       totalVRAMGB: params.gpu?.memory || params.totalVRAMGB || 80,
       memoryBandwidthGBps: params.memoryBandwidthGBps || 900,
@@ -2614,6 +2930,9 @@ function getBalancedConsiderations(workloadType) {
  * @returns {object} Detailed VRAM breakdown
  */
 export function calculateVRAMBreakdown(config) {
+  // Validate configuration object
+  Validators.object(config, [], 'config')
+  
   const {
     totalVRAMGB,
     modelSizeGB,
@@ -2628,18 +2947,40 @@ export function calculateVRAMBreakdown(config) {
     optimizationStrategy,
   } = config
 
-  if (!totalVRAMGB || totalVRAMGB <= 0) {
-    throw new Error('Total VRAM must be provided and greater than 0')
+  // Validate required fields
+  Validators.positiveNumber(totalVRAMGB, 'totalVRAMGB')
+  
+  // Validate either modelSizeGB or numParams is provided
+  if (!modelSizeGB && !numParams) {
+    throw new ValidationError('Either modelSizeGB or numParams must be provided', 'config', config)
   }
 
-  if (!modelSizeGB && !numParams) {
-    throw new Error('Either modelSizeGB or numParams must be provided')
+  if (modelSizeGB) {
+    Validators.positiveNumber(modelSizeGB, 'modelSizeGB')
+  }
+  
+  if (numParams) {
+    Validators.positiveNumber(numParams, 'numParams')
+  }
+
+  // Validate other parameters
+  const normalizedQuantization = VLLMValidators.quantizationFormat(quantization)
+  VLLMValidators.batchSize(batchSize, 'batchSize')
+  VLLMValidators.sequenceLength(maxSeqLen, 'maxSeqLen')
+  VLLMValidators.sequenceLength(seqLen, 'seqLen')
+  
+  if (kvCachePrecision) {
+    VLLMValidators.quantizationFormat(kvCachePrecision)
+  }
+  
+  if (swapSpaceGB) {
+    Validators.positiveNumber(swapSpaceGB, 'swapSpaceGB')
   }
 
   // Calculate model weights with quantization
   const modelWeightsResult = modelSizeGB 
-    ? calculateModelWeightsMemoryFromSize(modelSizeGB, quantization)
-    : calculateModelWeightsMemory(numParams, quantization)
+    ? calculateModelWeightsMemoryFromSize(modelSizeGB, normalizedQuantization)
+    : calculateModelWeightsMemory(numParams, normalizedQuantization)
 
   // Determine model architecture
   const arch = architecture || estimateModelArchitecture(numParams || (modelSizeGB / 2))

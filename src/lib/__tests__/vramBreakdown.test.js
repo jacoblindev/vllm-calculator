@@ -115,7 +115,7 @@ describe('VRAM Breakdown Functions', () => {
         modelSizeGB: 13,
       }
 
-      expect(() => calculateVRAMBreakdown(config)).toThrow('Total VRAM must be provided and greater than 0')
+      expect(() => calculateVRAMBreakdown(config)).toThrow('totalVRAMGB must be at least 0.000001')
     })
 
     it('should handle custom optimization strategy', () => {

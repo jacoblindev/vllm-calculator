@@ -41,8 +41,8 @@ describe('calculationEngine', () => {
     })
 
     it('throws error for invalid parameters', () => {
-      expect(() => calculateModelWeightsMemory(-1)).toThrow('Number of parameters must be positive')
-      expect(() => calculateModelWeightsMemory(0)).toThrow('Number of parameters must be positive')
+      expect(() => calculateModelWeightsMemory(-1)).toThrow('numParams must be at least 0.000001')
+      expect(() => calculateModelWeightsMemory(0)).toThrow('numParams must be at least 0.000001')
     })
 
     it('throws error for unsupported quantization format', () => {
