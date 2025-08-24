@@ -58,8 +58,8 @@
   - [x] 2.1 Research and implement vLLM memory calculation formulas
   - [x] 2.2 Implement quantization factor calculations for different formats (FP16, AWQ, GPTQ)
   - [x] 2.3 Create calculation functions for throughput-optimized configurations
-  - [ ] 2.4 Create calculation functions for latency-optimized configurations
-  - [ ] 2.5 Create calculation functions for balanced configurations
+  - [x] 2.4 Create calculation functions for latency-optimized configurations
+  - [x] 2.5 Create calculation functions for balanced configurations
   - [ ] 2.6 Implement VRAM breakdown calculations (model weights, KV cache, swap, reserved) with quantization support
   - [ ] 2.7 Add parameter validation and error handling
   - [ ] 2.8 Write comprehensive unit tests for all calculation functions including quantization scenarios
