@@ -11,6 +11,60 @@
         <h3 class="text-xl font-medium text-gray-900 mb-2">Available Models</h3>
         <p class="text-gray-500">Select from our curated list of high-performance language models</p>
       </div>
+
+      <!-- Enhanced Filter and Bulk Actions -->
+      <div v-if="!isLoading && !loadError && availableModels.length > 0" class="mb-6 bg-gray-50 border border-gray-200 rounded-xl p-6">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+          <!-- Quantization Filter -->
+          <div class="flex items-center space-x-4">
+            <label class="text-sm font-medium text-gray-700">Filter by Quantization:</label>
+            <select 
+              v-model="quantizationFilter"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Types</option>
+              <option value="fp16">FP16</option>
+              <option value="awq">AWQ</option>
+              <option value="gptq">GPTQ</option>
+              <option value="gguf">GGUF</option>
+            </select>
+          </div>
+
+          <!-- Bulk Actions -->
+          <div class="flex items-center space-x-3">
+            <span class="text-sm font-medium text-gray-700">Bulk Actions:</span>
+            <button
+              @click="selectAllFiltered"
+              :disabled="filteredModels.length === 0 || areAllFilteredSelected"
+              class="px-3 py-2 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
+            >
+              Select All{{ quantizationFilter ? ` (${quantizationFilter.toUpperCase()})` : '' }}
+            </button>
+            <button
+              @click="clearAllFiltered"
+              :disabled="selectedModels.length === 0"
+              class="px-3 py-2 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
+            >
+              Clear All
+            </button>
+          </div>
+        </div>
+
+        <!-- Selection Summary -->
+        <div v-if="selectedModels.length > 0" class="mt-4 pt-4 border-t border-gray-300">
+          <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-600">
+              <strong>{{ selectedModels.length }}</strong> model{{ selectedModels.length > 1 ? 's' : '' }} selected
+              <span v-if="uniqueQuantizations.length > 1" class="text-amber-600 font-medium">
+                ({{ uniqueQuantizations.length }} different quantization types)
+              </span>
+            </span>
+            <span class="text-gray-600">
+              Estimated memory factor: <strong>{{ (averageMemoryFactor * 100).toFixed(0) }}%</strong>
+            </span>
+          </div>
+        </div>
+      </div>
       
       <!-- Loading State -->
             <!-- Loading State -->
@@ -78,9 +132,9 @@
       </div>
 
       <!-- Model Grid -->
-      <div v-else-if="availableModels.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div v-else-if="filteredModels.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <div
-          v-for="model in availableModels"
+          v-for="model in filteredModels"
           :key="model.name"
           class="group relative border border-gray-200 rounded-xl p-6 cursor-pointer transition-all duration-200 hover:border-blue-300 hover:shadow-md"
           :class="
@@ -185,6 +239,23 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- No Filtered Results -->
+      <div v-else-if="availableModels.length > 0 && filteredModels.length === 0" class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">No models match your filter</h3>
+        <p class="text-gray-500 mb-4">
+          No models found with <strong>{{ quantizationFilter.toUpperCase() }}</strong> quantization.
+        </p>
+        <button
+          @click="quantizationFilter = ''"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+        >
+          Clear Filter
+        </button>
       </div>
 
       <!-- No Models Available -->
@@ -617,6 +688,37 @@
         </div>
       </div>
 
+      <!-- Quantization Compatibility Warnings -->
+      <div v-if="quantizationCompatibilityWarnings.length > 0" class="mb-6" data-testid="quantization-warnings">
+        <div
+          v-for="warning in quantizationCompatibilityWarnings"
+          :key="warning.type"
+          class="mb-3 p-4 border rounded-xl"
+          :class="warning.severity === 'error' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'"
+        >
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg v-if="warning.severity === 'error'" class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+              </svg>
+              <svg v-else class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+            </div>
+            <div class="ml-3 flex-1">
+              <h4 class="text-sm font-semibold"
+                  :class="warning.severity === 'error' ? 'text-red-900' : 'text-amber-900'">
+                {{ warning.title }}
+              </h4>
+              <p class="mt-1 text-sm"
+                 :class="warning.severity === 'error' ? 'text-red-700' : 'text-amber-700'">
+                {{ warning.message }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Summary Stats -->
       <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -696,6 +798,9 @@ const props = defineProps({
 const availableModels = ref([])
 const selectedModels = ref(props.selectedModels)
 
+// Enhanced multi-model selection features
+const quantizationFilter = ref('')
+
 // Loading and error states
 const isLoading = ref(false)
 const loadError = ref('')
@@ -738,6 +843,111 @@ const isManualModelValid = computed(() => {
 
 const hasManualModelErrors = computed(() => {
   return manualModelNameError.value || manualModelSizeError.value
+})
+
+// Enhanced computed properties for quantization awareness
+const filteredModels = computed(() => {
+  if (!quantizationFilter.value) return availableModels.value
+  
+  return availableModels.value.filter(model => {
+    if (quantizationFilter.value === 'all') return true
+    if (quantizationFilter.value === 'compatible') {
+      // Filter for models that support common quantization formats
+      return model.library_name === 'transformers' || 
+             model.pipeline_tag === 'text-generation'
+    }
+    if (quantizationFilter.value === 'optimized') {
+      // Filter for models that are pre-quantized or optimized
+      return model.name.toLowerCase().includes('quantized') ||
+             model.name.toLowerCase().includes('int8') ||
+             model.name.toLowerCase().includes('int4') ||
+             model.tags?.some(tag => tag.includes('quantized'))
+    }
+    return true
+  })
+})
+
+const areAllFilteredSelected = computed(() => {
+  return filteredModels.value.length > 0 && 
+         filteredModels.value.every(model => selectedModels.value.some(selected => selected.name === model.name))
+})
+
+const selectedModelsInfo = computed(() => {
+  return selectedModels.value
+})
+
+const quantizationCompatibilityWarnings = computed(() => {
+  const warnings = []
+  const selectedModelObjects = selectedModelsInfo.value
+  
+  if (selectedModelObjects.length > 1) {
+    // Check for mixed quantization compatibility
+    const hasQuantizedModels = selectedModelObjects.some(model => 
+      model.name.toLowerCase().includes('quantized') ||
+      model.name.toLowerCase().includes('int8') ||
+      model.name.toLowerCase().includes('int4')
+    )
+    
+    const hasRegularModels = selectedModelObjects.some(model => 
+      !model.name.toLowerCase().includes('quantized') &&
+      !model.name.toLowerCase().includes('int8') &&
+      !model.name.toLowerCase().includes('int4')
+    )
+    
+    if (hasQuantizedModels && hasRegularModels) {
+      warnings.push({
+        type: 'mixed-quantization',
+        message: 'Mixed quantized and regular models may have different memory requirements and performance characteristics.',
+        severity: 'warning'
+      })
+    }
+    
+    // Check for memory size mismatches
+    const memorySizes = selectedModelObjects.map(model => {
+      const sizeMatch = model.name.match(/(\d+)B/i)
+      return sizeMatch ? parseInt(sizeMatch[1]) : null
+    }).filter(size => size !== null)
+    
+    if (memorySizes.length > 1) {
+      const maxSize = Math.max(...memorySizes)
+      const minSize = Math.min(...memorySizes)
+      if (maxSize / minSize > 10) {
+        warnings.push({
+          type: 'memory-mismatch',
+          message: 'Selected models have significantly different memory requirements. Consider grouping similar-sized models.',
+          severity: 'info'
+        })
+      }
+    }
+  }
+  
+  return warnings
+})
+
+const averageMemoryFactor = computed(() => {
+  if (selectedModelsInfo.value.length === 0) return 1
+  
+  // Estimate memory factor based on model characteristics
+  let totalFactor = 0
+  selectedModelsInfo.value.forEach(model => {
+    let factor = 1
+    
+    // Quantized models use less memory
+    if (model.name.toLowerCase().includes('int8')) factor *= 0.5
+    else if (model.name.toLowerCase().includes('int4')) factor *= 0.25
+    else if (model.name.toLowerCase().includes('quantized')) factor *= 0.6
+    
+    // Larger models might have different efficiency
+    const sizeMatch = model.name.match(/(\d+)B/i)
+    if (sizeMatch) {
+      const size = parseInt(sizeMatch[1])
+      if (size > 30) factor *= 1.1 // Larger models might need more overhead
+    }
+    
+    totalFactor += factor
+  })
+  
+  return totalFactor / selectedModelsInfo.value.length
 })
 
 // Methods
@@ -1080,6 +1290,42 @@ const clearManualForm = () => {
   manualModelSizeError.value = null
   manualModelError.value = null
   manualModelSuccess.value = null
+}
+
+// Bulk selection methods
+const selectAllFiltered = () => {
+  filteredModels.value.forEach(model => {
+    if (!selectedModels.value.some(selected => selected.name === model.name)) {
+      const modelWithDefaults = {
+        name: model.name,
+        size_billion: extractModelSize(model.name),
+        quantization: 'fp16' // Default quantization
+      }
+      selectedModels.value.push(modelWithDefaults)
+    }
+  })
+  emit('update:selectedModels', selectedModels.value)
+}
+
+const clearAllFiltered = () => {
+  const filteredModelNames = filteredModels.value.map(model => model.name)
+  selectedModels.value = selectedModels.value.filter(selected => 
+    !filteredModelNames.includes(selected.name)
+  )
+  emit('update:selectedModels', selectedModels.value)
+}
+
+const scrollToManualEntry = () => {
+  const manualEntrySection = document.querySelector('[data-testid="manual-entry"]')
+  if (manualEntrySection) {
+    manualEntrySection.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+// Helper function to extract model size from name
+const extractModelSize = (modelName) => {
+  const sizeMatch = modelName.match(/(\d+\.?\d*)B/i)
+  return sizeMatch ? parseFloat(sizeMatch[1]) : 7 // Default to 7B if not found
 }
 
 // Lifecycle

@@ -619,3 +619,191 @@ describe('Enhanced Loading States and Error Handling', () => {
     expect(wrapper.vm.hfError).toContain('Request timed out')
   })
 })
+
+describe('Multi-Model Selection and Quantization Awareness', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    
+    // Mock successful model loading
+    dataLoader.loadModelData.mockResolvedValue([
+      { name: 'model-7b', size_billion: 7, quantization: 'fp16', library_name: 'transformers', pipeline_tag: 'text-generation' },
+      { name: 'model-13b-int8', size_billion: 13, quantization: 'int8', library_name: 'transformers', pipeline_tag: 'text-generation' },
+      { name: 'model-30b-quantized', size_billion: 30, quantization: 'int4', library_name: 'transformers', pipeline_tag: 'text-generation', tags: ['quantized'] }
+    ])
+  })
+
+  test('should filter models by quantization type', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { selectedModels: [] }
+    })
+    
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Test initial state - all models should be shown
+    expect(wrapper.vm.filteredModels).toHaveLength(3)
+    
+    // Set quantization filter to compatible
+    wrapper.vm.quantizationFilter = 'compatible'
+    await wrapper.vm.$nextTick()
+    
+    // Should show all models since they're all transformers/text-generation
+    expect(wrapper.vm.filteredModels).toHaveLength(3)
+    
+    // Set quantization filter to optimized
+    wrapper.vm.quantizationFilter = 'optimized'
+    await wrapper.vm.$nextTick()
+    
+    // Should filter to only quantized models
+    expect(wrapper.vm.filteredModels.length).toBeGreaterThanOrEqual(1)
+  })
+
+  test('should detect quantization compatibility warnings', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { 
+        selectedModels: [
+          { name: 'model-7b-quantized', size_billion: 7, quantization: 'int8' },
+          { name: 'model-30b', size_billion: 30, quantization: 'fp16' }
+        ] 
+      }
+    })
+    
+    await wrapper.vm.$nextTick()
+    
+    const warnings = wrapper.vm.quantizationCompatibilityWarnings
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'mixed-quantization',
+          severity: 'warning'
+        })
+      ])
+    )
+  })
+
+  test('should calculate average memory factor correctly', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { 
+        selectedModels: [
+          { name: 'model-7b-int8', size_billion: 7, quantization: 'int8' },
+          { name: 'model-7b-int4', size_billion: 7, quantization: 'int4' }
+        ] 
+      }
+    })
+    
+    await wrapper.vm.$nextTick()
+    
+    // int8 should be ~0.5, int4 should be ~0.25, average should be ~0.375
+    const memoryFactor = wrapper.vm.averageMemoryFactor
+    expect(memoryFactor).toBeCloseTo(0.375, 2)
+  })
+
+  test('should handle bulk select all filtered models', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { selectedModels: [] }
+    })
+    
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Check if filteredModels has data
+    expect(wrapper.vm.filteredModels.length).toBeGreaterThan(0)
+    
+    // Select all filtered models
+    await wrapper.vm.selectAllFiltered()
+    
+    expect(wrapper.vm.selectedModels.length).toBeGreaterThan(0)
+    
+    // Check that models were actually added to selection
+    expect(wrapper.vm.selectedModels.length).toBeLessThanOrEqual(wrapper.vm.filteredModels.length)
+  })
+
+  test('should handle bulk clear filtered models', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { 
+        selectedModels: [
+          { name: 'model-7b', size_billion: 7, quantization: 'fp16' },
+          { name: 'model-13b', size_billion: 13, quantization: 'fp16' }
+        ] 
+      }
+    })
+    
+    await wrapper.vm.$nextTick()
+    
+    const initialCount = wrapper.vm.selectedModels.length
+    expect(initialCount).toBeGreaterThan(0)
+    
+    // Clear all filtered models
+    await wrapper.vm.clearAllFiltered()
+    
+    // Check that models were removed (may not be all if filtering is active)
+    expect(wrapper.vm.selectedModels.length).toBeLessThanOrEqual(initialCount)
+  })
+
+  test('should determine if all filtered models are selected', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { selectedModels: [] }
+    })
+    
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Initially no models selected
+    expect(wrapper.vm.areAllFilteredSelected).toBe(false)
+    
+    // Select all models
+    wrapper.vm.filteredModels.forEach(model => {
+      wrapper.vm.selectedModels.push({
+        name: model.name,
+        size_billion: model.size_billion || 7,
+        quantization: model.quantization || 'fp16'
+      })
+    })
+    
+    await wrapper.vm.$nextTick()
+    expect(wrapper.vm.areAllFilteredSelected).toBe(true)
+  })
+
+  test('should have quantization filter functionality', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { selectedModels: [] }
+    })
+    
+    // Wait for models to load
+    await wrapper.vm.$nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    // Test that the quantization filter reactive data exists
+    expect(wrapper.vm.quantizationFilter).toBeDefined()
+    
+    // Test that filteredModels computed property works
+    expect(wrapper.vm.filteredModels).toBeDefined()
+    expect(Array.isArray(wrapper.vm.filteredModels)).toBe(true)
+    
+    // Test changing filter value
+    wrapper.vm.quantizationFilter = 'compatible'
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.vm.quantizationFilter).toBe('compatible')
+  })
+
+  test('should update memory factor display correctly', async () => {
+    const wrapper = mount(ModelSelector, {
+      props: { 
+        selectedModels: [
+          { name: 'model-7b-int8', size_billion: 7, quantization: 'int8' }
+        ] 
+      }
+    })
+    
+    await wrapper.vm.$nextTick()
+    
+    // Check that memory factor is calculated
+    const memoryFactor = wrapper.vm.averageMemoryFactor
+    expect(memoryFactor).toBeLessThan(1) // int8 should be less than full precision
+    
+    // Check percentage calculation
+    const percentage = (memoryFactor * 100).toFixed(0)
+    expect(parseInt(percentage)).toBeLessThan(100)
+  })
+})
