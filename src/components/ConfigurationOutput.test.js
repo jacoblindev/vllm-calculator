@@ -2,11 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ConfigurationOutput from './ConfigurationOutput.vue'
 
-// Mock navigator.clipboard
-Object.assign(navigator, {
-  clipboard: {
+// Mock navigator.clipboard for happy-dom
+Object.defineProperty(navigator, 'clipboard', {
+  value: {
     writeText: vi.fn(),
   },
+  writable: true,
 })
 
 describe('ConfigurationOutput.vue', () => {
