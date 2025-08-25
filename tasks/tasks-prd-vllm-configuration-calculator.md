@@ -73,7 +73,7 @@
   - [x] 3.4 Implement GPU selection validation and error states
   - [x] 3.5 Style component according to design specifications
   - [x] 3.6 Write unit tests for GPU selector component
-- [ ] 4.0 Model Selection Component Development
+- [x] 4.0 Model Selection Component Development
   - [x] 4.1 Create model selector component with predefined list integration including quantization variants
   - [x] 4.2 Implement clear display of quantization information and memory factors
   - [x] 4.3 Implement Hugging Face API integration for custom model fetching with quantization detection
@@ -81,7 +81,7 @@
   - [x] 4.5 Add loading states and error handling for API calls
   - [x] 4.6 Implement multi-model selection functionality with quantization awareness
   - [x] 4.7 Style component and add user guidance for manual entry and quantization selection
-  - [ ] 4.8 Write unit tests for model selector component including quantization scenarios
+  - [x] 4.8 Write unit tests for model selector component including quantization scenarios
 - [ ] 5.0 Configuration Output Component Development
   - [ ] 5.1 Create component to display three recommendation sets (throughput, latency, balanced)
   - [ ] 5.2 Implement parameter explanations for each vLLM setting

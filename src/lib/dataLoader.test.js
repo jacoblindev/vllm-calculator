@@ -109,7 +109,7 @@ describe('dataLoader', () => {
     it('validates correct model object', () => {
       const model = {
         name: 'Llama 2 7B',
-        size_gb: 13.5,
+        quantization: 'fp16',
         memory_factor: 1.0,
       }
       expect(validateModel(model)).toBe(true)
@@ -120,10 +120,10 @@ describe('dataLoader', () => {
       expect(validateModel(model)).toBe(false)
     })
 
-    it('rejects model with invalid size', () => {
+    it('rejects model with empty quantization', () => {
       const model = {
         name: 'Llama 2 7B',
-        size_gb: -1,
+        quantization: '',
         memory_factor: 1.0,
       }
       expect(validateModel(model)).toBe(false)
@@ -132,7 +132,7 @@ describe('dataLoader', () => {
     it('rejects model with invalid memory factor', () => {
       const model = {
         name: 'Llama 2 7B',
-        size_gb: 13.5,
+        quantization: 'fp16',
         memory_factor: 1.5,
       }
       expect(validateModel(model)).toBe(false)

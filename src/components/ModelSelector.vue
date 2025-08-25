@@ -1247,13 +1247,14 @@ const uniqueQuantizations = computed(() => {
 })
 
 const isManualModelValid = computed(() => {
-  return manualModel.value.name.trim() &&
+  const isValid = !!(manualModel.value.name.trim() &&
          manualModel.value.size_billion > 0 &&
-         manualModel.value.quantization
+         manualModel.value.quantization)
+  return isValid
 })
 
 const hasManualModelErrors = computed(() => {
-  return manualModelNameError.value || manualModelSizeError.value
+  return !!(manualModelNameError.value || manualModelSizeError.value)
 })
 
 // Enhanced computed properties for quantization awareness
@@ -1280,23 +1281,13 @@ const quantizationCompatibilityWarnings = computed(() => {
   const selectedModelObjects = selectedModelsInfo.value
   
   if (selectedModelObjects.length > 1) {
-    // Check for mixed quantization compatibility
-    const hasQuantizedModels = selectedModelObjects.some(model => 
-      model.name.toLowerCase().includes('quantized') ||
-      model.name.toLowerCase().includes('int8') ||
-      model.name.toLowerCase().includes('int4')
-    )
+    // Check for mixed quantization types
+    const quantizationTypes = [...new Set(selectedModelObjects.map(model => model.quantization).filter(Boolean))]
     
-    const hasRegularModels = selectedModelObjects.some(model => 
-      !model.name.toLowerCase().includes('quantized') &&
-      !model.name.toLowerCase().includes('int8') &&
-      !model.name.toLowerCase().includes('int4')
-    )
-    
-    if (hasQuantizedModels && hasRegularModels) {
+    if (quantizationTypes.length > 1) {
       warnings.push({
         type: 'mixed-quantization',
-        message: 'Mixed quantized and regular models may have different memory requirements and performance characteristics.',
+        message: 'Mixed quantization types may have different memory requirements and performance characteristics.',
         severity: 'warning'
       })
     }
@@ -1304,8 +1295,8 @@ const quantizationCompatibilityWarnings = computed(() => {
     // Check for memory size mismatches
     const memorySizes = selectedModelObjects.map(model => {
       const sizeMatch = model.name.match(/(\d+)B/i)
-      return sizeMatch ? parseInt(sizeMatch[1]) : null
-    }).filter(size => size !== null)
+      return sizeMatch ? parseInt(sizeMatch[1]) : model.size_billion
+    }).filter(size => size !== null && size !== undefined)
     
     if (memorySizes.length > 1) {
       const maxSize = Math.max(...memorySizes)
@@ -1326,23 +1317,13 @@ const quantizationCompatibilityWarnings = computed(() => {
 const averageMemoryFactor = computed(() => {
   if (selectedModelsInfo.value.length === 0) return 1
   
-  // Estimate memory factor based on model characteristics
+  // Calculate average memory factor based on selected models
   let totalFactor = 0
   selectedModelsInfo.value.forEach(model => {
-    let factor = 1
-    
-    // Quantized models use less memory
-    if (model.name.toLowerCase().includes('int8')) factor *= 0.5
-    else if (model.name.toLowerCase().includes('int4')) factor *= 0.25
-    else if (model.name.toLowerCase().includes('quantized')) factor *= 0.6
-    
-    // Larger models might have different efficiency
-    const sizeMatch = model.name.match(/(\d+)B/i)
-    if (sizeMatch) {
-      const size = parseInt(sizeMatch[1])
-      if (size > 30) factor *= 1.1 // Larger models might need more overhead
-    }
-    
+    // Use explicit memory_factor if available, otherwise calculate from quantization
+    const factor = model.memory_factor !== undefined 
+      ? model.memory_factor 
+      : getQuantizationFactor(model.quantization || 'fp16')
     totalFactor += factor
   })
   
@@ -1396,8 +1377,53 @@ const getPerformanceRating = (quantization) => {
     gptq: { speed: 4, quality: 4 },
     int8: { speed: 3, quality: 3 },
     int4: { speed: 5, quality: 2 },
+    gguf: { speed: 4, quality: 3 }
   }
   return ratings[quantization.toLowerCase()] || { speed: 3, quality: 3 }
+}
+
+const getModelSizeCategory = (size) => {
+  if (size < 3) return 'Small model (good for testing)'
+  if (size < 10) return 'Standard size (good balance)'
+  if (size < 20) return 'Large model (high quality)'
+  if (size < 50) return 'Very large (excellent quality)'
+  if (size < 100) return 'Enterprise scale (best quality)'
+  return 'Massive model (specialized hardware needed)'
+}
+
+const extractModelSize = (name) => {
+  // Try to extract size from model name
+  const sizeMatch = name.match(/(\d+\.?\d*)B/i)
+  if (sizeMatch) {
+    return parseFloat(sizeMatch[1])
+  }
+  return 7 // Default fallback
+}
+
+const clearFieldError = (fieldName) => {
+  if (fieldName === 'name') {
+    manualModelNameError.value = null
+  } else if (fieldName === 'size') {
+    manualModelSizeError.value = null
+  }
+}
+
+const clearHFError = () => {
+  hfError.value = ''
+}
+
+const switchToManualEntry = () => {
+  // Pre-fill manual entry with HF data
+  if (hfModelId.value) {
+    const modelParts = hfModelId.value.split('/')
+    manualModel.value.name = modelParts[modelParts.length - 1] || 'model'
+    manualModel.value.huggingface_id = hfModelId.value
+  }
+  
+  // Clear HF error and reset state
+  clearHFError()
+  fetchedModel.value = null
+  hfSuccess.value = false
 }
 
 const loadModels = async () => {
@@ -1563,23 +1589,6 @@ const retryHuggingFaceModel = async () => {
   await fetchHuggingFaceModel()
 }
 
-const switchToManualEntry = () => {
-  // Pre-fill manual entry with HF model ID if available
-  if (hfModelId.value.trim()) {
-    manualModel.value.name = hfModelId.value.trim().split('/').pop() || hfModelId.value.trim()
-    manualModel.value.huggingface_id = hfModelId.value.trim()
-  }
-  
-  // Clear HF error
-  hfError.value = ''
-  
-  // Focus on manual entry section
-  const manualEntrySection = document.querySelector('[data-testid="manual-entry"]')
-  if (manualEntrySection) {
-    manualEntrySection.scrollIntoView({ behavior: 'smooth' })
-  }
-}
-
 // Manual model entry methods
 const validateManualModelName = () => {
   const name = manualModel.value.name.trim()
@@ -1714,34 +1723,6 @@ const scrollToManualEntry = () => {
   if (manualEntrySection) {
     manualEntrySection.scrollIntoView({ behavior: 'smooth' })
   }
-}
-
-// Helper function to extract model size from name
-const extractModelSize = (modelName) => {
-  const sizeMatch = modelName.match(/(\d+\.?\d*)B/i)
-  return sizeMatch ? parseFloat(sizeMatch[1]) : 7 // Default to 7B if not found
-}
-
-// New helper methods for enhanced UI
-const getModelSizeCategory = (size) => {
-  if (size <= 1) return 'Small model (good for testing)'
-  if (size <= 7) return 'Standard size (good balance)'
-  if (size <= 15) return 'Large model (high quality)'
-  if (size <= 35) return 'Very large (excellent quality)'
-  if (size <= 70) return 'Enterprise scale (best quality)'
-  return 'Massive model (specialized hardware needed)'
-}
-
-const clearFieldError = (field) => {
-  if (field === 'name') {
-    manualModelNameError.value = null
-  } else if (field === 'size') {
-    manualModelSizeError.value = null
-  }
-}
-
-const clearHFError = () => {
-  hfError.value = ''
 }
 
 // Lifecycle
