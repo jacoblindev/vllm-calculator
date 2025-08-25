@@ -38,9 +38,30 @@
 
     <!-- Chart Content Area -->
     <div class="relative p-4 sm:p-8">
+      <!-- Error State -->
+      <div 
+        v-if="chartError" 
+        class="absolute inset-0 bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-20 rounded-lg"
+      >
+        <div class="bg-white rounded-lg shadow-lg border border-red-200 p-6 text-center max-w-md">
+          <div class="text-red-600 mb-4">
+            <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.98-.833-2.75 0L3.064 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <p class="text-red-600 mb-4 font-medium">{{ chartError }}</p>
+          <button
+            @click="refreshChart"
+            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors duration-200"
+          >
+            Refresh Chart
+          </button>
+        </div>
+      </div>
+
       <!-- Loading Overlay -->
       <div 
-        v-if="isUpdating" 
+        v-else-if="isUpdating" 
         class="absolute inset-0 bg-white bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg"
       >
         <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-6 flex items-center space-x-3">
@@ -94,6 +115,7 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { Bar } from 'vue-chartjs'
 import { calculateVRAMBreakdown } from '../lib/calculationEngine.js'
+import { useLoadingWithRetry } from '../composables/useLoadingState.js'
 
 // Register Chart.js components and plugins
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, annotationPlugin)
@@ -130,6 +152,30 @@ const props = defineProps({
 const isUpdating = ref(false)
 const updateKey = ref(0)
 const lastUpdateTime = ref(Date.now())
+const chartError = ref('')
+
+// Loading state management
+const { executeWithRetry } = useLoadingWithRetry()
+
+// Methods
+const refreshChart = async () => {
+  chartError.value = ''
+  isUpdating.value = true
+  
+  await executeWithRetry(async () => {
+    updateKey.value++
+    lastUpdateTime.value = Date.now()
+    await nextTick()
+  }, {
+    onError: (error) => {
+      chartError.value = 'Failed to update chart. Please check your data and try again.'
+      console.error('Chart refresh error:', error)
+    },
+    onFinally: () => {
+      isUpdating.value = false
+    }
+  })
+}
 
 // Helper function to get total VRAM from selected GPUs
 const getTotalVRAM = () => {
@@ -252,19 +298,25 @@ const generateVRAMBreakdownData = () => {
 }
 
 // Throttled update function to prevent excessive recalculations
-const throttledUpdate = () => {
+const throttledUpdate = async () => {
   const now = Date.now()
   if (now - lastUpdateTime.value < 100) { // Throttle updates to max 10/second
     return
   }
   
+  chartError.value = ''
   isUpdating.value = true
-  lastUpdateTime.value = now
-  updateKey.value++
   
-  nextTick(() => {
+  try {
+    await nextTick()
+    lastUpdateTime.value = now
+    updateKey.value++
+  } catch (error) {
+    chartError.value = 'Failed to update chart visualization'
+    console.error('Chart update error:', error)
+  } finally {
     isUpdating.value = false
-  })
+  }
 }
 
 // Watch for changes in props that should trigger chart updates

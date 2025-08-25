@@ -14,6 +14,8 @@ import GPUSelector from './components/GPUSelector.vue'
 import ModelSelector from './components/ModelSelector.vue'
 import ConfigurationOutput from './components/ConfigurationOutput.vue'
 import VRAMChart from './components/VRAMChart.vue'
+import ErrorBoundary from './components/ErrorBoundary.vue'
+import LoadingIndicator from './components/LoadingIndicator.vue'
 import {
   calculateThroughputOptimizedConfig,
   calculateLatencyOptimalBatchSize,
@@ -1080,8 +1082,11 @@ const chartOptions = ref({
     </header>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-      <!-- Hero Section -->
-      <section class="text-center mb-8 sm:mb-12" v-if="applicationReady">
+      <ErrorBoundary>
+        <LoadingIndicator />
+        
+        <!-- Hero Section -->
+        <section class="text-center mb-8 sm:mb-12" v-if="applicationReady">
         <div class="max-w-4xl mx-auto px-2 sm:px-0">
           <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 leading-tight">
             Optimize Your vLLM Deployment
@@ -1357,6 +1362,7 @@ const chartOptions = ref({
           <p class="text-green-600 font-semibold text-center mt-4">✅ Chart.js Integration Ready</p>
         </div>
       </section>
+      </ErrorBoundary>
     </main>
 
     <!-- Debug Information Panel -->

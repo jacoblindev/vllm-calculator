@@ -44,8 +44,9 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
           <!-- Quantization Filter -->
           <div class="flex items-center space-x-4">
-            <label class="text-sm font-medium text-gray-700">Filter by Quantization:</label>
+            <label for="quantization-filter" class="text-sm font-medium text-gray-700">Filter by Quantization:</label>
             <select 
+              id="quantization-filter"
               v-model="quantizationFilter"
               class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
@@ -1185,8 +1186,9 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { loadModelData, validateModel, createCustomModel } from '../lib/dataLoader.js'
+import { loadModelData, validateModel } from '../lib/dataLoader.js'
 import { fetchModelInfo, detectQuantizationType, getQuantizationFactor } from '../lib/huggingfaceApi.js'
+import { useLoadingWithRetry, useDataLoadingState } from '../composables/useLoadingState.js'
 
 // Props and emits
 const emit = defineEmits(['update:selectedModels'])
@@ -1197,6 +1199,18 @@ const props = defineProps({
   },
 })
 
+// Loading state management
+const { model: modelLoadingState, huggingface: hfLoadingState } = useDataLoadingState()
+const {
+  executeWithRetry,
+  retryCount,
+  lastError
+} = useLoadingWithRetry('model-selector', {
+  maxRetries: 3,
+  initialDelay: 1000,
+  backoffMultiplier: 2
+})
+
 // Reactive data
 const availableModels = ref([])
 const selectedModels = ref(props.selectedModels)
@@ -1204,17 +1218,15 @@ const selectedModels = ref(props.selectedModels)
 // Enhanced multi-model selection features
 const quantizationFilter = ref('')
 
-// Loading and error states
-const isLoading = ref(false)
-const loadError = ref('')
-const isRetrying = ref(false)
-const retryCount = ref(0)
-const maxRetries = 3
+// Error states for manual entry
+const manualModelNameError = ref(null)
+const manualModelSizeError = ref(null)
+const manualModelError = ref(null)
+const manualModelSuccess = ref(null)
 
 // Hugging Face integration
 const hfModelId = ref('')
 const hfQuantization = ref('auto')
-const isLoadingHF = ref(false)
 const hfError = ref('')
 const hfSuccess = ref('')
 const fetchedModel = ref(null)
@@ -1227,10 +1239,6 @@ const manualModel = ref({
   memory_factor: 1.0,
   huggingface_id: ''
 })
-const manualModelNameError = ref(null)
-const manualModelSizeError = ref(null)
-const manualModelError = ref(null)
-const manualModelSuccess = ref(null)
 
 // UI state
 const showQuantizationGuide = ref(false)
@@ -1240,7 +1248,25 @@ const showQuantizationHelp = ref(false)
 const showHFHelp = ref(false)
 const showHFQuantHelp = ref(false)
 
-// Computed properties
+// Computed properties for loading states
+const isLoading = computed(() => modelLoadingState.isLoading.value)
+const isLoadingHF = computed(() => hfLoadingState.isLoading.value)
+const isRetrying = computed(() => retryCount.value > 0)
+
+const loadError = computed(() => {
+  if (lastError.value) {
+    const error = lastError.value
+    if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')) {
+      return 'Network connection failed. Please check your internet connection and try again.'
+    } else if (error.message.includes('timeout')) {
+      return 'Request timed out. The server might be busy. Please try again in a moment.'
+    } else {
+      return error.message || 'Failed to load model data. Please try again.'
+    }
+  }
+  return ''
+})
+
 const uniqueQuantizations = computed(() => {
   const quantizations = selectedModels.value.map(model => model.quantization)
   return [...new Set(quantizations)]
@@ -1331,6 +1357,80 @@ const averageMemoryFactor = computed(() => {
 })
 
 // Methods
+const loadModels = async () => {
+  try {
+    availableModels.value = await executeWithRetry(
+      () => loadModelData(),
+      `Loading model data${retryCount.value > 0 ? ` (Attempt ${retryCount.value + 1})` : ''}...`
+    )
+  } catch (error) {
+    console.error('Failed to load model data after retries:', error)
+    // Error is handled by the computed loadError property
+  }
+}
+
+const retryLoadModels = async () => {
+  await loadModels()
+}
+
+const useOfflineMode = () => {
+  // Clear error and allow manual entry
+  // User can still add models manually
+  if (lastError.value) {
+    lastError.value = null
+  }
+  availableModels.value = []
+}
+
+const fetchHuggingFaceModel = async () => {
+  if (!hfModelId.value.trim()) return
+  
+  hfLoadingState.startLoading('Fetching model information from Hugging Face...')
+  hfError.value = ''
+  hfSuccess.value = ''
+  
+  try {
+    const result = await fetchModelInfo(hfModelId.value)
+    
+    if (result.success) {
+      const modelName = result.name || hfModelId.value.split('/').pop()
+      const detectedQuantization = hfQuantization.value === 'auto' 
+        ? detectQuantizationType(result) 
+        : hfQuantization.value
+      
+      fetchedModel.value = {
+        name: modelName,
+        huggingface_id: hfModelId.value,
+        quantization: detectedQuantization,
+        memory_factor: getQuantizationFactor(detectedQuantization),
+        size_billion: extractModelSize(modelName),
+        custom: true
+      }
+      
+      hfSuccess.value = `Successfully fetched model: ${modelName}`
+    } else {
+      hfError.value = result.error || 'Failed to fetch model information'
+    }
+  } catch (error) {
+    console.error('Failed to fetch model info from HF API:', error)
+    
+    if (error.message.includes('not found') || error.message.includes('404')) {
+      hfError.value = 'Model not found. Please check the model ID and try again.'
+    } else if (error.message.includes('timeout') || error.message.includes('network')) {
+      hfError.value = 'Network timeout. Please check your connection and try again.'
+    } else {
+      hfError.value = error.message || 'Failed to fetch model. Please try again.'
+    }
+  } finally {
+    hfLoadingState.stopLoading()
+  }
+}
+
+const retryHuggingFaceModel = async () => {
+  await fetchHuggingFaceModel()
+}
+
+// Helper methods
 const getQuantizationColor = (quantization) => {
   const colors = {
     fp16: 'bg-blue-100 text-blue-800',
@@ -1426,60 +1526,6 @@ const switchToManualEntry = () => {
   hfSuccess.value = false
 }
 
-const loadModels = async () => {
-  isLoading.value = true
-  loadError.value = ''
-  
-  try {
-    availableModels.value = await loadModelData()
-    retryCount.value = 0 // Reset retry count on success
-  } catch (error) {
-    console.error('Failed to load model data:', error)
-    const isNetworkError = error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')
-    const isTimeoutError = error.message.includes('timeout')
-    
-    if (isNetworkError) {
-      loadError.value = 'Network connection failed. Please check your internet connection and try again.'
-    } else if (isTimeoutError) {
-      loadError.value = 'Request timed out. The server might be busy. Please try again in a moment.'
-    } else {
-      loadError.value = error.message || 'Failed to load model data. Please try again.'
-    }
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const retryLoadModels = async () => {
-  if (retryCount.value >= maxRetries) {
-    loadError.value = `Maximum retry attempts (${maxRetries}) reached. Please check your connection or try again later.`
-    return
-  }
-  
-  isRetrying.value = true
-  retryCount.value++
-  
-  // Add exponential backoff delay
-  const delay = Math.min(1000 * Math.pow(2, retryCount.value - 1), 5000)
-  await new Promise(resolve => setTimeout(resolve, delay))
-  
-  try {
-    await loadModels()
-  } finally {
-    isRetrying.value = false
-  }
-}
-
-const useOfflineMode = () => {
-  loadError.value = ''
-  availableModels.value = []
-  // Focus on manual entry section
-  const manualEntrySection = document.querySelector('[data-testid="manual-entry"]')
-  if (manualEntrySection) {
-    manualEntrySection.scrollIntoView({ behavior: 'smooth' })
-  }
-}
-
 const isModelSelected = (model) => {
   return selectedModels.value.some(selected => selected.name === model.name)
 }
@@ -1512,58 +1558,6 @@ const removeModel = (model) => {
   emit('update:selectedModels', selectedModels.value)
 }
 
-// Hugging Face integration methods
-const fetchHuggingFaceModel = async () => {
-  if (!hfModelId.value.trim()) return
-
-  isLoadingHF.value = true
-  hfError.value = ''
-  hfSuccess.value = ''
-  fetchedModel.value = null
-
-  try {
-    const modelInfo = await fetchModelInfo(hfModelId.value.trim())
-
-    if (modelInfo.success) {
-      // Auto-detect quantization if set to auto
-      const detectedQuantization = hfQuantization.value === 'auto' 
-        ? detectQuantizationType(modelInfo)
-        : hfQuantization.value
-
-      // Create model object
-      const model = {
-        name: modelInfo.id || hfModelId.value.trim(),
-        huggingface_id: hfModelId.value.trim(),
-        quantization: detectedQuantization,
-        memory_factor: getQuantizationFactor(detectedQuantization),
-        custom: true,
-        hf_fetched: true
-      }
-
-      fetchedModel.value = model
-      hfSuccess.value = `Successfully fetched model information. Detected quantization: ${detectedQuantization.toUpperCase()}`
-      
-    } else {
-      // Provide user-friendly error messages based on the error type
-      const errorMsg = modelInfo.error || 'Unknown error'
-      if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-        hfError.value = `Model "${hfModelId.value.trim()}" not found on Hugging Face. Please check the model ID and try again.`
-      } else if (errorMsg.includes('rate limit')) {
-        hfError.value = 'Rate limit exceeded. Please wait a moment and try again.'
-      } else if (errorMsg.includes('timeout')) {
-        hfError.value = 'Request timed out. Please check your connection and try again.'
-      } else {
-        hfError.value = `Failed to fetch model information: ${errorMsg}`
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching HF model:', error)
-    hfError.value = 'Network error while fetching model. Please check your connection and try again.'
-  } finally {
-    isLoadingHF.value = false
-  }
-}
-
 const addFetchedModel = () => {
   if (!fetchedModel.value) return
   
@@ -1575,18 +1569,6 @@ const addFetchedModel = () => {
   fetchedModel.value = null
   hfSuccess.value = ''
   hfError.value = ''
-}
-
-const clearHFForm = () => {
-  hfModelId.value = ''
-  hfQuantization.value = 'auto'
-  fetchedModel.value = null
-  hfSuccess.value = ''
-  hfError.value = ''
-}
-
-const retryHuggingFaceModel = async () => {
-  await fetchHuggingFaceModel()
 }
 
 // Manual model entry methods
@@ -1716,13 +1698,6 @@ const clearAllFiltered = () => {
     !filteredModelNames.includes(selected.name)
   )
   emit('update:selectedModels', selectedModels.value)
-}
-
-const scrollToManualEntry = () => {
-  const manualEntrySection = document.querySelector('[data-testid="manual-entry"]')
-  if (manualEntrySection) {
-    manualEntrySection.scrollIntoView({ behavior: 'smooth' })
-  }
 }
 
 // Lifecycle

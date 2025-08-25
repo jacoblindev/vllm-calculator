@@ -2,7 +2,29 @@
   <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6">
     <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">vLLM Configuration Recommendations</h2>
 
-    <div v-if="!hasConfiguration" class="text-center py-8 sm:py-12 text-gray-500">
+    <!-- Loading State -->
+    <div v-if="isCalculating" class="text-center py-8 sm:py-12">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p class="text-base sm:text-lg text-gray-600">Calculating optimal configurations...</p>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="calculationError" class="text-center py-8 sm:py-12">
+      <div class="text-red-600 mb-4">
+        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.98-.833-2.75 0L3.064 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+      </div>
+      <p class="text-base sm:text-lg text-red-600 mb-4">{{ calculationError }}</p>
+      <button
+        @click="recalculateConfigurations"
+        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors duration-200"
+      >
+        Try Again
+      </button>
+    </div>
+
+    <div v-else-if="!hasConfiguration" class="text-center py-8 sm:py-12 text-gray-500">
       <p class="text-base sm:text-lg">Select GPUs and models to see configuration recommendations</p>
     </div>
 
@@ -84,6 +106,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { calculateVRAMUsage } from '../lib/calculationEngine.js'
+import { useLoadingWithRetry } from '../composables/useLoadingState.js'
 
 // Props
 const props = defineProps({
@@ -100,6 +123,26 @@ const props = defineProps({
 // Reactive data
 const activeTab = ref('throughput')
 const copiedCommand = ref('')
+const calculationError = ref('')
+
+// Loading state
+const { isLoading: isCalculating, executeWithRetry } = useLoadingWithRetry()
+
+// Methods
+const recalculateConfigurations = async () => {
+  calculationError.value = ''
+  await executeWithRetry(async () => {
+    // Trigger recalculation by clearing and setting active tab
+    if (hasConfiguration.value) {
+      activeTab.value = 'throughput'
+    }
+  }, {
+    onError: (error) => {
+      calculationError.value = 'Failed to calculate configurations. Please check your selections and try again.'
+      console.error('Configuration calculation error:', error)
+    }
+  })
+}
 
 // Computed properties
 const hasConfiguration = computed(
@@ -286,6 +329,7 @@ async function copyCommand(command) {
       copiedCommand.value = ''
     }, 2000)
   } catch (error) {
+    calculationError.value = 'Failed to copy command to clipboard'
     console.error('Failed to copy command:', error)
   }
 }
