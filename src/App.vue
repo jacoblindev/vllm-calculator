@@ -40,6 +40,11 @@ const lastSavedState = ref(null)
 const stateErrors = ref([])
 const isStateRestoring = ref(false)
 
+// Navigation and UI state
+const showSettingsMenu = ref(false)
+const showMobileMenu = ref(false)
+const showDebugInfo = ref(false)
+
 // State persistence keys
 const STATE_KEYS = {
   gpus: 'vllm-calculator-selected-gpus',
@@ -228,6 +233,33 @@ onMounted(() => {
   setTimeout(() => {
     applicationReady.value = true
   }, 100)
+
+  // Add click listener to close menus when clicking outside
+  const handleDocumentClick = (event) => {
+    // Close settings menu if clicking outside
+    if (showSettingsMenu.value) {
+      const settingsButton = event.target.closest('[data-settings-menu]')
+      if (!settingsButton) {
+        showSettingsMenu.value = false
+      }
+    }
+    
+    // Close mobile menu if clicking outside
+    if (showMobileMenu.value) {
+      const mobileMenuButton = event.target.closest('[data-mobile-menu]')
+      const mobileMenuContent = event.target.closest('[data-mobile-menu-content]')
+      if (!mobileMenuButton && !mobileMenuContent) {
+        showMobileMenu.value = false
+      }
+    }
+  }
+
+  document.addEventListener('click', handleDocumentClick)
+  
+  // Cleanup event listener on unmount
+  return () => {
+    document.removeEventListener('click', handleDocumentClick)
+  }
 })
 
 // State change watchers for automatic persistence
@@ -747,9 +779,10 @@ const chartOptions = ref({
 <template>
   <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
     <!-- Navigation Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm backdrop-blur-sm bg-white/95">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
+          <!-- Brand Section -->
           <div class="flex items-center space-x-4">
             <div class="flex-shrink-0">
               <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
@@ -761,18 +794,285 @@ const chartOptions = ref({
               <p class="text-sm text-gray-500">GPU Configuration Tool</p>
             </div>
           </div>
+
+          <!-- Navigation Links -->
+          <nav class="hidden lg:flex items-center space-x-8">
+            <a 
+              href="#gpu-selection" 
+              :class="[
+                'text-sm font-medium transition-colors duration-200',
+                configurationStep === 'gpu' 
+                  ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              <span class="flex items-center space-x-1">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                </svg>
+                <span>GPU Setup</span>
+              </span>
+            </a>
+            
+            <a 
+              href="#model-selection" 
+              :class="[
+                'text-sm font-medium transition-colors duration-200',
+                configurationStep === 'model' 
+                  ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
+                  : selectedGPUs.length > 0 
+                    ? 'text-gray-600 hover:text-gray-900' 
+                    : 'text-gray-400 cursor-not-allowed'
+              ]"
+            >
+              <span class="flex items-center space-x-1">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>Model Setup</span>
+              </span>
+            </a>
+            
+            <a 
+              href="#configuration-results" 
+              :class="[
+                'text-sm font-medium transition-colors duration-200',
+                configurationStep === 'complete' 
+                  ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
+                  : hasValidConfiguration 
+                    ? 'text-gray-600 hover:text-gray-900' 
+                    : 'text-gray-400 cursor-not-allowed'
+              ]"
+            >
+              <span class="flex items-center space-x-1">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+                </svg>
+                <span>Configurations</span>
+              </span>
+            </a>
+          </nav>
           
-          <!-- Progress Indicator -->
-          <div class="hidden md:flex items-center space-x-4">
-            <div class="flex items-center space-x-2">
+          <!-- Action Buttons & Status -->
+          <div class="flex items-center space-x-4">
+            <!-- Configuration Health Indicator -->
+            <div class="hidden md:flex items-center space-x-2">
+              <div 
+                :class="[
+                  'w-3 h-3 rounded-full',
+                  configurationHealth.status === 'healthy' ? 'bg-green-500' :
+                  configurationHealth.status === 'warning' ? 'bg-yellow-500' :
+                  'bg-red-500'
+                ]"
+                :title="configurationHealth.issues.join(', ') || 'Configuration is healthy'"
+              ></div>
+              <span class="text-sm text-gray-600">
+                {{ configurationHealth.status === 'healthy' ? 'Ready' : 
+                   configurationHealth.status === 'warning' ? 'Warning' : 'Issues' }}
+              </span>
+            </div>
+
+            <!-- Progress Indicator -->
+            <div class="hidden lg:flex items-center space-x-2">
               <span class="text-sm font-medium text-gray-700">Setup Progress</span>
-              <div class="w-32 bg-gray-200 rounded-full h-2">
+              <div class="w-24 bg-gray-200 rounded-full h-2">
                 <div 
                   class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
                   :style="{ width: setupProgress + '%' }"
                 ></div>
               </div>
               <span class="text-sm text-gray-500">{{ Math.round(setupProgress) }}%</span>
+            </div>
+
+            <!-- Action Menu -->
+            <div class="flex items-center space-x-2">
+              <!-- Save Configuration -->
+              <button
+                v-if="hasValidConfiguration"
+                @click="saveStateToStorage"
+                class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                title="Save current configuration"
+              >
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                Save
+              </button>
+
+              <!-- Clear Configuration -->
+              <button
+                v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
+                @click="clearStoredState(); selectedGPUs.splice(0); selectedModels.splice(0);"
+                class="inline-flex items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                title="Clear all selections"
+              >
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Clear
+              </button>
+
+              <!-- Settings Dropdown -->
+              <div class="relative" @click="$event.stopPropagation()" data-settings-menu>
+                <button
+                  @click="showSettingsMenu = !showSettingsMenu"
+                  class="inline-flex items-center p-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  title="Settings and options"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                  </svg>
+                </button>
+
+                <!-- Settings Dropdown Menu -->
+                <div
+                  v-if="showSettingsMenu"
+                  class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                  @click.stop
+                >
+                  <div class="py-1">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                      Configuration
+                    </div>
+                    <button
+                      @click="clearStoredState(); showSettingsMenu = false"
+                      class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    >
+                      <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                      </svg>
+                      Clear Saved Data
+                    </button>
+                    
+                    <div class="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 border-t border-gray-100 mt-1">
+                      View Options
+                    </div>
+                    <button
+                      @click="showDebugInfo = !showDebugInfo; showSettingsMenu = false"
+                      class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    >
+                      <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                      </svg>
+                      {{ showDebugInfo ? 'Hide' : 'Show' }} Debug Info
+                    </button>
+                    
+                    <a
+                      href="https://docs.vllm.ai/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                      @click="showSettingsMenu = false"
+                    >
+                      <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                      </svg>
+                      vLLM Documentation
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile Menu Button -->
+            <button
+              @click="showMobileMenu = !showMobileMenu"
+              class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              data-mobile-menu
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path v-if="!showMobileMenu" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mobile Navigation Menu -->
+        <div v-if="showMobileMenu" class="md:hidden border-t border-gray-200 bg-white" data-mobile-menu-content>
+          <div class="pt-2 pb-3 space-y-1">
+            <!-- Mobile Progress Indicator -->
+            <div class="px-4 py-2">
+              <div class="flex items-center space-x-2 mb-2">
+                <span class="text-sm font-medium text-gray-700">Setup Progress</span>
+                <span class="text-sm text-gray-500">{{ Math.round(setupProgress) }}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  :style="{ width: setupProgress + '%' }"
+                ></div>
+              </div>
+            </div>
+
+            <!-- Mobile Navigation Links -->
+            <a
+              href="#gpu-selection"
+              @click="showMobileMenu = false"
+              :class="[
+                'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
+                configurationStep === 'gpu'
+                  ? 'text-blue-700 bg-blue-50 border-blue-500'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-transparent'
+              ]"
+            >
+              GPU Setup
+            </a>
+            
+            <a
+              href="#model-selection"
+              @click="showMobileMenu = false"
+              :class="[
+                'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
+                configurationStep === 'model'
+                  ? 'text-blue-700 bg-blue-50 border-blue-500'
+                  : selectedGPUs.length > 0
+                    ? 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-transparent'
+                    : 'text-gray-400 border-transparent cursor-not-allowed'
+              ]"
+            >
+              Model Setup
+            </a>
+            
+            <a
+              href="#configuration-results"
+              @click="showMobileMenu = false"
+              :class="[
+                'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
+                configurationStep === 'complete'
+                  ? 'text-blue-700 bg-blue-50 border-blue-500'
+                  : hasValidConfiguration
+                    ? 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-transparent'
+                    : 'text-gray-400 border-transparent cursor-not-allowed'
+              ]"
+            >
+              Configurations
+            </a>
+
+            <!-- Mobile Action Buttons -->
+            <div class="px-4 py-3 border-t border-gray-200 space-y-2">
+              <button
+                v-if="hasValidConfiguration"
+                @click="saveStateToStorage(); showMobileMenu = false"
+                class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                Save Configuration
+              </button>
+              
+              <button
+                v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
+                @click="clearStoredState(); selectedGPUs.splice(0); selectedModels.splice(0); showMobileMenu = false"
+                class="w-full flex items-center justify-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+                Clear All
+              </button>
             </div>
           </div>
         </div>
@@ -1032,6 +1332,130 @@ const chartOptions = ref({
         </div>
       </section>
     </main>
+
+    <!-- Debug Information Panel -->
+    <section v-if="showDebugInfo" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
+      <div class="bg-gray-900 text-white rounded-xl p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold">Debug Information</h3>
+          <button
+            @click="showDebugInfo = false"
+            class="text-gray-400 hover:text-white transition-colors"
+            title="Close debug panel"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- State Analysis -->
+          <div>
+            <h4 class="text-sm font-bold text-blue-400 mb-2">State Analysis</h4>
+            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+              <div><span class="text-gray-400">Configuration Step:</span> {{ configurationStep }}</div>
+              <div><span class="text-gray-400">Setup Progress:</span> {{ Math.round(setupProgress) }}%</div>
+              <div><span class="text-gray-400">Application Ready:</span> {{ applicationReady }}</div>
+              <div><span class="text-gray-400">Memory Pressure:</span> 
+                <span :class="{
+                  'text-green-400': memoryPressure === 'low',
+                  'text-yellow-400': memoryPressure === 'moderate',
+                  'text-orange-400': memoryPressure === 'high',
+                  'text-red-400': memoryPressure === 'critical'
+                }">{{ memoryPressure }}</span>
+              </div>
+              <div><span class="text-gray-400">Configuration Health:</span> 
+                <span :class="{
+                  'text-green-400': configurationHealth.status === 'healthy',
+                  'text-yellow-400': configurationHealth.status === 'warning',
+                  'text-red-400': configurationHealth.status === 'critical'
+                }">{{ configurationHealth.status }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hardware Summary -->
+          <div>
+            <h4 class="text-sm font-bold text-green-400 mb-2">Hardware Summary</h4>
+            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+              <div><span class="text-gray-400">Total GPUs:</span> {{ stateAnalysis.gpuCount }}</div>
+              <div><span class="text-gray-400">Total VRAM:</span> {{ totalVRAM }}GB</div>
+              <div><span class="text-gray-400">Selected Models:</span> {{ stateAnalysis.modelCount }}</div>
+              <div><span class="text-gray-400">Total Model Size:</span> {{ totalModelSize }}GB</div>
+              <div><span class="text-gray-400">Memory Efficiency:</span> {{ (stateAnalysis.memoryEfficiency * 100).toFixed(1) }}%</div>
+              <div><span class="text-gray-400">Estimated Cost:</span> ${{ stateAnalysis.estimatedCost.toFixed(2) }}/hr</div>
+            </div>
+          </div>
+
+          <!-- VRAM Breakdown -->
+          <div v-if="vramBreakdown">
+            <h4 class="text-sm font-bold text-purple-400 mb-2">VRAM Breakdown</h4>
+            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+              <div><span class="text-gray-400">Model Weights:</span> {{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
+              <div><span class="text-gray-400">KV Cache:</span> {{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
+              <div><span class="text-gray-400">Activations:</span> {{ vramBreakdown.activations.toFixed(1) }}GB</div>
+              <div><span class="text-gray-400">System Overhead:</span> {{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
+              <div><span class="text-gray-400">Available:</span> 
+                <span :class="vramBreakdown.available > 5 ? 'text-green-400' : vramBreakdown.available > 2 ? 'text-yellow-400' : 'text-red-400'">
+                  {{ vramBreakdown.available.toFixed(1) }}GB
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- State Errors -->
+          <div v-if="stateErrors.length > 0">
+            <h4 class="text-sm font-bold text-red-400 mb-2">State Errors</h4>
+            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-1">
+              <div v-for="error in stateErrors" :key="error.id" class="text-red-300">
+                {{ error.message }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantization Recommendations -->
+          <div v-if="quantizationRecommendations.length > 0" class="md:col-span-2">
+            <h4 class="text-sm font-bold text-yellow-400 mb-2">Quantization Recommendations</h4>
+            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+              <div v-for="rec in quantizationRecommendations" :key="rec.modelName" class="border-l-2 border-yellow-400 pl-3">
+                <div class="text-white font-medium">{{ rec.modelName }}</div>
+                <div class="text-gray-400">{{ rec.currentFormat }} → {{ rec.recommendedFormat }}</div>
+                <div class="text-green-400">Memory Savings: {{ rec.memorySavings.toFixed(1) }}GB</div>
+                <div class="text-yellow-400">Quality Impact: {{ rec.qualityImpact }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Browser Console Helpers -->
+        <div class="mt-6 pt-4 border-t border-gray-700">
+          <p class="text-xs text-gray-400 mb-2">
+            Browser Console: Access <code class="bg-gray-800 px-1 rounded">window.vllmDebug</code> for calculation functions and state inspection.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            <button
+              @click="console.log('vLLM Debug State:', { stateAnalysis, configurationHealth, vramBreakdown, quantizationRecommendations })"
+              class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs font-medium transition-colors"
+            >
+              Log State
+            </button>
+            <button
+              @click="console.log('Selected GPUs:', selectedGPUs); console.log('Selected Models:', selectedModels);"
+              class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-xs font-medium transition-colors"
+            >
+              Log Selections
+            </button>
+            <button
+              @click="console.log('Configurations:', configurations)"
+              class="px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs font-medium transition-colors"
+            >
+              Log Configs
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 mt-16">
