@@ -11,12 +11,15 @@ import {
 } from 'chart.js'
 import { Bar } from 'vue-chartjs'
 import GPUSelector from './components/GPUSelector.vue'
+import ModelSelector from './components/ModelSelector.vue'
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
 // GPU selection state
 const selectedGPUs = ref([])
+// Model selection state
+const selectedModels = ref([])
 
 // Chart data and options
 const chartData = ref({
@@ -69,6 +72,14 @@ const chartOptions = ref({
         <GPUSelector 
           v-model:selectedGPUs="selectedGPUs"
           @update:selectedGPUs="selectedGPUs = $event"
+        />
+      </div>
+
+      <!-- Model Selection Component -->
+      <div class="mb-12">
+        <ModelSelector 
+          v-model:selectedModels="selectedModels"
+          @update:selectedModels="selectedModels = $event"
         />
       </div>
 
