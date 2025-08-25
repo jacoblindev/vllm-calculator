@@ -86,8 +86,8 @@ export function validateModel(model) {
     model &&
     typeof model.name === 'string' &&
     model.name.trim().length > 0 &&
-    typeof model.size_gb === 'number' &&
-    model.size_gb > 0 &&
+    typeof model.quantization === 'string' &&
+    model.quantization.trim().length > 0 &&
     typeof model.memory_factor === 'number' &&
     model.memory_factor > 0 &&
     model.memory_factor <= 1.0
