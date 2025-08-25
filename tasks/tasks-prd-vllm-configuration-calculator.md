@@ -64,12 +64,12 @@
   - [x] 2.7 Add parameter validation and error handling
   - [x] 2.8 Write comprehensive unit tests for all calculation functions including quantization scenarios
 - [ ] 3.0 GPU Selection Component Development
-  - [ ] 3.1 Create GPU selector component with predefined list integration
-  - [ ] 3.2 Implement quantity selection for each GPU type
-  - [ ] 3.3 Add custom GPU input functionality with VRAM specification
-  - [ ] 3.4 Implement GPU selection validation and error states
-  - [ ] 3.5 Style component according to design specifications
-  - [ ] 3.6 Write unit tests for GPU selector component
+  - [x] 3.1 Create GPU selector component with predefined list integration
+  - [x] 3.2 Implement quantity selection for each GPU type
+  - [x] 3.3 Add custom GPU input functionality with VRAM specification
+  - [x] 3.4 Implement GPU selection validation and error states
+  - [x] 3.5 Style component according to design specifications
+  - [x] 3.6 Write unit tests for GPU selector component
 - [ ] 4.0 Model Selection Component Development
   - [ ] 4.1 Create model selector component with predefined list integration including quantization variants
   - [ ] 4.2 Implement clear display of quantization information and memory factors
