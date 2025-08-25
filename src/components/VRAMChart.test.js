@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import VRAMChart from './VRAMChart.vue'
 
@@ -33,6 +33,15 @@ describe('VRAMChart.vue', () => {
       { name: '--swap-space', value: '4' },
     ],
   }]
+
+  beforeEach(() => {
+    vi.clearAllTimers()
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   it('renders chart component', () => {
     const wrapper = mount(VRAMChart, {
@@ -154,5 +163,79 @@ describe('VRAMChart.vue', () => {
     
     expect(modelWeightsDataset.backgroundColor).toBe('#EF4444') // Red
     expect(kvCacheDataset.backgroundColor).toBe('#3B82F6') // Blue
+  })
+
+  it('has loading state management functionality', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    // Verify the reactive state properties exist
+    expect(wrapper.vm.isUpdating).toBeDefined()
+    expect(wrapper.vm.updateKey).toBeDefined()
+    expect(wrapper.vm.lastUpdateTime).toBeDefined()
+    
+    // Verify the throttledUpdate method exists
+    expect(typeof wrapper.vm.throttledUpdate).toBe('function')
+  })
+
+  it('has dynamic update functionality', async () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    const initialUpdateKey = wrapper.vm.updateKey
+
+    // Wait a bit to ensure throttling window has passed
+    vi.advanceTimersByTime(150)
+
+    // Manually trigger the update method
+    wrapper.vm.throttledUpdate()
+
+    // Wait for nextTick to complete
+    await wrapper.vm.$nextTick()
+
+    // Should have updated after manual trigger
+    expect(wrapper.vm.updateKey).toBeGreaterThan(initialUpdateKey)
+  })
+
+  it('includes animation configuration in chart options', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        showBreakdown: true,
+      },
+    })
+
+    const options = wrapper.vm.chartOptions
+    expect(options.animation).toBeDefined()
+    expect(options.animation.duration).toBeGreaterThan(0)
+    expect(options.transitions).toBeDefined()
+  })
+
+  it('displays last update time when not updating', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    // Wait for initial update to complete
+    vi.runAllTimers()
+
+    expect(wrapper.vm.lastUpdateTime).toBeGreaterThan(0)
+    expect(wrapper.vm.isUpdating).toBe(false)
   })
 })

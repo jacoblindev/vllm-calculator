@@ -1,11 +1,36 @@
 <template>
-  <div class="w-full h-full">
-    <Bar :data="chartData" :options="chartOptions" />
+  <div class="w-full h-full relative">
+    <!-- Loading Overlay -->
+    <div 
+      v-if="isUpdating" 
+      class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg"
+    >
+      <div class="flex items-center space-x-2 text-blue-600">
+        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-sm font-medium">Updating chart...</span>
+      </div>
+    </div>
+    
+    <!-- Chart Container -->
+    <div class="transition-opacity duration-200" :class="{ 'opacity-70': isUpdating }">
+      <Bar :data="chartData" :options="chartOptions" :key="updateKey" />
+    </div>
+    
+    <!-- Update Indicator -->
+    <div 
+      v-if="lastUpdateTime && !isUpdating" 
+      class="absolute bottom-2 right-2 text-xs text-gray-500 bg-white bg-opacity-90 px-2 py-1 rounded"
+    >
+      Last updated: {{ new Date(lastUpdateTime).toLocaleTimeString() }}
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, watch, ref, nextTick } from 'vue'
 import {
   Chart as ChartJS,
   Title,
@@ -48,6 +73,11 @@ const props = defineProps({
     default: null,
   },
 })
+
+// Reactive state for dynamic updates
+const isUpdating = ref(false)
+const updateKey = ref(0)
+const lastUpdateTime = ref(Date.now())
 
 // Memory component colors for visual distinction
 const memoryColors = {
@@ -163,6 +193,39 @@ const generateVRAMBreakdownData = () => {
   }
 }
 
+// Throttled update function to prevent excessive recalculations
+const throttledUpdate = () => {
+  const now = Date.now()
+  if (now - lastUpdateTime.value < 100) { // Throttle updates to max 10/second
+    return
+  }
+  
+  isUpdating.value = true
+  lastUpdateTime.value = now
+  updateKey.value++
+  
+  nextTick(() => {
+    isUpdating.value = false
+  })
+}
+
+// Watch for changes in props that should trigger chart updates
+watch(
+  [() => props.selectedGPUs, () => props.selectedModels, () => props.configurations],
+  () => {
+    throttledUpdate()
+  },
+  { deep: true, immediate: false }
+)
+
+// Watch for showBreakdown changes
+watch(
+  () => props.showBreakdown,
+  () => {
+    throttledUpdate()
+  }
+)
+
 // Computed chart data
 const chartData = computed(() => {
   if (props.showBreakdown) {
@@ -185,10 +248,28 @@ const chartData = computed(() => {
   }
 })
 
-// Chart options optimized for stacked bar charts
+// Chart options optimized for stacked bar charts with dynamic updates
 const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
+  animation: {
+    duration: isUpdating.value ? 300 : 800, // Faster updates during dynamic changes
+    easing: 'easeInOutQuart',
+    animateScale: true,
+    animateRotate: true,
+  },
+  transitions: {
+    active: {
+      animation: {
+        duration: 200,
+      },
+    },
+    resize: {
+      animation: {
+        duration: 300,
+      },
+    },
+  },
   plugins: {
     title: {
       display: true,
@@ -215,6 +296,9 @@ const chartOptions = computed(() => ({
     tooltip: {
       mode: 'index',
       intersect: false,
+      animation: {
+        duration: 200,
+      },
       callbacks: {
         label: function(context) {
           const label = context.dataset.label || ''
@@ -226,6 +310,12 @@ const chartOptions = computed(() => ({
           
           const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y || 0), 0)
           return `Total: ${total.toFixed(2)} GB`
+        },
+        beforeTitle: function(_tooltipItems) {
+          if (isUpdating.value) {
+            return 'Updating...'
+          }
+          return ''
         },
       },
     },
@@ -240,6 +330,9 @@ const chartOptions = computed(() => ({
           size: 12,
           weight: 'bold',
         },
+      },
+      grid: {
+        display: false,
       },
     },
     y: {
@@ -258,6 +351,9 @@ const chartOptions = computed(() => ({
           return value.toFixed(1) + ' GB'
         },
       },
+      grid: {
+        color: 'rgba(0, 0, 0, 0.1)',
+      },
     },
   },
   interaction: {
@@ -265,5 +361,13 @@ const chartOptions = computed(() => ({
     axis: 'x',
     intersect: false,
   },
+  elements: {
+    bar: {
+      borderWidth: 1,
+      borderRadius: 2,
+    },
+  },
+  // Update key to force re-render when needed
+  key: updateKey.value,
 }))
 </script>
