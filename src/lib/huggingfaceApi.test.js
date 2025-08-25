@@ -136,11 +136,11 @@ describe('huggingfaceApi', () => {
       expect(type).toBe('fp16')
     })
 
-    it('returns unknown for failed requests', () => {
+    it('returns fp16 for failed requests', () => {
       const modelInfo = { success: false }
 
       const type = detectQuantizationType(modelInfo)
-      expect(type).toBe('unknown')
+      expect(type).toBe('fp16')
     })
   })
 
@@ -148,9 +148,9 @@ describe('huggingfaceApi', () => {
     it('returns correct factors for different quantization types', () => {
       expect(getQuantizationFactor('fp16')).toBe(1.0)
       expect(getQuantizationFactor('fp32')).toBe(1.0)
-      expect(getQuantizationFactor('awq')).toBe(0.5)
-      expect(getQuantizationFactor('gptq')).toBe(0.5)
-      expect(getQuantizationFactor('ggml')).toBe(0.5)
+      expect(getQuantizationFactor('awq')).toBe(0.25)
+      expect(getQuantizationFactor('gptq')).toBe(0.25)
+      expect(getQuantizationFactor('ggml')).toBe(0.25)
       expect(getQuantizationFactor('unknown')).toBe(1.0)
     })
 

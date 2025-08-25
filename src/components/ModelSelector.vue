@@ -164,6 +164,176 @@
       </div>
     </div>
 
+    <!-- Hugging Face Model Integration -->
+    <div class="border-t border-gray-200 pt-10 mb-10">
+      <div class="mb-6">
+        <h3 class="text-xl font-medium text-gray-900 mb-2">Add from Hugging Face</h3>
+        <p class="text-gray-500">Search and add models directly from the Hugging Face Hub</p>
+      </div>
+      
+      <!-- Search Form -->
+      <div class="bg-gray-50 rounded-xl p-6 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div class="md:col-span-6">
+            <label for="hf-model-id" class="block text-sm font-semibold text-gray-900 mb-3">
+              Hugging Face Model ID
+            </label>
+            <input
+              id="hf-model-id"
+              v-model="hfModelId"
+              type="text"
+              placeholder="e.g., microsoft/DialoGPT-medium"
+              :class="[
+                'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                hfError 
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'
+              ]"
+              @keypress.enter="fetchHuggingFaceModel"
+            />
+            <p class="text-xs text-gray-500 mt-2">
+              Find models at 
+              <a href="https://huggingface.co/models" target="_blank" class="text-blue-600 hover:underline font-medium">
+                huggingface.co/models
+              </a>
+            </p>
+          </div>
+          
+          <div class="md:col-span-3">
+            <label for="hf-quantization" class="block text-sm font-semibold text-gray-900 mb-3">
+              Preferred Quantization
+            </label>
+            <select
+              id="hf-quantization"
+              v-model="hfQuantization"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-all duration-200"
+            >
+              <option value="auto">Auto-detect</option>
+              <option value="fp16">FP16 (Full Precision)</option>
+              <option value="awq">AWQ 4-bit</option>
+              <option value="gptq">GPTQ 4-bit</option>
+            </select>
+          </div>
+          
+          <div class="md:col-span-3 flex items-end">
+            <button
+              @click="fetchHuggingFaceModel"
+              :disabled="!hfModelId.trim() || isLoadingHF"
+              :class="[
+                'w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                !hfModelId.trim() || isLoadingHF
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                  : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm hover:shadow-md active:bg-blue-800'
+              ]"
+            >
+              <span v-if="isLoadingHF" class="flex items-center justify-center">
+                <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-white mr-2"></div>
+                Loading...
+              </span>
+              <span v-else class="flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                Fetch Model
+              </span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- HF Error Display -->
+        <div v-if="hfError" class="mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
+          <div class="flex items-center">
+            <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+            </svg>
+            <p class="text-red-700 font-medium">{{ hfError }}</p>
+          </div>
+        </div>
+        
+        <!-- HF Success Display -->
+        <div v-if="hfSuccess" class="mt-4 bg-green-50 border border-green-200 rounded-xl p-4">
+          <div class="flex items-center">
+            <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>
+            <p class="text-green-700 font-medium">{{ hfSuccess }}</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Fetched Model Preview -->
+      <div v-if="fetchedModel" class="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+        <div class="flex items-start justify-between mb-4">
+          <div>
+            <h4 class="text-lg font-semibold text-blue-900 mb-2">{{ fetchedModel.name }}</h4>
+            <p class="text-blue-700 text-sm font-mono">{{ fetchedModel.huggingface_id }}</p>
+          </div>
+          <button
+            @click="addFetchedModel"
+            class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            Add Model
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-gray-500 font-medium mb-1">Quantization</div>
+            <div class="flex items-center">
+              <span 
+                :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mr-2', getQuantizationColor(fetchedModel.quantization)]"
+              >
+                {{ fetchedModel.quantization.toUpperCase() }}
+              </span>
+              <span class="text-gray-600">{{ getQuantizationPrecision(fetchedModel.quantization) }}</span>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-gray-500 font-medium mb-1">Memory Usage</div>
+            <div class="flex items-center">
+              <span class="font-semibold text-gray-900">{{ Math.round(fetchedModel.memory_factor * 100) }}%</span>
+              <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                <div 
+                  class="h-2 rounded-full"
+                  :class="getMemoryBarColor(fetchedModel.memory_factor)"
+                  :style="{ width: `${fetchedModel.memory_factor * 100}%` }"
+                ></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="bg-white rounded-lg p-3">
+            <div class="text-gray-500 font-medium mb-1">Performance</div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-1">
+                <span class="text-xs text-gray-500">Speed</span>
+                <div class="flex space-x-0.5">
+                  <div 
+                    v-for="n in 5" 
+                    :key="n"
+                    class="w-1 h-2 rounded-sm"
+                    :class="n <= getPerformanceRating(fetchedModel.quantization).speed ? 'bg-green-400' : 'bg-gray-200'"
+                  ></div>
+                </div>
+              </div>
+              <div class="flex items-center space-x-1">
+                <span class="text-xs text-gray-500">Quality</span>
+                <div class="flex space-x-0.5">
+                  <div 
+                    v-for="n in 5" 
+                    :key="n"
+                    class="w-1 h-2 rounded-sm"
+                    :class="n <= getPerformanceRating(fetchedModel.quantization).quality ? 'bg-blue-400' : 'bg-gray-200'"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Selected Models Summary -->
     <div v-if="selectedModels.length > 0" class="border-t border-gray-200 pt-10">
       <div class="mb-6">
@@ -288,7 +458,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { loadModelData, validateModel } from '../lib/dataLoader.js'
+import { loadModelData, validateModel, createCustomModel } from '../lib/dataLoader.js'
+import { fetchModelInfo, detectQuantizationType, getQuantizationFactor } from '../lib/huggingfaceApi.js'
 
 // Props and emits
 const emit = defineEmits(['update:selectedModels'])
@@ -306,6 +477,14 @@ const selectedModels = ref(props.selectedModels)
 // Loading and error states
 const isLoading = ref(false)
 const loadError = ref('')
+
+// Hugging Face integration
+const hfModelId = ref('')
+const hfQuantization = ref('auto')
+const isLoadingHF = ref(false)
+const hfError = ref('')
+const hfSuccess = ref('')
+const fetchedModel = ref(null)
 
 // Computed properties
 const uniqueQuantizations = computed(() => {
@@ -412,6 +591,69 @@ const addModel = (model) => {
 const removeModel = (model) => {
   selectedModels.value = selectedModels.value.filter(selected => selected.name !== model.name)
   emit('update:selectedModels', selectedModels.value)
+}
+
+// Hugging Face integration methods
+const fetchHuggingFaceModel = async () => {
+  if (!hfModelId.value.trim()) return
+
+  isLoadingHF.value = true
+  hfError.value = ''
+  hfSuccess.value = ''
+  fetchedModel.value = null
+
+  try {
+    const modelInfo = await fetchModelInfo(hfModelId.value.trim())
+
+    if (modelInfo.success) {
+      // Auto-detect quantization if set to auto
+      const detectedQuantization = hfQuantization.value === 'auto' 
+        ? detectQuantizationType(modelInfo)
+        : hfQuantization.value
+
+      // Create model object
+      const model = {
+        name: modelInfo.id || hfModelId.value.trim(),
+        huggingface_id: hfModelId.value.trim(),
+        quantization: detectedQuantization,
+        memory_factor: getQuantizationFactor(detectedQuantization),
+        custom: true,
+        hf_fetched: true
+      }
+
+      fetchedModel.value = model
+      hfSuccess.value = `Successfully fetched model information. Detected quantization: ${detectedQuantization.toUpperCase()}`
+      
+    } else {
+      hfError.value = modelInfo.error || 'Failed to fetch model information from Hugging Face'
+    }
+  } catch (error) {
+    console.error('Error fetching HF model:', error)
+    hfError.value = 'Network error while fetching model. Please check your connection and try again.'
+  } finally {
+    isLoadingHF.value = false
+  }
+}
+
+const addFetchedModel = () => {
+  if (!fetchedModel.value) return
+  
+  addModel(fetchedModel.value)
+  
+  // Reset form
+  hfModelId.value = ''
+  hfQuantization.value = 'auto'
+  fetchedModel.value = null
+  hfSuccess.value = ''
+  hfError.value = ''
+}
+
+const clearHFForm = () => {
+  hfModelId.value = ''
+  hfQuantization.value = 'auto'
+  fetchedModel.value = null
+  hfSuccess.value = ''
+  hfError.value = ''
 }
 
 // Lifecycle
