@@ -157,7 +157,7 @@ describe('ModelSelector.vue', () => {
     await wrapper.vm.fetchHuggingFaceModel()
 
     // Check for error state instead of showManualEntry (which doesn't exist)
-    expect(wrapper.vm.hfError).toContain('Model not found')
+    expect(wrapper.vm.hfError).toContain('not found on Hugging Face')
   })
 
   it('adds manual model correctly', async () => {
@@ -440,5 +440,182 @@ describe('Additional ModelSelector Tests', () => {
 
     expect(wrapper.vm.isModelSelected(mockModels[0])).toBe(true)
     expect(wrapper.vm.isModelSelected(mockModels[1])).toBe(false)
+  })
+})
+
+describe('Enhanced Loading States and Error Handling', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Reset all mocks
+    dataLoader.loadModelData.mockResolvedValue([])
+    huggingfaceApi.fetchModelInfo.mockResolvedValue({ success: true })
+    huggingfaceApi.getQuantizationFactor.mockReturnValue(1.0)
+  })
+
+  it('should show enhanced loading state', async () => {
+    const wrapper = mount(ModelSelector)
+    
+    // Trigger loading state
+    wrapper.vm.isLoading = true
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Loading Model Data')
+    expect(wrapper.text()).toContain('Fetching available models and their configurations...')
+  })
+
+  it('should handle network errors with retry functionality', async () => {
+    const networkError = new Error('Failed to fetch')
+    dataLoader.loadModelData.mockRejectedValue(networkError)
+    
+    const wrapper = mount(ModelSelector)
+    
+    // Trigger load that will fail
+    await wrapper.vm.loadModels()
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.vm.loadError).toContain('Network connection failed')
+    expect(wrapper.text()).toContain('Failed to Load Model Data')
+  })
+
+  it('should handle timeout errors appropriately', async () => {
+    const timeoutError = new Error('Request timeout')
+    dataLoader.loadModelData.mockRejectedValue(timeoutError)
+    
+    const wrapper = mount(ModelSelector)
+    
+    await wrapper.vm.loadModels()
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.vm.loadError).toContain('Request timed out')
+  })
+
+  it('should implement retry with exponential backoff', async () => {
+    const wrapper = mount(ModelSelector)
+    
+    // Mock a failure
+    dataLoader.loadModelData.mockRejectedValue(new Error('Failed to fetch'))
+    
+    // Start with retry count 0
+    expect(wrapper.vm.retryCount).toBe(0)
+    expect(wrapper.vm.maxRetries).toBe(3)
+    
+    // Mock setTimeout to avoid actual delays in tests and capture calls
+    const setTimeoutCalls = []
+    global.setTimeout = vi.fn((callback, delay) => {
+      setTimeoutCalls.push(delay)
+      callback()
+    })
+    
+    try {
+      // Call retry method which should implement exponential backoff
+      await wrapper.vm.retryLoadModels()
+      
+      // Verify that retry logic was called (setTimeout should have been called for backoff)
+      expect(setTimeoutCalls.length).toBeGreaterThan(0)
+      // Should set an error message
+      expect(wrapper.vm.loadError).toBeTruthy()
+      // Verify the exponential backoff delay was calculated correctly
+      // For first retry (retryCount would be 1): delay = min(1000 * 2^(1-1), 5000) = 1000ms
+      expect(setTimeoutCalls[0]).toBe(1000)
+    } finally {
+      // Restore original setTimeout
+      global.setTimeout = setTimeout
+    }
+  })
+
+  it('should stop retrying after max attempts', async () => {
+    const wrapper = mount(ModelSelector)
+    
+    // Mock a failure to ensure loadModels always fails
+    dataLoader.loadModelData.mockRejectedValue(new Error('Failed to fetch'))
+    
+    // Manually set retryCount to be at the limit
+    wrapper.vm.retryCount = 3
+    wrapper.vm.maxRetries = 3
+    
+    // This call should exit early and set the max retry error message
+    await wrapper.vm.retryLoadModels()
+    
+    expect(wrapper.vm.loadError).toContain('Maximum retry attempts')
+  })
+
+  it('should switch to offline mode correctly', async () => {
+    const wrapper = mount(ModelSelector)
+    
+    wrapper.vm.loadError = 'Some error'
+    wrapper.vm.useOfflineMode()
+    
+    expect(wrapper.vm.loadError).toBe('')
+    expect(wrapper.vm.availableModels).toEqual([])
+  })
+
+  it('should handle Hugging Face API retry', async () => {
+    huggingfaceApi.fetchModelInfo.mockResolvedValue({
+      success: false,
+      error: 'Model not found'
+    })
+    
+    const wrapper = mount(ModelSelector)
+    wrapper.vm.hfModelId = 'test-model'
+    
+    await wrapper.vm.fetchHuggingFaceModel()
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.vm.hfError).toContain('not found')
+    
+    // Test retry
+    huggingfaceApi.fetchModelInfo.mockResolvedValue({
+      success: true,
+      id: 'test-model'
+    })
+    
+    await wrapper.vm.retryHuggingFaceModel()
+    expect(wrapper.vm.hfError).toBe('')
+  })
+
+  it('should pre-fill manual entry from failed HF lookup', async () => {
+    const wrapper = mount(ModelSelector)
+    
+    wrapper.vm.hfModelId = 'org/test-model'
+    wrapper.vm.hfError = 'Some error'
+    
+    wrapper.vm.switchToManualEntry()
+    
+    expect(wrapper.vm.manualModel.name).toBe('test-model')
+    expect(wrapper.vm.manualModel.huggingface_id).toBe('org/test-model')
+    expect(wrapper.vm.hfError).toBe('')
+  })
+
+  it('should provide specific error messages for different HF API failures', async () => {
+    const wrapper = mount(ModelSelector)
+    wrapper.vm.hfModelId = 'test-model'
+    
+    // Test 404 error
+    huggingfaceApi.fetchModelInfo.mockResolvedValue({
+      success: false,
+      error: '404 not found'
+    })
+    
+    await wrapper.vm.fetchHuggingFaceModel()
+    expect(wrapper.vm.hfError).toContain('not found on Hugging Face')
+    
+    // Test rate limit error
+    huggingfaceApi.fetchModelInfo.mockResolvedValue({
+      success: false,
+      error: 'rate limit exceeded'
+    })
+    
+    await wrapper.vm.fetchHuggingFaceModel()
+    expect(wrapper.vm.hfError).toContain('Rate limit exceeded')
+    
+    // Test timeout error
+    huggingfaceApi.fetchModelInfo.mockResolvedValue({
+      success: false,
+      error: 'timeout occurred'
+    })
+    
+    await wrapper.vm.fetchHuggingFaceModel()
+    expect(wrapper.vm.hfError).toContain('Request timed out')
   })
 })

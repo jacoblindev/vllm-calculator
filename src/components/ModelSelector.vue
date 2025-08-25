@@ -13,33 +13,66 @@
       </div>
       
       <!-- Loading State -->
-      <div v-if="isLoading" class="flex items-center justify-center py-12">
+            <!-- Loading State -->
+      <div v-if="isLoading" class="flex flex-col items-center justify-center py-16">
+        <div class="relative">
+          <!-- Enhanced animated spinner -->
+          <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-600 mb-4"></div>
+          <div class="absolute inset-0 animate-ping rounded-full h-12 w-12 border-4 border-blue-200 opacity-30"></div>
+        </div>
         <div class="text-center">
-          <div class="animate-spin rounded-full h-10 w-10 border-2 border-gray-200 border-t-blue-600 mx-auto mb-4"></div>
-          <p class="text-gray-600 font-medium">Loading model data...</p>
+          <p class="text-gray-900 font-semibold mb-2">Loading Model Data</p>
+          <p class="text-gray-600 text-sm">Fetching available models and their configurations...</p>
+          <div class="mt-4 flex items-center justify-center space-x-1">
+            <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+            <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+            <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+          </div>
         </div>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="loadError" class="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <!-- Error State -->
+      <div v-else-if="loadError" class="bg-red-50 border border-red-200 rounded-xl p-8 mb-6">
         <div class="flex items-start">
           <div class="flex-shrink-0">
-            <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-8 h-8 text-red-500" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
             </svg>
           </div>
           <div class="ml-4 flex-1">
-            <h4 class="text-red-900 font-semibold text-lg">Unable to load model data</h4>
-            <p class="text-red-700 mt-1 mb-4">{{ loadError }}</p>
-            <button 
-              @click="retryLoadModels" 
-              class="inline-flex items-center px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-            >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-              </svg>
-              Try again
-            </button>
+            <h3 class="text-lg font-semibold text-red-900 mb-2">Failed to Load Model Data</h3>
+            <p class="text-red-700 mb-4">{{ loadError }}</p>
+            <div class="flex flex-col sm:flex-row gap-3">
+              <button
+                @click="retryLoadModels"
+                :disabled="isRetrying"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                <svg v-if="isRetrying" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <svg v-else class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                {{ isRetrying ? 'Retrying...' : 'Retry Loading' }}
+              </button>
+              <button
+                @click="useOfflineMode"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Continue with Manual Entry
+              </button>
+            </div>
+            <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p class="text-yellow-800 text-sm">
+                <strong>Tip:</strong> You can still add models manually using the form below, or try refreshing your connection and retrying.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -228,7 +261,7 @@
             >
               <span v-if="isLoadingHF" class="flex items-center justify-center">
                 <div class="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-white mr-2"></div>
-                Loading...
+                <span class="text-sm">Fetching Model Info...</span>
               </span>
               <span v-else class="flex items-center justify-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,11 +275,39 @@
         
         <!-- HF Error Display -->
         <div v-if="hfError" class="mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
-          <div class="flex items-center">
-            <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+          <div class="flex items-start">
+            <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
             </svg>
-            <p class="text-red-700 font-medium">{{ hfError }}</p>
+            <div class="flex-1">
+              <h4 class="text-red-900 font-semibold mb-1">Model Fetch Failed</h4>
+              <p class="text-red-700 text-sm mb-3">{{ hfError }}</p>
+              <div class="flex flex-col sm:flex-row gap-2">
+                <button
+                  @click="retryHuggingFaceModel"
+                  :disabled="isLoadingHF"
+                  class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                >
+                  <svg v-if="isLoadingHF" class="animate-spin -ml-1 mr-1 h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <svg v-else class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  {{ isLoadingHF ? 'Retrying...' : 'Retry' }}
+                </button>
+                <button
+                  @click="switchToManualEntry"
+                  class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                >
+                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  </svg>
+                  Add Manually
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -335,7 +396,7 @@
     </div>
 
     <!-- Manual Model Entry (Fallback) -->
-    <div class="border-t border-gray-200 pt-10 mb-10">
+    <div data-testid="manual-entry" class="border-t border-gray-200 pt-10 mb-10">
       <div class="mb-6">
         <h3 class="text-xl font-medium text-gray-900 mb-2">Manual Model Entry</h3>
         <p class="text-gray-500">Add custom models with specific configurations when automatic detection isn't available</p>
@@ -638,6 +699,9 @@ const selectedModels = ref(props.selectedModels)
 // Loading and error states
 const isLoading = ref(false)
 const loadError = ref('')
+const isRetrying = ref(false)
+const retryCount = ref(0)
+const maxRetries = 3
 
 // Hugging Face integration
 const hfModelId = ref('')
@@ -733,16 +797,52 @@ const loadModels = async () => {
   
   try {
     availableModels.value = await loadModelData()
+    retryCount.value = 0 // Reset retry count on success
   } catch (error) {
     console.error('Failed to load model data:', error)
-    loadError.value = 'Unable to load model data. Please check your internet connection and try again.'
+    const isNetworkError = error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')
+    const isTimeoutError = error.message.includes('timeout')
+    
+    if (isNetworkError) {
+      loadError.value = 'Network connection failed. Please check your internet connection and try again.'
+    } else if (isTimeoutError) {
+      loadError.value = 'Request timed out. The server might be busy. Please try again in a moment.'
+    } else {
+      loadError.value = error.message || 'Failed to load model data. Please try again.'
+    }
   } finally {
     isLoading.value = false
   }
 }
 
-const retryLoadModels = () => {
-  loadModels()
+const retryLoadModels = async () => {
+  if (retryCount.value >= maxRetries) {
+    loadError.value = `Maximum retry attempts (${maxRetries}) reached. Please check your connection or try again later.`
+    return
+  }
+  
+  isRetrying.value = true
+  retryCount.value++
+  
+  // Add exponential backoff delay
+  const delay = Math.min(1000 * Math.pow(2, retryCount.value - 1), 5000)
+  await new Promise(resolve => setTimeout(resolve, delay))
+  
+  try {
+    await loadModels()
+  } finally {
+    isRetrying.value = false
+  }
+}
+
+const useOfflineMode = () => {
+  loadError.value = ''
+  availableModels.value = []
+  // Focus on manual entry section
+  const manualEntrySection = document.querySelector('[data-testid="manual-entry"]')
+  if (manualEntrySection) {
+    manualEntrySection.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 
 const isModelSelected = (model) => {
@@ -809,7 +909,17 @@ const fetchHuggingFaceModel = async () => {
       hfSuccess.value = `Successfully fetched model information. Detected quantization: ${detectedQuantization.toUpperCase()}`
       
     } else {
-      hfError.value = modelInfo.error || 'Failed to fetch model information from Hugging Face'
+      // Provide user-friendly error messages based on the error type
+      const errorMsg = modelInfo.error || 'Unknown error'
+      if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+        hfError.value = `Model "${hfModelId.value.trim()}" not found on Hugging Face. Please check the model ID and try again.`
+      } else if (errorMsg.includes('rate limit')) {
+        hfError.value = 'Rate limit exceeded. Please wait a moment and try again.'
+      } else if (errorMsg.includes('timeout')) {
+        hfError.value = 'Request timed out. Please check your connection and try again.'
+      } else {
+        hfError.value = `Failed to fetch model information: ${errorMsg}`
+      }
     }
   } catch (error) {
     console.error('Error fetching HF model:', error)
@@ -838,6 +948,27 @@ const clearHFForm = () => {
   fetchedModel.value = null
   hfSuccess.value = ''
   hfError.value = ''
+}
+
+const retryHuggingFaceModel = async () => {
+  await fetchHuggingFaceModel()
+}
+
+const switchToManualEntry = () => {
+  // Pre-fill manual entry with HF model ID if available
+  if (hfModelId.value.trim()) {
+    manualModel.value.name = hfModelId.value.trim().split('/').pop() || hfModelId.value.trim()
+    manualModel.value.huggingface_id = hfModelId.value.trim()
+  }
+  
+  // Clear HF error
+  hfError.value = ''
+  
+  // Focus on manual entry section
+  const manualEntrySection = document.querySelector('[data-testid="manual-entry"]')
+  if (manualEntrySection) {
+    manualEntrySection.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 
 // Manual model entry methods
