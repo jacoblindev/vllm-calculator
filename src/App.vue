@@ -12,6 +12,7 @@ import {
 import { Bar } from 'vue-chartjs'
 import GPUSelector from './components/GPUSelector.vue'
 import ModelSelector from './components/ModelSelector.vue'
+import ConfigurationOutput from './components/ConfigurationOutput.vue'
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
@@ -80,6 +81,14 @@ const chartOptions = ref({
         <ModelSelector 
           v-model:selectedModels="selectedModels"
           @update:selectedModels="selectedModels = $event"
+        />
+      </div>
+
+      <!-- Configuration Output Component -->
+      <div class="mb-12">
+        <ConfigurationOutput 
+          :selectedGPUs="selectedGPUs"
+          :selectedModels="selectedModels"
         />
       </div>
 
