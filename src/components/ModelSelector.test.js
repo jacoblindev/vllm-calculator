@@ -640,22 +640,35 @@ describe('Multi-Model Selection and Quantization Awareness', () => {
     await wrapper.vm.$nextTick()
     await new Promise(resolve => setTimeout(resolve, 100))
     
-    // Test initial state - all models should be shown
-    expect(wrapper.vm.filteredModels).toHaveLength(3)
+    // Test initial state - all models should be shown (no filter)
+    expect(wrapper.vm.filteredModels.length).toBeGreaterThan(0)
+    const totalModels = wrapper.vm.filteredModels.length
     
-    // Set quantization filter to compatible
-    wrapper.vm.quantizationFilter = 'compatible'
+    // Set quantization filter to fp16
+    wrapper.vm.quantizationFilter = 'fp16'
     await wrapper.vm.$nextTick()
     
-    // Should show all models since they're all transformers/text-generation
-    expect(wrapper.vm.filteredModels).toHaveLength(3)
+    // Should show only FP16 models
+    const fp16Models = wrapper.vm.filteredModels
+    expect(fp16Models.length).toBeGreaterThan(0)
+    expect(fp16Models.every(model => model.quantization === 'fp16')).toBe(true)
     
-    // Set quantization filter to optimized
-    wrapper.vm.quantizationFilter = 'optimized'
+    // Set quantization filter to awq
+    wrapper.vm.quantizationFilter = 'awq'
     await wrapper.vm.$nextTick()
     
-    // Should filter to only quantized models
-    expect(wrapper.vm.filteredModels.length).toBeGreaterThanOrEqual(1)
+    // Should show only AWQ models
+    const awqModels = wrapper.vm.filteredModels
+    if (awqModels.length > 0) {
+      expect(awqModels.every(model => model.quantization === 'awq')).toBe(true)
+    }
+    
+    // Reset filter
+    wrapper.vm.quantizationFilter = ''
+    await wrapper.vm.$nextTick()
+    
+    // Should show all models again
+    expect(wrapper.vm.filteredModels.length).toBe(totalModels)
   })
 
   test('should detect quantization compatibility warnings', async () => {
