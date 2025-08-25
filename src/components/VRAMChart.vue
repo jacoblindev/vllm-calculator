@@ -1,45 +1,79 @@
 <template>
-  <div class="w-full h-full relative">
-    <!-- Loading Overlay -->
-    <div 
-      v-if="isUpdating" 
-      class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg"
-    >
-      <div class="flex items-center space-x-2 text-blue-600">
-        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-sm font-medium">Updating chart...</span>
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+    <!-- Chart Header Section -->
+    <div class="px-8 py-6 border-b border-gray-100">
+      <div class="flex justify-between items-start">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ title || 'VRAM Usage Breakdown' }}</h2>
+          <p class="text-gray-600">
+            Memory allocation across different components for each optimization strategy
+          </p>
+        </div>
+        <!-- VRAM Summary Info -->
+        <div 
+          v-if="getTotalVRAM() > 0"
+          class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm min-w-[200px]"
+        >
+          <div class="font-semibold text-gray-900 mb-2 flex items-center">
+            <svg class="w-4 h-4 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+            </svg>
+            GPU Configuration
+          </div>
+          <div class="space-y-1 text-gray-700">
+            <div class="flex justify-between">
+              <span class="text-gray-600">Total VRAM:</span>
+              <span class="font-semibold">{{ getTotalVRAM() }} GB</span>
+            </div>
+            <div v-if="selectedGPUs.length === 1" class="text-xs text-gray-500">
+              {{ selectedGPUs[0].quantity }}x {{ selectedGPUs[0].gpu.name }}
+            </div>
+            <div v-else-if="selectedGPUs.length > 1" class="text-xs text-gray-500">
+              {{ selectedGPUs.length }} GPU types selected
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    
-    <!-- Chart Container -->
-    <div class="transition-opacity duration-200" :class="{ 'opacity-70': isUpdating }">
-      <Bar :data="chartData" :options="chartOptions" :key="updateKey" />
-    </div>
-    
-    <!-- Update Indicator -->
-    <div 
-      v-if="lastUpdateTime && !isUpdating" 
-      class="absolute bottom-2 right-2 text-xs text-gray-500 bg-white bg-opacity-90 px-2 py-1 rounded"
-    >
-      Last updated: {{ new Date(lastUpdateTime).toLocaleTimeString() }}
-    </div>
-    
-    <!-- VRAM Summary Info -->
-    <div 
-      v-if="getTotalVRAM() > 0 && !isUpdating"
-      class="absolute top-2 right-2 bg-white bg-opacity-95 border border-gray-200 rounded-lg p-3 text-xs shadow-sm"
-    >
-      <div class="font-semibold text-gray-700 mb-1">GPU Configuration</div>
-      <div class="text-gray-600">
-        <div>Total VRAM: {{ getTotalVRAM() }} GB</div>
-        <div v-if="selectedGPUs.length === 1">
-          {{ selectedGPUs[0].quantity }}x {{ selectedGPUs[0].gpu.name }}
+
+    <!-- Chart Content Area -->
+    <div class="relative p-8">
+      <!-- Loading Overlay -->
+      <div 
+        v-if="isUpdating" 
+        class="absolute inset-0 bg-white bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg"
+      >
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-6 flex items-center space-x-3">
+          <div class="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-blue-600"></div>
+          <span class="text-gray-700 font-medium">Updating chart...</span>
         </div>
-        <div v-else-if="selectedGPUs.length > 1">
-          {{ selectedGPUs.length }} GPU types selected
+      </div>
+      
+      <!-- Chart Container -->
+      <div 
+        class="transition-all duration-300 min-h-[400px]" 
+        :class="{ 'opacity-70 scale-[0.98]': isUpdating }"
+      >
+        <Bar :data="chartData" :options="chartOptions" :key="updateKey" />
+      </div>
+      
+      <!-- Chart Footer Info -->
+      <div class="mt-6 pt-4 border-t border-gray-100">
+        <div class="flex justify-between items-center text-sm">
+          <div class="text-gray-500">
+            <span class="inline-flex items-center">
+              <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
+              Hover over bars for detailed breakdown
+            </span>
+          </div>
+          <div 
+            v-if="lastUpdateTime && !isUpdating" 
+            class="text-gray-400 text-xs"
+          >
+            Last updated: {{ new Date(lastUpdateTime).toLocaleTimeString() }}
+          </div>
         </div>
       </div>
     </div>
@@ -103,15 +137,15 @@ const getTotalVRAM = () => {
   return props.selectedGPUs.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
 }
 
-// Memory component colors for visual distinction
+// Memory component colors aligned with application design system
 const memoryColors = {
-  modelWeights: '#EF4444', // Red - Model weights
-  kvCache: '#3B82F6',      // Blue - KV cache
-  activations: '#10B981',   // Green - Activations
-  systemOverhead: '#F59E0B', // Amber - System overhead
-  fragmentation: '#8B5CF6', // Purple - Fragmentation
-  swap: '#EC4899',         // Pink - Swap space
-  reserved: '#6B7280',     // Gray - Reserved/Buffer
+  modelWeights: '#3B82F6',    // Blue-500 - Primary blue from app
+  kvCache: '#1D4ED8',         // Blue-700 - Darker blue
+  activations: '#10B981',     // Green-500 - Success color
+  systemOverhead: '#F59E0B',  // Amber-500 - Warning color
+  fragmentation: '#8B5CF6',   // Purple-500 - Accent color
+  swap: '#EC4899',           // Pink-500 - Secondary accent
+  reserved: '#6B7280',       // Gray-500 - Neutral color
 }
 
 // Generate VRAM breakdown data for configurations
@@ -296,15 +330,7 @@ const chartOptions = computed(() => ({
   },
   plugins: {
     title: {
-      display: true,
-      text: props.title,
-      font: {
-        size: 16,
-        weight: 'bold',
-      },
-      padding: {
-        bottom: 20,
-      },
+      display: false, // Title now handled in template header
     },
     annotation: {
       annotations: (() => {
@@ -318,22 +344,22 @@ const chartOptions = computed(() => ({
             yMax: totalVRAM,
             borderColor: '#DC2626',
             borderWidth: 2,
-            borderDash: [5, 5],
+            borderDash: [8, 4],
             label: {
               display: true,
-              content: `Total VRAM Capacity: ${totalVRAM} GB`,
+              content: `VRAM Capacity: ${totalVRAM} GB`,
               position: 'end',
-              backgroundColor: 'rgba(220, 38, 38, 0.1)',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
               color: '#DC2626',
-              padding: 6,
+              padding: 8,
               font: {
                 size: 11,
                 weight: 'bold',
-                family: 'Inter, sans-serif',
+                family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
               },
               borderColor: '#DC2626',
               borderWidth: 1,
-              cornerRadius: 4,
+              cornerRadius: 6,
             },
           },
         }
@@ -349,16 +375,17 @@ const chartOptions = computed(() => ({
         padding: 20,
         font: {
           size: 12,
-          family: 'Inter, sans-serif',
+          family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+          weight: '500',
         },
-        color: '#374151',
+        color: '#374151', // Gray-700
         generateLabels: function(chart) {
           const datasets = chart.data.datasets
           return datasets.map((dataset, index) => ({
             text: dataset.label,
             fillStyle: dataset.backgroundColor,
-            strokeStyle: dataset.borderColor,
-            lineWidth: dataset.borderWidth,
+            strokeStyle: dataset.borderColor || dataset.backgroundColor,
+            lineWidth: 0,
             pointStyle: 'rect',
             hidden: !chart.isDatasetVisible(index),
             datasetIndex: index
@@ -370,23 +397,23 @@ const chartOptions = computed(() => ({
         text: 'VRAM Components',
         font: {
           size: 14,
-          weight: 'bold',
-          family: 'Inter, sans-serif',
+          weight: '600',
+          family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
         },
-        color: '#1F2937',
+        color: '#1F2937', // Gray-800
         padding: {
           top: 0,
-          bottom: 10,
+          bottom: 12,
         },
       },
     },
     tooltip: {
       mode: 'index',
       intersect: false,
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      backgroundColor: 'rgba(255, 255, 255, 0.98)',
       titleColor: '#1F2937',
       bodyColor: '#374151',
-      borderColor: '#E5E7EB',
+      borderColor: '#D1D5DB',
       borderWidth: 1,
       cornerRadius: 8,
       displayColors: true,
@@ -395,19 +422,22 @@ const chartOptions = computed(() => ({
       },
       titleFont: {
         size: 14,
-        weight: 'bold',
-        family: 'Inter, sans-serif',
+        weight: '600',
+        family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
       },
       bodyFont: {
-        size: 12,
-        family: 'Inter, sans-serif',
+        size: 13,
+        family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
       },
       footerFont: {
         size: 12,
-        weight: 'bold',
-        family: 'Inter, sans-serif',
+        weight: '600',
+        family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
       },
       padding: 12,
+      titleSpacing: 8,
+      bodySpacing: 6,
+      footerSpacing: 8,
       callbacks: {
         title: function(tooltipItems) {
           if (!tooltipItems.length) return ''
@@ -441,22 +471,21 @@ const chartOptions = computed(() => ({
         afterBody: function(tooltipItems) {
           if (!tooltipItems.length) return ''
           
-          // Add helpful context about the memory component
           const context = tooltipItems[0]
           const label = context.dataset.label
           
           const descriptions = {
-            'Model Weights': 'Memory required to store the neural network parameters',
-            'KV Cache': 'Memory for storing key-value pairs during inference',
-            'Activations': 'Memory for intermediate computations during forward pass',
-            'System Overhead': 'Memory used by the vLLM system and CUDA runtime',
+            'Model Weights': 'Memory required to store neural network parameters',
+            'KV Cache': 'Memory for key-value pairs during inference',
+            'Activations': 'Memory for intermediate computations',
+            'System Overhead': 'Memory used by vLLM system and CUDA runtime',
             'Fragmentation': 'Memory lost due to allocation fragmentation',
             'Swap Space': 'Reserved memory for swapping tensors to CPU',
             'Reserved/Buffer': 'Additional memory buffer for safety margin'
           }
           
           const description = descriptions[label]
-          return description ? [``, `ℹ️ ${description}`] : []
+          return description ? [``, `💡 ${description}`] : []
         },
       },
     },
@@ -469,29 +498,31 @@ const chartOptions = computed(() => ({
         text: 'vLLM Configuration Presets',
         font: {
           size: 14,
-          weight: 'bold',
-          family: 'Inter, sans-serif',
+          weight: '600',
+          family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
         },
-        color: '#1F2937',
+        color: '#1F2937', // Gray-800
         padding: {
-          top: 10,
+          top: 16,
         },
       },
       ticks: {
         font: {
           size: 12,
-          family: 'Inter, sans-serif',
+          family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
         },
-        color: '#374151',
+        color: '#374151', // Gray-700
         maxRotation: 0,
         callback: function(value, _index) {
           const label = this.getLabelForValue(value)
-          // Truncate long labels and add ellipsis
           return label.length > 15 ? label.substring(0, 15) + '...' : label
         },
       },
       grid: {
         display: false,
+      },
+      border: {
+        color: '#E5E7EB', // Gray-200
       },
     },
     y: {
@@ -502,20 +533,20 @@ const chartOptions = computed(() => ({
         text: 'VRAM Usage (GB)',
         font: {
           size: 14,
-          weight: 'bold',
-          family: 'Inter, sans-serif',
+          weight: '600',
+          family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
         },
-        color: '#1F2937',
+        color: '#1F2937', // Gray-800
         padding: {
-          bottom: 10,
+          bottom: 16,
         },
       },
       ticks: {
         font: {
           size: 12,
-          family: 'Inter, sans-serif',
+          family: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
         },
-        color: '#374151',
+        color: '#374151', // Gray-700
         callback: function(value) {
           const totalVRAM = getTotalVRAM()
           if (totalVRAM > 0) {
@@ -526,10 +557,13 @@ const chartOptions = computed(() => ({
         },
       },
       grid: {
-        color: 'rgba(156, 163, 175, 0.3)',
+        color: 'rgba(156, 163, 175, 0.2)', // Gray-400 with opacity
         borderDash: [2, 2],
       },
-      // Add a reference line for total VRAM capacity
+      border: {
+        color: '#E5E7EB', // Gray-200
+      },
+      // Add reference line for total VRAM capacity
       afterDataLimits: function(scale) {
         const totalVRAM = getTotalVRAM()
         if (totalVRAM > 0 && scale.max < totalVRAM) {
@@ -545,8 +579,17 @@ const chartOptions = computed(() => ({
   },
   elements: {
     bar: {
-      borderWidth: 1,
-      borderRadius: 2,
+      borderWidth: 0, // Remove borders for cleaner look
+      borderRadius: 4, // Slightly more rounded corners
+      borderSkipped: false,
+    },
+  },
+  layout: {
+    padding: {
+      top: 20,
+      bottom: 20,
+      left: 10,
+      right: 10,
     },
   },
   // Update key to force re-render when needed

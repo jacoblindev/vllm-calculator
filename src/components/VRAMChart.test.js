@@ -161,8 +161,8 @@ describe('VRAMChart.vue', () => {
     const modelWeightsDataset = chartData.datasets.find(d => d.label === 'Model Weights')
     const kvCacheDataset = chartData.datasets.find(d => d.label === 'KV Cache')
     
-    expect(modelWeightsDataset.backgroundColor).toBe('#EF4444') // Red
-    expect(kvCacheDataset.backgroundColor).toBe('#3B82F6') // Blue
+    expect(modelWeightsDataset.backgroundColor).toBe('#3B82F6') // Blue-500
+    expect(kvCacheDataset.backgroundColor).toBe('#1D4ED8') // Blue-700
   })
 
   it('has loading state management functionality', () => {
@@ -252,7 +252,7 @@ describe('VRAMChart.vue', () => {
     const options = wrapper.vm.chartOptions
     expect(options.plugins.legend.title.display).toBe(true)
     expect(options.plugins.legend.title.text).toBe('VRAM Components')
-    expect(options.plugins.legend.labels.font.family).toBe('Inter, sans-serif')
+        expect(options.plugins.legend.labels.font.family).toBe('Inter, -apple-system, BlinkMacSystemFont, sans-serif')
     expect(options.plugins.legend.labels.pointStyle).toBe('rect')
   })
 
@@ -267,9 +267,9 @@ describe('VRAMChart.vue', () => {
     })
 
     const options = wrapper.vm.chartOptions
-    expect(options.plugins.tooltip.backgroundColor).toBe('rgba(255, 255, 255, 0.95)')
-    expect(options.plugins.tooltip.titleFont.family).toBe('Inter, sans-serif')
-    expect(options.plugins.tooltip.bodyFont.family).toBe('Inter, sans-serif')
+    expect(options.plugins.tooltip.backgroundColor).toBe('rgba(255, 255, 255, 0.98)')
+    expect(options.plugins.tooltip.titleFont.family).toBe('Inter, -apple-system, BlinkMacSystemFont, sans-serif')
+    expect(options.plugins.tooltip.bodyFont.family).toBe('Inter, -apple-system, BlinkMacSystemFont, sans-serif')
     expect(typeof options.plugins.tooltip.callbacks.afterBody).toBe('function')
   })
 
@@ -286,8 +286,8 @@ describe('VRAMChart.vue', () => {
     const options = wrapper.vm.chartOptions
     expect(options.scales.x.title.text).toBe('vLLM Configuration Presets')
     expect(options.scales.y.title.text).toBe('VRAM Usage (GB)')
-    expect(options.scales.x.title.font.family).toBe('Inter, sans-serif')
-    expect(options.scales.y.title.font.family).toBe('Inter, sans-serif')
+    expect(options.scales.x.title.font.family).toBe('Inter, -apple-system, BlinkMacSystemFont, sans-serif')
+    expect(options.scales.y.title.font.family).toBe('Inter, -apple-system, BlinkMacSystemFont, sans-serif')
   })
 
   it('includes annotation plugin configuration for total VRAM reference line', () => {

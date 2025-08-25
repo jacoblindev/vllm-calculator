@@ -234,21 +234,13 @@ const chartOptions = ref({
 
       <!-- VRAM Usage Breakdown Chart -->
       <div class="mb-12" v-if="hasConfiguration">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">VRAM Usage Breakdown</h2>
-          <div class="h-96">
-            <VRAMChart 
-              :selectedGPUs="selectedGPUs"
-              :selectedModels="selectedModels"
-              :configurations="configurations"
-              :showBreakdown="true"
-              title="VRAM Memory Allocation by Configuration"
-            />
-          </div>
-          <p class="text-sm text-gray-600 text-center mt-4">
-            Stacked bars show memory allocation across different components for each optimization strategy
-          </p>
-        </div>
+        <VRAMChart 
+          :selectedGPUs="selectedGPUs"
+          :selectedModels="selectedModels"
+          :configurations="configurations"
+          :showBreakdown="true"
+          title="VRAM Memory Allocation by Configuration"
+        />
       </div>
 
       <!-- Chart.js Integration Test (keeping for development) -->
