@@ -334,6 +334,167 @@
       </div>
     </div>
 
+    <!-- Manual Model Entry (Fallback) -->
+    <div class="border-t border-gray-200 pt-10 mb-10">
+      <div class="mb-6">
+        <h3 class="text-xl font-medium text-gray-900 mb-2">Manual Model Entry</h3>
+        <p class="text-gray-500">Add custom models with specific configurations when automatic detection isn't available</p>
+      </div>
+      
+      <!-- Manual Entry Form -->
+      <div class="bg-gray-50 rounded-xl p-6">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <!-- Model Name -->
+          <div class="md:col-span-4">
+            <label for="manual-model-name" class="block text-sm font-semibold text-gray-900 mb-3">
+              Model Name
+            </label>
+            <input
+              id="manual-model-name"
+              v-model="manualModel.name"
+              type="text"
+              placeholder="e.g., Custom Llama 70B"
+              :class="[
+                'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                manualModelNameError 
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'
+              ]"
+              @blur="validateManualModelName"
+            />
+            <p v-if="manualModelNameError" class="text-red-600 text-sm font-medium mt-2 flex items-center">
+              <svg class="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+              {{ manualModelNameError }}
+            </p>
+          </div>
+          
+          <!-- Model Size -->
+          <div class="md:col-span-3">
+            <label for="manual-model-size" class="block text-sm font-semibold text-gray-900 mb-3">
+              Model Size (Billion Parameters)
+            </label>
+            <input
+              id="manual-model-size"
+              v-model.number="manualModel.size_billion"
+              type="number"
+              placeholder="e.g., 70"
+              min="0.1"
+              max="1000"
+              step="0.1"
+              :class="[
+                'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                manualModelSizeError 
+                  ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
+                  : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'
+              ]"
+              @blur="validateManualModelSize"
+            />
+            <p v-if="manualModelSizeError" class="text-red-600 text-sm font-medium mt-2 flex items-center">
+              <svg class="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+              {{ manualModelSizeError }}
+            </p>
+          </div>
+          
+          <!-- Quantization -->
+          <div class="md:col-span-3">
+            <label for="manual-quantization" class="block text-sm font-semibold text-gray-900 mb-3">
+              Quantization Method
+            </label>
+            <select
+              id="manual-quantization"
+              v-model="manualModel.quantization"
+              class="w-full px-4 py-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-all duration-200"
+              @change="updateManualMemoryFactor"
+            >
+              <option value="fp16">FP16 (Full Precision)</option>
+              <option value="awq">AWQ 4-bit</option>
+              <option value="gptq">GPTQ 4-bit</option>
+              <option value="int8">INT8 8-bit</option>
+              <option value="int4">INT4 4-bit</option>
+            </select>
+            <p class="text-xs text-gray-500 mt-2">
+              Memory usage: {{ Math.round(manualModel.memory_factor * 100) }}%
+            </p>
+          </div>
+          
+          <!-- Add Button -->
+          <div class="md:col-span-2 flex items-end">
+            <button
+              @click="addManualModel"
+              :disabled="!isManualModelValid || hasManualModelErrors"
+              :class="[
+                'w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                !isManualModelValid || hasManualModelErrors
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                  : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm hover:shadow-md active:bg-green-800'
+              ]"
+            >
+              <span class="flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                Add Model
+              </span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Optional Hugging Face ID -->
+        <div class="mt-6 pt-6 border-t border-gray-200">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div class="md:col-span-8">
+              <label for="manual-hf-id" class="block text-sm font-semibold text-gray-900 mb-3">
+                Hugging Face ID (Optional)
+              </label>
+              <input
+                id="manual-hf-id"
+                v-model="manualModel.huggingface_id"
+                type="text"
+                placeholder="e.g., meta-llama/Llama-2-70b-hf"
+                class="w-full px-4 py-3 border border-gray-300 rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400"
+              />
+              <p class="text-xs text-gray-500 mt-2">
+                Optional: Include the Hugging Face model ID for reference
+              </p>
+            </div>
+            
+            <div class="md:col-span-4 flex items-end">
+              <button
+                @click="clearManualForm"
+                class="w-full py-3 px-6 rounded-xl font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+              >
+                Clear Form
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Manual Model Error Display -->
+        <div v-if="manualModelError" class="mt-6 bg-red-50 border border-red-200 rounded-xl p-4">
+          <div class="flex items-center">
+            <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+            </svg>
+            <p class="text-red-700 font-medium">{{ manualModelError }}</p>
+          </div>
+        </div>
+        
+        <!-- Manual Model Success Display -->
+        <div v-if="manualModelSuccess" class="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
+          <div class="flex items-center">
+            <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+            </svg>
+            <p class="text-green-700 font-medium">{{ manualModelSuccess }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Selected Models Summary -->
     <div v-if="selectedModels.length > 0" class="border-t border-gray-200 pt-10">
       <div class="mb-6">
@@ -486,10 +647,33 @@ const hfError = ref('')
 const hfSuccess = ref('')
 const fetchedModel = ref(null)
 
+// Manual model entry
+const manualModel = ref({
+  name: '',
+  size_billion: null,
+  quantization: 'fp16',
+  memory_factor: 1.0,
+  huggingface_id: ''
+})
+const manualModelNameError = ref(null)
+const manualModelSizeError = ref(null)
+const manualModelError = ref(null)
+const manualModelSuccess = ref(null)
+
 // Computed properties
 const uniqueQuantizations = computed(() => {
   const quantizations = selectedModels.value.map(model => model.quantization)
   return [...new Set(quantizations)]
+})
+
+const isManualModelValid = computed(() => {
+  return manualModel.value.name.trim() &&
+         manualModel.value.size_billion > 0 &&
+         manualModel.value.quantization
+})
+
+const hasManualModelErrors = computed(() => {
+  return manualModelNameError.value || manualModelSizeError.value
 })
 
 // Methods
@@ -654,6 +838,117 @@ const clearHFForm = () => {
   fetchedModel.value = null
   hfSuccess.value = ''
   hfError.value = ''
+}
+
+// Manual model entry methods
+const validateManualModelName = () => {
+  const name = manualModel.value.name.trim()
+  
+  if (!name) {
+    manualModelNameError.value = 'Model name is required'
+    return false
+  }
+  
+  if (name.length < 3) {
+    manualModelNameError.value = 'Model name must be at least 3 characters'
+    return false
+  }
+  
+  // Check for duplicate names
+  const isDuplicate = selectedModels.value.some(model => 
+    model.name.toLowerCase() === name.toLowerCase()
+  )
+  
+  if (isDuplicate) {
+    manualModelNameError.value = 'A model with this name already exists'
+    return false
+  }
+  
+  manualModelNameError.value = null
+  return true
+}
+
+const validateManualModelSize = () => {
+  const size = manualModel.value.size_billion
+  
+  if (!size || size <= 0) {
+    manualModelSizeError.value = 'Model size must be greater than 0'
+    return false
+  }
+  
+  if (size > 1000) {
+    manualModelSizeError.value = 'Model size seems unusually large (>1000B)'
+    return false
+  }
+  
+  manualModelSizeError.value = null
+  return true
+}
+
+const updateManualMemoryFactor = () => {
+  manualModel.value.memory_factor = getQuantizationFactor(manualModel.value.quantization)
+}
+
+const addManualModel = () => {
+  // Clear previous feedback
+  manualModelError.value = null
+  manualModelSuccess.value = null
+  
+  // Validate all fields
+  const isNameValid = validateManualModelName()
+  const isSizeValid = validateManualModelSize()
+  
+  if (!isNameValid || !isSizeValid) {
+    manualModelError.value = 'Please fix the validation errors above'
+    return
+  }
+  
+  try {
+    // Create model object
+    const model = {
+      name: manualModel.value.name.trim(),
+      size_billion: Number(manualModel.value.size_billion),
+      quantization: manualModel.value.quantization,
+      memory_factor: manualModel.value.memory_factor,
+      huggingface_id: manualModel.value.huggingface_id.trim() || undefined,
+      source: 'manual'
+    }
+    
+    // Validate model
+    if (!validateModel(model)) {
+      manualModelError.value = 'Invalid model configuration. Please check all fields.'
+      return
+    }
+    
+    // Add model
+    addModel(model)
+    
+    // Show success message
+    manualModelSuccess.value = `Model "${model.name}" added successfully!`
+    
+    // Clear form after delay
+    setTimeout(() => {
+      clearManualForm()
+    }, 2000)
+    
+  } catch (error) {
+    console.error('Error adding manual model:', error)
+    manualModelError.value = 'Failed to add model. Please try again.'
+  }
+}
+
+const clearManualForm = () => {
+  manualModel.value = {
+    name: '',
+    size_billion: null,
+    quantization: 'fp16',
+    memory_factor: 1.0,
+    huggingface_id: ''
+  }
+  manualModelNameError.value = null
+  manualModelSizeError.value = null
+  manualModelError.value = null
+  manualModelSuccess.value = null
 }
 
 // Lifecycle
