@@ -18,16 +18,25 @@ import VRAMChart from './components/VRAMChart.vue'
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
-// GPU selection state
+// Application state management
 const selectedGPUs = ref([])
-// Model selection state
 const selectedModels = ref([])
+const applicationReady = ref(false)
 
-// Computed properties for chart data
-const hasConfiguration = computed(
+// Application lifecycle
+onMounted(() => {
+  // Mark application as ready after initial load
+  setTimeout(() => {
+    applicationReady.value = true
+  }, 100)
+})
+
+// Configuration validation
+const hasValidConfiguration = computed(
   () => selectedGPUs.value.length > 0 && selectedModels.value.length > 0
 )
 
+// Hardware calculations
 const totalVRAM = computed(() =>
   selectedGPUs.value.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
 )
@@ -36,8 +45,22 @@ const totalModelSize = computed(() =>
   selectedModels.value.reduce((total, model) => total + (model.size || 0), 0)
 )
 
+// Configuration state tracking
+const configurationStep = computed(() => {
+  if (selectedGPUs.value.length === 0) return 'gpu'
+  if (selectedModels.value.length === 0) return 'model'
+  return 'complete'
+})
+
+// Progress indicator
+const setupProgress = computed(() => {
+  const steps = ['gpu', 'model', 'complete']
+  const currentStepIndex = steps.indexOf(configurationStep.value)
+  return Math.min(100, ((currentStepIndex + 1) / steps.length) * 100)
+})
+
 const configurations = computed(() => {
-  if (!hasConfiguration.value) return []
+  if (!hasValidConfiguration.value) return []
 
   const remainingVRAM = totalVRAM.value - totalModelSize.value
   const baseMemoryUtilization = Math.min(
@@ -198,60 +221,172 @@ const chartOptions = ref({
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="text-center mb-12">
-        <h1 class="text-5xl font-bold text-gray-900 mb-4">vLLM Configuration Calculator</h1>
-        <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-          Configure optimal vLLM parameters for your GPU and model setup with intelligent recommendations
-        </p>
-      </div>
-
-      <!-- GPU Selection Component -->
-      <div class="mb-12">
-        <GPUSelector 
-          v-model:selectedGPUs="selectedGPUs"
-          @update:selectedGPUs="selectedGPUs = $event"
-        />
-      </div>
-
-      <!-- Model Selection Component -->
-      <div class="mb-12">
-        <ModelSelector 
-          v-model:selectedModels="selectedModels"
-          @update:selectedModels="selectedModels = $event"
-        />
-      </div>
-
-      <!-- Configuration Output Component -->
-      <div class="mb-12">
-        <ConfigurationOutput 
-          :selectedGPUs="selectedGPUs"
-          :selectedModels="selectedModels"
-        />
-      </div>
-
-      <!-- VRAM Usage Breakdown Chart -->
-      <div class="mb-12" v-if="hasConfiguration">
-        <VRAMChart 
-          :selectedGPUs="selectedGPUs"
-          :selectedModels="selectedModels"
-          :configurations="configurations"
-          :showBreakdown="true"
-          title="VRAM Memory Allocation by Configuration"
-        />
-      </div>
-
-      <!-- Chart.js Integration Test (keeping for development) -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">GPU VRAM Comparison</h2>
-        <div class="h-96">
-          <Bar :data="chartData" :options="chartOptions" />
+  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <!-- Navigation Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center space-x-4">
+            <div class="flex-shrink-0">
+              <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-xl font-bold text-gray-900">vLLM Calculator</h1>
+              <p class="text-sm text-gray-500">GPU Configuration Tool</p>
+            </div>
+          </div>
+          
+          <!-- Progress Indicator -->
+          <div class="hidden md:flex items-center space-x-4">
+            <div class="flex items-center space-x-2">
+              <span class="text-sm font-medium text-gray-700">Setup Progress</span>
+              <div class="w-32 bg-gray-200 rounded-full h-2">
+                <div 
+                  class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                  :style="{ width: setupProgress + '%' }"
+                ></div>
+              </div>
+              <span class="text-sm text-gray-500">{{ Math.round(setupProgress) }}%</span>
+            </div>
+          </div>
         </div>
-        <p class="text-green-600 font-semibold text-center mt-4">✅ Chart.js Integration Ready</p>
       </div>
-    </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Hero Section -->
+      <section class="text-center mb-12" v-if="applicationReady">
+        <div class="max-w-4xl mx-auto">
+          <h2 class="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+            Optimize Your vLLM Deployment
+          </h2>
+          <p class="text-xl text-gray-600 mb-8">
+            Configure optimal vLLM parameters for your GPU and model setup with intelligent recommendations
+            based on throughput, latency, and balanced performance profiles.
+          </p>
+          
+          <!-- Configuration Status -->
+          <div class="flex justify-center mb-8">
+            <div class="flex items-center space-x-4 bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-3">
+              <div class="flex items-center space-x-2">
+                <div class="flex items-center">
+                  <div :class="[
+                    'w-3 h-3 rounded-full mr-2',
+                    selectedGPUs.length > 0 ? 'bg-green-500' : 'bg-gray-300'
+                  ]"></div>
+                  <span class="text-sm font-medium text-gray-700">GPU Selected</span>
+                </div>
+                <span class="text-gray-400">→</span>
+                <div class="flex items-center">
+                  <div :class="[
+                    'w-3 h-3 rounded-full mr-2',
+                    selectedModels.length > 0 ? 'bg-green-500' : 'bg-gray-300'
+                  ]"></div>
+                  <span class="text-sm font-medium text-gray-700">Model Selected</span>
+                </div>
+                <span class="text-gray-400">→</span>
+                <div class="flex items-center">
+                  <div :class="[
+                    'w-3 h-3 rounded-full mr-2',
+                    hasValidConfiguration ? 'bg-green-500' : 'bg-gray-300'
+                  ]"></div>
+                  <span class="text-sm font-medium text-gray-700">Ready to Configure</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Configuration Steps -->
+      <div class="space-y-12">
+        <!-- Step 1: GPU Selection -->
+        <section class="scroll-mt-20" id="gpu-selection">
+          <div class="flex items-center mb-6">
+            <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-4">
+              1
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900">Select Your GPU Configuration</h3>
+          </div>
+          <GPUSelector 
+            v-model:selectedGPUs="selectedGPUs"
+            @update:selectedGPUs="selectedGPUs = $event"
+          />
+        </section>
+
+        <!-- Step 2: Model Selection -->
+        <section class="scroll-mt-20" id="model-selection">
+          <div class="flex items-center mb-6">
+            <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-4">
+              2
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900">Choose Your Model</h3>
+          </div>
+          <ModelSelector 
+            v-model:selectedModels="selectedModels"
+            @update:selectedModels="selectedModels = $event"
+          />
+        </section>
+
+        <!-- Configuration Results -->
+        <section v-if="hasValidConfiguration" class="scroll-mt-20" id="configuration-output">
+          <div class="flex items-center mb-6">
+            <div class="flex items-center justify-center w-8 h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-4">
+              ✓
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
+          </div>
+          <ConfigurationOutput 
+            :selectedGPUs="selectedGPUs"
+            :selectedModels="selectedModels"
+          />
+        </section>
+
+        <!-- VRAM Visualization -->
+        <section v-if="hasValidConfiguration" class="scroll-mt-20" id="vram-analysis">
+          <div class="flex items-center mb-6">
+            <div class="flex items-center justify-center w-8 h-8 bg-purple-600 text-white rounded-full text-sm font-bold mr-4">
+              📊
+            </div>
+            <h3 class="text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
+          </div>
+          <VRAMChart 
+            :selectedGPUs="selectedGPUs"
+            :selectedModels="selectedModels"
+            :configurations="configurations"
+            :showBreakdown="true"
+            title="VRAM Memory Allocation by Configuration"
+          />
+        </section>
+      </div>
+
+      <!-- Chart.js Integration Test (development only) -->
+      <section v-if="hasValidConfiguration" class="mt-16">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+          <h4 class="text-xl font-bold text-gray-900 mb-6 text-center">Development: Chart.js Integration Test</h4>
+          <div class="h-64">
+            <Bar :data="chartData" :options="chartOptions" />
+          </div>
+          <p class="text-green-600 font-semibold text-center mt-4">✅ Chart.js Integration Ready</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="text-center">
+          <p class="text-gray-500 text-sm">
+            vLLM Configuration Calculator - Optimize your large language model deployments
+          </p>
+          <p class="text-gray-400 text-xs mt-2">
+            Built with Vue.js, Tailwind CSS, and Chart.js
+          </p>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 

@@ -97,7 +97,7 @@
   - [x] 6.5 Style charts to match application design
   - [x] 6.6 Write unit tests for VRAM chart component
 - [ ] 7.0 Main Application Integration and Layout
-  - [ ] 7.1 Create main App.vue component with overall layout
+  - [x] 7.1 Create main App.vue component with overall layout
   - [ ] 7.2 Implement state management for GPU and model selections
   - [ ] 7.3 Connect calculation engine to UI components
   - [ ] 7.4 Add application header and navigation elements
