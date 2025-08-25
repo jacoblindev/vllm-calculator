@@ -26,6 +26,23 @@
     >
       Last updated: {{ new Date(lastUpdateTime).toLocaleTimeString() }}
     </div>
+    
+    <!-- VRAM Summary Info -->
+    <div 
+      v-if="getTotalVRAM() > 0 && !isUpdating"
+      class="absolute top-2 right-2 bg-white bg-opacity-95 border border-gray-200 rounded-lg p-3 text-xs shadow-sm"
+    >
+      <div class="font-semibold text-gray-700 mb-1">GPU Configuration</div>
+      <div class="text-gray-600">
+        <div>Total VRAM: {{ getTotalVRAM() }} GB</div>
+        <div v-if="selectedGPUs.length === 1">
+          {{ selectedGPUs[0].quantity }}x {{ selectedGPUs[0].gpu.name }}
+        </div>
+        <div v-else-if="selectedGPUs.length > 1">
+          {{ selectedGPUs.length }} GPU types selected
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -40,11 +57,12 @@ import {
   CategoryScale,
   LinearScale,
 } from 'chart.js'
+import annotationPlugin from 'chartjs-plugin-annotation'
 import { Bar } from 'vue-chartjs'
 import { calculateVRAMBreakdown } from '../lib/calculationEngine.js'
 
-// Register Chart.js components
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+// Register Chart.js components and plugins
+ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, annotationPlugin)
 
 // Props for dynamic data
 const props = defineProps({
@@ -78,6 +96,12 @@ const props = defineProps({
 const isUpdating = ref(false)
 const updateKey = ref(0)
 const lastUpdateTime = ref(Date.now())
+
+// Helper function to get total VRAM from selected GPUs
+const getTotalVRAM = () => {
+  if (!props.selectedGPUs.length) return 0
+  return props.selectedGPUs.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
+}
 
 // Memory component colors for visual distinction
 const memoryColors = {
@@ -282,40 +306,157 @@ const chartOptions = computed(() => ({
         bottom: 20,
       },
     },
+    annotation: {
+      annotations: (() => {
+        const totalVRAM = getTotalVRAM()
+        if (totalVRAM <= 0) return {}
+        
+        return {
+          totalVRAMLine: {
+            type: 'line',
+            yMin: totalVRAM,
+            yMax: totalVRAM,
+            borderColor: '#DC2626',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            label: {
+              display: true,
+              content: `Total VRAM Capacity: ${totalVRAM} GB`,
+              position: 'end',
+              backgroundColor: 'rgba(220, 38, 38, 0.1)',
+              color: '#DC2626',
+              padding: 6,
+              font: {
+                size: 11,
+                weight: 'bold',
+                family: 'Inter, sans-serif',
+              },
+              borderColor: '#DC2626',
+              borderWidth: 1,
+              cornerRadius: 4,
+            },
+          },
+        }
+      })(),
+    },
     legend: {
       display: true,
       position: 'bottom',
+      align: 'center',
       labels: {
         usePointStyle: true,
-        padding: 15,
+        pointStyle: 'rect',
+        padding: 20,
         font: {
-          size: 11,
+          size: 12,
+          family: 'Inter, sans-serif',
+        },
+        color: '#374151',
+        generateLabels: function(chart) {
+          const datasets = chart.data.datasets
+          return datasets.map((dataset, index) => ({
+            text: dataset.label,
+            fillStyle: dataset.backgroundColor,
+            strokeStyle: dataset.borderColor,
+            lineWidth: dataset.borderWidth,
+            pointStyle: 'rect',
+            hidden: !chart.isDatasetVisible(index),
+            datasetIndex: index
+          }))
+        },
+      },
+      title: {
+        display: true,
+        text: 'VRAM Components',
+        font: {
+          size: 14,
+          weight: 'bold',
+          family: 'Inter, sans-serif',
+        },
+        color: '#1F2937',
+        padding: {
+          top: 0,
+          bottom: 10,
         },
       },
     },
     tooltip: {
       mode: 'index',
       intersect: false,
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      titleColor: '#1F2937',
+      bodyColor: '#374151',
+      borderColor: '#E5E7EB',
+      borderWidth: 1,
+      cornerRadius: 8,
+      displayColors: true,
       animation: {
         duration: 200,
       },
+      titleFont: {
+        size: 14,
+        weight: 'bold',
+        family: 'Inter, sans-serif',
+      },
+      bodyFont: {
+        size: 12,
+        family: 'Inter, sans-serif',
+      },
+      footerFont: {
+        size: 12,
+        weight: 'bold',
+        family: 'Inter, sans-serif',
+      },
+      padding: 12,
       callbacks: {
+        title: function(tooltipItems) {
+          if (!tooltipItems.length) return ''
+          return `Configuration: ${tooltipItems[0].label}`
+        },
         label: function(context) {
           const label = context.dataset.label || ''
           const value = context.parsed.y || 0
-          return `${label}: ${value.toFixed(2)} GB`
+          const percentage = ((value / getTotalVRAM()) * 100).toFixed(1)
+          return `${label}: ${value.toFixed(2)} GB (${percentage}%)`
         },
         footer: function(tooltipItems) {
           if (!tooltipItems.length) return ''
           
           const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y || 0), 0)
-          return `Total: ${total.toFixed(2)} GB`
+          const totalVRAM = getTotalVRAM()
+          const usage = ((total / totalVRAM) * 100).toFixed(1)
+          
+          return [
+            `Total Used: ${total.toFixed(2)} GB`,
+            `Available: ${(totalVRAM - total).toFixed(2)} GB`,
+            `Utilization: ${usage}%`
+          ]
         },
         beforeTitle: function(_tooltipItems) {
           if (isUpdating.value) {
             return 'Updating...'
           }
           return ''
+        },
+        afterBody: function(tooltipItems) {
+          if (!tooltipItems.length) return ''
+          
+          // Add helpful context about the memory component
+          const context = tooltipItems[0]
+          const label = context.dataset.label
+          
+          const descriptions = {
+            'Model Weights': 'Memory required to store the neural network parameters',
+            'KV Cache': 'Memory for storing key-value pairs during inference',
+            'Activations': 'Memory for intermediate computations during forward pass',
+            'System Overhead': 'Memory used by the vLLM system and CUDA runtime',
+            'Fragmentation': 'Memory lost due to allocation fragmentation',
+            'Swap Space': 'Reserved memory for swapping tensors to CPU',
+            'Reserved/Buffer': 'Additional memory buffer for safety margin'
+          }
+          
+          const description = descriptions[label]
+          return description ? [``, `ℹ️ ${description}`] : []
         },
       },
     },
@@ -325,10 +466,28 @@ const chartOptions = computed(() => ({
       stacked: props.showBreakdown,
       title: {
         display: true,
-        text: 'Configuration Type',
+        text: 'vLLM Configuration Presets',
+        font: {
+          size: 14,
+          weight: 'bold',
+          family: 'Inter, sans-serif',
+        },
+        color: '#1F2937',
+        padding: {
+          top: 10,
+        },
+      },
+      ticks: {
         font: {
           size: 12,
-          weight: 'bold',
+          family: 'Inter, sans-serif',
+        },
+        color: '#374151',
+        maxRotation: 0,
+        callback: function(value, _index) {
+          const label = this.getLabelForValue(value)
+          // Truncate long labels and add ellipsis
+          return label.length > 15 ? label.substring(0, 15) + '...' : label
         },
       },
       grid: {
@@ -342,17 +501,40 @@ const chartOptions = computed(() => ({
         display: true,
         text: 'VRAM Usage (GB)',
         font: {
-          size: 12,
+          size: 14,
           weight: 'bold',
+          family: 'Inter, sans-serif',
+        },
+        color: '#1F2937',
+        padding: {
+          bottom: 10,
         },
       },
       ticks: {
+        font: {
+          size: 12,
+          family: 'Inter, sans-serif',
+        },
+        color: '#374151',
         callback: function(value) {
-          return value.toFixed(1) + ' GB'
+          const totalVRAM = getTotalVRAM()
+          if (totalVRAM > 0) {
+            const percentage = ((value / totalVRAM) * 100).toFixed(0)
+            return `${value.toFixed(1)} GB (${percentage}%)`
+          }
+          return `${value.toFixed(1)} GB`
         },
       },
       grid: {
-        color: 'rgba(0, 0, 0, 0.1)',
+        color: 'rgba(156, 163, 175, 0.3)',
+        borderDash: [2, 2],
+      },
+      // Add a reference line for total VRAM capacity
+      afterDataLimits: function(scale) {
+        const totalVRAM = getTotalVRAM()
+        if (totalVRAM > 0 && scale.max < totalVRAM) {
+          scale.max = Math.ceil(totalVRAM * 1.1) // Add 10% padding above total VRAM
+        }
       },
     },
   },

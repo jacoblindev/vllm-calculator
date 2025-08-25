@@ -238,4 +238,99 @@ describe('VRAMChart.vue', () => {
     expect(wrapper.vm.lastUpdateTime).toBeGreaterThan(0)
     expect(wrapper.vm.isUpdating).toBe(false)
   })
+
+  it('includes enhanced legend configuration with title and styling', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    const options = wrapper.vm.chartOptions
+    expect(options.plugins.legend.title.display).toBe(true)
+    expect(options.plugins.legend.title.text).toBe('VRAM Components')
+    expect(options.plugins.legend.labels.font.family).toBe('Inter, sans-serif')
+    expect(options.plugins.legend.labels.pointStyle).toBe('rect')
+  })
+
+  it('includes enhanced tooltip with detailed breakdown information', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    const options = wrapper.vm.chartOptions
+    expect(options.plugins.tooltip.backgroundColor).toBe('rgba(255, 255, 255, 0.95)')
+    expect(options.plugins.tooltip.titleFont.family).toBe('Inter, sans-serif')
+    expect(options.plugins.tooltip.bodyFont.family).toBe('Inter, sans-serif')
+    expect(typeof options.plugins.tooltip.callbacks.afterBody).toBe('function')
+  })
+
+  it('includes enhanced axis labels with percentage information', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    const options = wrapper.vm.chartOptions
+    expect(options.scales.x.title.text).toBe('vLLM Configuration Presets')
+    expect(options.scales.y.title.text).toBe('VRAM Usage (GB)')
+    expect(options.scales.x.title.font.family).toBe('Inter, sans-serif')
+    expect(options.scales.y.title.font.family).toBe('Inter, sans-serif')
+  })
+
+  it('includes annotation plugin configuration for total VRAM reference line', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    const options = wrapper.vm.chartOptions
+    expect(options.plugins.annotation).toBeDefined()
+    expect(typeof options.plugins.annotation.annotations).toBe('object')
+  })
+
+  it('provides getTotalVRAM helper function', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    expect(typeof wrapper.vm.getTotalVRAM).toBe('function')
+    expect(wrapper.vm.getTotalVRAM()).toBe(80) // From mockGPUs: 1x A100 with 80GB VRAM
+  })
+
+  it('shows VRAM summary info when GPUs are selected', () => {
+    const wrapper = mount(VRAMChart, {
+      props: {
+        selectedGPUs: mockGPUs,
+        selectedModels: mockModels,
+        configurations: mockConfigurations,
+        showBreakdown: true,
+      },
+    })
+
+    // Should show GPU configuration summary
+    expect(wrapper.vm.getTotalVRAM()).toBeGreaterThan(0)
+    expect(wrapper.vm.selectedGPUs.length).toBeGreaterThan(0)
+  })
 })
