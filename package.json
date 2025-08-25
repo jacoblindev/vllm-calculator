@@ -38,6 +38,7 @@
     "happy-dom": "^18.0.1",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.12",
+    "@tailwindcss/vite": "^4.1.12",
     "vite": "^7.1.2",
     "vitest": "^3.2.4"
   }
