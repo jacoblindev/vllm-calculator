@@ -72,7 +72,7 @@
   - [x] 3.6 Write unit tests for GPU selector component
 - [ ] 4.0 Model Selection Component Development
   - [x] 4.1 Create model selector component with predefined list integration including quantization variants
-  - [ ] 4.2 Implement clear display of quantization information and memory factors
+  - [x] 4.2 Implement clear display of quantization information and memory factors
   - [ ] 4.3 Implement Hugging Face API integration for custom model fetching with quantization detection
   - [ ] 4.4 Create fallback manual entry form for model specifications including quantization options
   - [ ] 4.5 Add loading states and error handling for API calls
