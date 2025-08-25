@@ -14,6 +14,20 @@ import GPUSelector from './components/GPUSelector.vue'
 import ModelSelector from './components/ModelSelector.vue'
 import ConfigurationOutput from './components/ConfigurationOutput.vue'
 import VRAMChart from './components/VRAMChart.vue'
+import {
+  calculateThroughputOptimizedConfig,
+  calculateLatencyOptimalBatchSize,
+  calculateBalancedOptimizedConfig,
+  calculateVLLMMemoryUsage,
+  estimateThroughputMetrics,
+  estimateLatencyMetrics,
+  calculateMemoryAllocationStrategy,
+  generateVLLMCommand,
+  calculateModelWeightsMemory,
+  calculateKVCacheMemory,
+  getSupportedQuantizationFormats,
+  generateQuantizationRecommendation
+} from './lib/calculationEngine.js'
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
@@ -260,6 +274,118 @@ const setupProgress = computed(() => {
   return Math.min(100, ((currentStepIndex + 1) / steps.length) * 100)
 })
 
+// Enhanced VRAM breakdown calculations using calculation engine
+const vramBreakdown = computed(() => {
+  if (!hasValidConfiguration.value) return null
+
+  try {
+    const breakdown = {
+      modelWeights: 0,
+      kvCache: 0,
+      activations: 0,
+      systemOverhead: 0,
+      available: 0
+    }
+
+    // Calculate model weights memory for each selected model
+    selectedModels.value.forEach(model => {
+      const params = model.parameters || estimateParametersFromSize(model.size)
+      const quantization = model.quantization || 'fp16'
+      
+      const weightsMemory = calculateModelWeightsMemory(params, quantization)
+      breakdown.modelWeights += weightsMemory
+    })
+
+    // Calculate KV cache memory (estimate based on configuration)
+    const avgConfig = configurations.value.find(c => c.type === 'balanced') || configurations.value[0]
+    if (avgConfig && avgConfig.parameters) {
+      const maxSeqs = parseInt(avgConfig.parameters.find(p => p.name === '--max-num-seqs')?.value || '16')
+      const maxLen = parseInt(avgConfig.parameters.find(p => p.name === '--max-model-len')?.value || '2048')
+      
+      selectedModels.value.forEach(model => {
+        const params = model.parameters || estimateParametersFromSize(model.size)
+        const kvMemory = calculateKVCacheMemory(
+          params,
+          maxSeqs,
+          maxLen,
+          'fp16', // Assuming fp16 for KV cache
+          { numLayers: Math.floor(Math.sqrt(params / 1000000)) } // Rough layer estimation
+        )
+        breakdown.kvCache += kvMemory
+      })
+    }
+
+    // Estimate activation memory (roughly 10-20% of model weights)
+    breakdown.activations = breakdown.modelWeights * 0.15
+
+    // Estimate system overhead (roughly 5-10% of total VRAM)
+    breakdown.systemOverhead = totalVRAM.value * 0.08
+
+    // Calculate available memory
+    const usedMemory = breakdown.modelWeights + breakdown.kvCache + 
+                      breakdown.activations + breakdown.systemOverhead
+    breakdown.available = Math.max(0, totalVRAM.value - usedMemory)
+
+    return breakdown
+  } catch (error) {
+    console.error('Error calculating VRAM breakdown:', error)
+    
+    // Fallback calculation
+    const modelMemory = totalModelSize.value
+    const kvCache = modelMemory * 0.3 // Rough estimate
+    const activations = modelMemory * 0.15
+    const systemOverhead = totalVRAM.value * 0.08
+    const available = Math.max(0, totalVRAM.value - modelMemory - kvCache - activations - systemOverhead)
+
+    return {
+      modelWeights: modelMemory,
+      kvCache,
+      activations,
+      systemOverhead,
+      available
+    }
+  }
+})
+
+// Enhanced quantization recommendations
+const quantizationRecommendations = computed(() => {
+  if (!hasValidConfiguration.value) return []
+
+  try {
+    const recommendations = []
+    
+    selectedModels.value.forEach(model => {
+      if (model.size && model.size > 0) {
+        const recommendation = generateQuantizationRecommendation(
+          totalVRAM.value,
+          model.parameters || estimateParametersFromSize(model.size),
+          {
+            modelName: model.name,
+            targetMemoryUtilization: 0.85,
+            qualityTolerance: 'medium'
+          }
+        )
+        
+        if (recommendation) {
+          recommendations.push({
+            modelName: model.name,
+            currentFormat: model.quantization || 'fp16',
+            recommendedFormat: recommendation.recommendedFormat,
+            memorySavings: recommendation.memorySavings,
+            qualityImpact: recommendation.qualityImpact,
+            reason: recommendation.reason
+          })
+        }
+      }
+    })
+
+    return recommendations
+  } catch (error) {
+    console.error('Error generating quantization recommendations:', error)
+    return []
+  }
+})
+
 // Enhanced state analysis
 const stateAnalysis = computed(() => {
   return {
@@ -320,135 +446,268 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     clearStoredState,
     configurationHealth,
     stateAnalysis,
-    memoryPressure
+    memoryPressure,
+    vramBreakdown,
+    quantizationRecommendations,
+    // Calculation engine functions for debugging
+    calculateLatencyOptimalBatchSize,
+    calculateVLLMMemoryUsage,
+    estimateThroughputMetrics,
+    estimateLatencyMetrics,
+    calculateMemoryAllocationStrategy,
+    getSupportedQuantizationFormats
   }
 }
 
 const configurations = computed(() => {
   if (!hasValidConfiguration.value) return []
 
-  const remainingVRAM = totalVRAM.value - totalModelSize.value
-  const baseMemoryUtilization = Math.min(
-    0.9,
-    Math.max(0.5, totalModelSize.value / totalVRAM.value + 0.1)
-  )
+  // Prepare parameters for calculation engine
+  const totalVRAMValue = totalVRAM.value
+  const totalModelSizeValue = totalModelSize.value
+  
+  // Extract hardware specifications
+  const hardwareSpecs = {
+    totalVRAM: totalVRAMValue,
+    gpuCount: selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0),
+    gpuTypes: selectedGPUs.value.map(sel => sel.gpu.name),
+    memoryBandwidth: selectedGPUs.value.reduce((total, sel) => {
+      // Estimate memory bandwidth based on GPU type
+      const estimatedBandwidth = sel.gpu.vram_gb > 80 ? 3500 : // H100/A100 class
+                                 sel.gpu.vram_gb > 40 ? 2000 : // RTX 6000 class  
+                                 sel.gpu.vram_gb > 20 ? 1000 : // RTX 4090 class
+                                 800 // Lower-end GPUs
+      return total + (estimatedBandwidth * sel.quantity)
+    }, 0) / selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0) // Average
+  }
+  
+  // Extract model specifications
+  const modelSpecs = selectedModels.value.map(model => ({
+    name: model.name,
+    parameters: model.parameters || estimateParametersFromSize(model.size),
+    size: model.size || 0,
+    quantization: model.quantization || 'fp16',
+    architecture: model.architecture || 'transformer'
+  }))
+  
+  // Common calculation parameters
+  const baseParams = {
+    totalVRAMGB: totalVRAMValue,
+    modelSizeGB: totalModelSizeValue,
+    models: modelSpecs,
+    hardware: hardwareSpecs
+  }
 
-  const configs = [
+  try {
+    // Generate optimized configurations using calculation engine
+    const throughputConfig = calculateThroughputOptimizedConfig({
+      ...baseParams,
+      optimizationTarget: 'throughput',
+      maxSequenceLength: 2048,
+      prioritizeMemoryEfficiency: false
+    })
+    
+    const latencyConfig = calculateBalancedOptimizedConfig({
+      ...baseParams,
+      optimizationTarget: 'latency',
+      maxSequenceLength: 4096,
+      balanceTarget: 'latency'
+    })
+    
+    const balancedConfig = calculateBalancedOptimizedConfig({
+      ...baseParams,
+      optimizationTarget: 'balanced',
+      maxSequenceLength: 3072,
+      balanceTarget: 'general'
+    })
+
+    // Transform calculation engine output to UI format
+    return [
+      transformConfigToUI(throughputConfig, 'throughput', 'Maximum Throughput'),
+      transformConfigToUI(latencyConfig, 'latency', 'Minimum Latency'),
+      transformConfigToUI(balancedConfig, 'balanced', 'Balanced Performance')
+    ]
+  } catch (error) {
+    console.error('Error generating configurations with calculation engine:', error)
+    
+    // Fallback to basic calculations if engine fails
+    return generateFallbackConfigurations(totalVRAMValue, totalModelSizeValue)
+  }
+})
+
+// Helper function to estimate parameters from model size
+const estimateParametersFromSize = (sizeGB) => {
+  if (!sizeGB) return 7000000000 // Default 7B parameters
+  // Rough estimation: ~2 bytes per parameter for fp16
+  return Math.round((sizeGB * 1024 * 1024 * 1024) / 2)
+}
+
+// Transform calculation engine output to UI-compatible format
+const transformConfigToUI = (engineConfig, type, title) => {
+  if (!engineConfig || !engineConfig.parameters) {
+    return generateFallbackConfig(type, title)
+  }
+
+  const params = engineConfig.parameters
+  const metrics = engineConfig.metrics || {}
+  
+  // Map calculation engine parameters to UI format
+  const uiParameters = [
     {
-      type: 'throughput',
-      title: 'Maximum Throughput',
-      description: 'Optimized for handling the highest number of concurrent requests and maximum token generation.',
-      parameters: [
-        {
-          name: '--gpu-memory-utilization',
-          value: Math.min(0.95, baseMemoryUtilization + 0.1).toFixed(2),
-          explanation: 'High memory utilization to maximize concurrent processing capacity.',
-        },
-        {
-          name: '--max-model-len',
-          value: '2048',
-          explanation: 'Shorter sequences to allow more concurrent requests and higher throughput.',
-        },
-        {
-          name: '--max-num-seqs',
-          value: Math.max(32, Math.floor(remainingVRAM / 2)).toString(),
-          explanation: 'High concurrent sequence limit to maximize parallel processing.',
-        },
-        {
-          name: '--max-num-batched-tokens',
-          value: Math.max(8192, Math.floor(remainingVRAM * 1024)).toString(),
-          explanation: 'Large batch size to maximize GPU utilization and throughput.',
-        },
-        {
-          name: '--block-size',
-          value: '16',
-          explanation: 'Larger block size for efficient memory allocation in high-throughput scenarios.',
-        },
-        {
-          name: '--swap-space',
-          value: Math.max(4, Math.floor(totalVRAM.value * 0.1)).toString(),
-          explanation: 'Generous swap space to handle peak memory usage during high throughput periods.',
-        },
-      ],
+      name: '--gpu-memory-utilization',
+      value: params['gpu-memory-utilization'] || '0.85',
+      explanation: engineConfig.explanations?.find(e => e.includes('memory utilization'))?.text || 
+                   'GPU memory utilization for optimal performance.'
     },
     {
-      type: 'latency',
-      title: 'Minimum Latency',
-      description: 'Optimized for fastest response times and lowest latency per request.',
-      parameters: [
-        {
-          name: '--gpu-memory-utilization',
-          value: Math.max(0.7, baseMemoryUtilization - 0.1).toFixed(2),
-          explanation: 'Conservative memory utilization to ensure consistent performance and low latency.',
-        },
-        {
-          name: '--max-model-len',
-          value: '4096',
-          explanation: 'Longer sequences supported while maintaining low latency for individual requests.',
-        },
-        {
-          name: '--max-num-seqs',
-          value: Math.max(8, Math.floor(remainingVRAM / 4)).toString(),
-          explanation: 'Lower concurrent sequences to minimize context switching and latency.',
-        },
-        {
-          name: '--max-num-batched-tokens',
-          value: Math.max(2048, Math.floor(remainingVRAM * 512)).toString(),
-          explanation: 'Smaller batches for faster processing and reduced waiting time.',
-        },
-        {
-          name: '--block-size',
-          value: '8',
-          explanation: 'Smaller block size for more granular memory management and faster allocation.',
-        },
-        {
-          name: '--swap-space',
-          value: Math.max(2, Math.floor(totalVRAM.value * 0.05)).toString(),
-          explanation: 'Minimal swap space to reduce memory management overhead.',
-        },
-      ],
+      name: '--max-model-len',
+      value: params['max-model-len'] || '2048',
+      explanation: engineConfig.explanations?.find(e => e.includes('sequence length'))?.text ||
+                   'Maximum sequence length supported by the configuration.'
     },
     {
-      type: 'balanced',
-      title: 'Balanced Performance',
-      description: 'Balanced configuration providing good throughput while maintaining reasonable latency.',
-      parameters: [
-        {
-          name: '--gpu-memory-utilization',
-          value: baseMemoryUtilization.toFixed(2),
-          explanation: 'Balanced memory utilization for optimal resource usage without overcommitment.',
-        },
-        {
-          name: '--max-model-len',
-          value: '3072',
-          explanation: 'Moderate sequence length balancing memory usage and capability.',
-        },
-        {
-          name: '--max-num-seqs',
-          value: Math.max(16, Math.floor(remainingVRAM / 3)).toString(),
-          explanation: 'Moderate concurrent sequences for balanced performance.',
-        },
-        {
-          name: '--max-num-batched-tokens',
-          value: Math.max(4096, Math.floor(remainingVRAM * 768)).toString(),
-          explanation: 'Medium batch size balancing throughput and latency.',
-        },
-        {
-          name: '--block-size',
-          value: '12',
-          explanation: 'Medium block size for balanced memory management efficiency.',
-        },
-        {
-          name: '--swap-space',
-          value: Math.max(3, Math.floor(totalVRAM.value * 0.075)).toString(),
-          explanation: 'Reasonable swap space for handling moderate memory pressure.',
-        },
-      ],
+      name: '--max-num-seqs',
+      value: params['max-num-seqs'] || '16',
+      explanation: engineConfig.explanations?.find(e => e.includes('concurrent sequences'))?.text ||
+                   'Maximum number of concurrent sequences.'
     },
+    {
+      name: '--max-num-batched-tokens',
+      value: params['max-num-batched-tokens'] || '4096',
+      explanation: engineConfig.explanations?.find(e => e.includes('batch'))?.text ||
+                   'Maximum number of tokens processed in a single batch.'
+    },
+    {
+      name: '--block-size',
+      value: params['block-size'] || '16',
+      explanation: 'Block size for memory allocation and attention computation.'
+    }
   ]
 
-  return configs
-})
+  // Add optional parameters if present
+  if (params['swap-space']) {
+    uiParameters.push({
+      name: '--swap-space',
+      value: params['swap-space'],
+      explanation: 'Swap space allocation for handling memory overflow.'
+    })
+  }
+
+  if (params['enable-chunked-prefill'] === 'true') {
+    uiParameters.push({
+      name: '--enable-chunked-prefill',
+      value: 'true',
+      explanation: 'Enable chunked prefill for better memory management.'
+    })
+  }
+
+  return {
+    type,
+    title,
+    description: engineConfig.description || `${title} configuration optimized using advanced calculations.`,
+    parameters: uiParameters,
+    metrics: {
+      estimatedThroughput: metrics.estimatedThroughput || 'N/A',
+      estimatedLatency: metrics.averageLatency || 'N/A',
+      memoryEfficiency: metrics.memoryEfficiency || 'N/A',
+      ...metrics
+    },
+    command: engineConfig.command || generateVLLMCommand(params)
+  }
+}
+
+// Fallback configuration generation for when calculation engine fails
+const generateFallbackConfigurations = (totalVRAMValue, totalModelSizeValue) => {
+  const remainingVRAM = totalVRAMValue - totalModelSizeValue
+  const baseMemoryUtilization = Math.min(
+    0.9,
+    Math.max(0.5, totalModelSizeValue / totalVRAMValue + 0.1)
+  )
+
+  return [
+    generateFallbackConfig('throughput', 'Maximum Throughput', {
+      gpuMemoryUtilization: Math.min(0.95, baseMemoryUtilization + 0.1).toFixed(2),
+      maxModelLen: '2048',
+      maxNumSeqs: Math.max(32, Math.floor(remainingVRAM / 2)).toString(),
+      maxNumBatchedTokens: Math.max(8192, Math.floor(remainingVRAM * 1024)).toString(),
+      blockSize: '16',
+      swapSpace: Math.max(4, Math.floor(totalVRAMValue * 0.1)).toString()
+    }),
+    generateFallbackConfig('latency', 'Minimum Latency', {
+      gpuMemoryUtilization: Math.max(0.7, baseMemoryUtilization - 0.1).toFixed(2),
+      maxModelLen: '4096',
+      maxNumSeqs: Math.max(8, Math.floor(remainingVRAM / 4)).toString(),
+      maxNumBatchedTokens: Math.max(2048, Math.floor(remainingVRAM * 512)).toString(),
+      blockSize: '8',
+      swapSpace: Math.max(2, Math.floor(totalVRAMValue * 0.05)).toString()
+    }),
+    generateFallbackConfig('balanced', 'Balanced Performance', {
+      gpuMemoryUtilization: baseMemoryUtilization.toFixed(2),
+      maxModelLen: '3072',
+      maxNumSeqs: Math.max(16, Math.floor(remainingVRAM / 3)).toString(),
+      maxNumBatchedTokens: Math.max(4096, Math.floor(remainingVRAM * 768)).toString(),
+      blockSize: '12',
+      swapSpace: Math.max(3, Math.floor(totalVRAMValue * 0.075)).toString()
+    })
+  ]
+}
+
+const generateFallbackConfig = (type, title, params = {}) => {
+  const descriptions = {
+    throughput: 'Optimized for handling the highest number of concurrent requests and maximum token generation.',
+    latency: 'Optimized for fastest response times and lowest latency per request.',
+    balanced: 'Balanced configuration providing good throughput while maintaining reasonable latency.'
+  }
+
+  const defaultParams = {
+    gpuMemoryUtilization: '0.85',
+    maxModelLen: '2048',
+    maxNumSeqs: '16',
+    maxNumBatchedTokens: '4096',
+    blockSize: '16',
+    swapSpace: '4'
+  }
+
+  const finalParams = { ...defaultParams, ...params }
+
+  return {
+    type,
+    title,
+    description: descriptions[type] || 'Fallback configuration with basic optimization.',
+    parameters: [
+      {
+        name: '--gpu-memory-utilization',
+        value: finalParams.gpuMemoryUtilization,
+        explanation: 'GPU memory utilization for this configuration type.'
+      },
+      {
+        name: '--max-model-len',
+        value: finalParams.maxModelLen,
+        explanation: 'Maximum sequence length supported.'
+      },
+      {
+        name: '--max-num-seqs',
+        value: finalParams.maxNumSeqs,
+        explanation: 'Maximum number of concurrent sequences.'
+      },
+      {
+        name: '--max-num-batched-tokens',
+        value: finalParams.maxNumBatchedTokens,
+        explanation: 'Maximum tokens processed in a batch.'
+      },
+      {
+        name: '--block-size',
+        value: finalParams.blockSize,
+        explanation: 'Block size for memory allocation.'
+      },
+      {
+        name: '--swap-space',
+        value: finalParams.swapSpace,
+        explanation: 'Swap space allocation in GB.'
+      }
+    ]
+  }
+}
 
 // Chart data and options
 const chartData = ref({
@@ -615,6 +874,58 @@ const chartOptions = ref({
                     {{ memoryPressure === 'moderate' ? 'Moderate' : 
                        memoryPressure === 'high' ? 'High' : 'Critical' }} Memory Pressure
                   </span>
+                </div>
+              </div>
+              
+              <!-- VRAM Breakdown -->
+              <div v-if="vramBreakdown" class="mt-6">
+                <h5 class="text-md font-medium text-gray-900 mb-3">VRAM Allocation Breakdown</h5>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
+                  <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div class="font-medium text-blue-900">Model Weights</div>
+                    <div class="text-blue-700">{{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
+                  </div>
+                  <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                    <div class="font-medium text-green-900">KV Cache</div>
+                    <div class="text-green-700">{{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
+                  </div>
+                  <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    <div class="font-medium text-yellow-900">Activations</div>
+                    <div class="text-yellow-700">{{ vramBreakdown.activations.toFixed(1) }}GB</div>
+                  </div>
+                  <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+                    <div class="font-medium text-red-900">System</div>
+                    <div class="text-red-700">{{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
+                  </div>
+                  <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <div class="font-medium text-gray-900">Available</div>
+                    <div class="text-gray-700">{{ vramBreakdown.available.toFixed(1) }}GB</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Quantization Recommendations -->
+              <div v-if="quantizationRecommendations.length > 0" class="mt-6">
+                <h5 class="text-md font-medium text-gray-900 mb-3">Quantization Recommendations</h5>
+                <div class="space-y-2">
+                  <div 
+                    v-for="rec in quantizationRecommendations" 
+                    :key="rec.modelName"
+                    class="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                  >
+                    <div>
+                      <div class="font-medium text-blue-900">{{ rec.modelName }}</div>
+                      <div class="text-sm text-blue-700">{{ rec.reason }}</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="text-sm font-medium text-blue-900">
+                        {{ rec.currentFormat }} → {{ rec.recommendedFormat }}
+                      </div>
+                      <div class="text-xs text-blue-700">
+                        Save {{ rec.memorySavings.toFixed(1) }}GB
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
