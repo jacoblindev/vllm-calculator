@@ -89,13 +89,13 @@
   - [x] 5.4 Create tabbed or card-based layout for easy comparison
   - [x] 5.5 Style output component with clear visual hierarchy
   - [x] 5.6 Write unit tests for configuration output component
-- [ ] 6.0 VRAM Visualization Component Development
-  - [ ] 6.1 Set up Chart.js integration with Vue.js
-  - [ ] 6.2 Create stacked bar chart for VRAM usage breakdown
-  - [ ] 6.3 Implement dynamic chart updates based on configuration changes
-  - [ ] 6.4 Add chart labels and legends for clarity
-  - [ ] 6.5 Style charts to match application design
-  - [ ] 6.6 Write unit tests for VRAM chart component
+- [x] 6.0 VRAM Visualization Component Development
+  - [x] 6.1 Set up Chart.js integration with Vue.js
+  - [x] 6.2 Create stacked bar chart for VRAM usage breakdown
+  - [x] 6.3 Implement dynamic chart updates based on configuration changes
+  - [x] 6.4 Add chart labels and legends for clarity
+  - [x] 6.5 Style charts to match application design
+  - [x] 6.6 Write unit tests for VRAM chart component
 - [ ] 7.0 Main Application Integration and Layout
   - [ ] 7.1 Create main App.vue component with overall layout
   - [ ] 7.2 Implement state management for GPU and model selections
