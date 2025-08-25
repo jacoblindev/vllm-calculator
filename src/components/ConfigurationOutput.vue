@@ -1,21 +1,22 @@
 <template>
-  <div class="bg-white rounded-lg shadow-lg p-6">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">vLLM Configuration Recommendations</h2>
+  <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6">
+    <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">vLLM Configuration Recommendations</h2>
 
-    <div v-if="!hasConfiguration" class="text-center py-12 text-gray-500">
-      <p class="text-lg">Select GPUs and models to see configuration recommendations</p>
+    <div v-if="!hasConfiguration" class="text-center py-8 sm:py-12 text-gray-500">
+      <p class="text-base sm:text-lg">Select GPUs and models to see configuration recommendations</p>
     </div>
 
-    <div v-else class="space-y-6">
+    <div v-else class="space-y-4 sm:space-y-6">
       <!-- Configuration Tabs -->
       <div class="border-b border-gray-200">
-        <nav class="-mb-px flex space-x-8">
+        <!-- Desktop Tabs -->
+        <nav class="hidden sm:flex -mb-px space-x-8">
           <button
             v-for="config in configurations"
             :key="config.type"
             @click="activeTab = config.type"
             :class="[
-              'py-2 px-1 border-b-2 font-medium text-sm',
+              'py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap',
               activeTab === config.type
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
@@ -24,39 +25,55 @@
             {{ config.title }}
           </button>
         </nav>
+
+        <!-- Mobile Dropdown -->
+        <div class="sm:hidden">
+          <select
+            v-model="activeTab"
+            class="w-full p-3 border border-gray-300 rounded-md bg-white text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option
+              v-for="config in configurations"
+              :key="config.type"
+              :value="config.type"
+            >
+              {{ config.title }}
+            </option>
+          </select>
+        </div>
       </div>
 
       <!-- Active Configuration Display -->
       <div v-for="config in configurations" :key="config.type" v-show="activeTab === config.type">
-        <div class="mb-6">
-          <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ config.title }}</h3>
-          <p class="text-gray-600">{{ config.description }}</p>
+        <div class="mb-4 sm:mb-6">
+          <h3 class="text-lg sm:text-xl font-semibold text-gray-900 mb-2">{{ config.title }}</h3>
+          <p class="text-sm sm:text-base text-gray-600">{{ config.description }}</p>
         </div>
 
         <!-- Parameters Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div v-for="param in config.parameters" :key="param.name" class="border rounded-lg p-4">
-            <div class="flex justify-between items-start mb-2">
-              <h4 class="font-medium text-gray-900">{{ param.name }}</h4>
-              <code class="bg-gray-100 px-2 py-1 rounded text-sm font-mono">{{ param.value }}</code>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+          <div v-for="param in config.parameters" :key="param.name" class="border rounded-lg p-3 sm:p-4">
+            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 space-y-1 sm:space-y-0">
+              <h4 class="font-medium text-gray-900 text-sm sm:text-base">{{ param.name }}</h4>
+              <code class="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono self-start">{{ param.value }}</code>
             </div>
-            <p class="text-sm text-gray-600">{{ param.explanation }}</p>
+            <p class="text-xs sm:text-sm text-gray-600">{{ param.explanation }}</p>
           </div>
         </div>
 
         <!-- Command Line -->
-        <div class="border-t pt-6">
-          <div class="flex justify-between items-center mb-3">
+        <div class="border-t pt-4 sm:pt-6">
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 space-y-2 sm:space-y-0">
             <h4 class="font-medium text-gray-900">Command Line</h4>
             <button
               @click="copyCommand(config.command)"
-              class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+              class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors duration-200 self-start sm:self-auto"
             >
               {{ copiedCommand === config.command ? 'Copied!' : 'Copy' }}
             </button>
           </div>
-          <div class="bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto">
-            <code class="font-mono text-sm whitespace-pre-wrap">{{ config.command }}</code>
+          <div class="bg-gray-900 text-green-400 p-3 sm:p-4 rounded-lg overflow-x-auto">
+            <code class="font-mono text-xs sm:text-sm whitespace-pre-wrap break-all">{{ config.command }}</code>
           </div>
         </div>
       </div>

@@ -1,18 +1,18 @@
 <template>
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
     <!-- Chart Header Section -->
-    <div class="px-8 py-6 border-b border-gray-100">
-      <div class="flex justify-between items-start">
-        <div>
-          <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ title || 'VRAM Usage Breakdown' }}</h2>
-          <p class="text-gray-600">
+    <div class="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-100">
+      <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start space-y-4 lg:space-y-0">
+        <div class="flex-1">
+          <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{{ title || 'VRAM Usage Breakdown' }}</h2>
+          <p class="text-sm sm:text-base text-gray-600">
             Memory allocation across different components for each optimization strategy
           </p>
         </div>
         <!-- VRAM Summary Info -->
         <div 
           v-if="getTotalVRAM() > 0"
-          class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm min-w-[200px]"
+          class="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 text-sm w-full lg:w-auto lg:min-w-[200px]"
         >
           <div class="font-semibold text-gray-900 mb-2 flex items-center">
             <svg class="w-4 h-4 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -37,7 +37,7 @@
     </div>
 
     <!-- Chart Content Area -->
-    <div class="relative p-8">
+    <div class="relative p-4 sm:p-8">
       <!-- Loading Overlay -->
       <div 
         v-if="isUpdating" 

@@ -97,7 +97,7 @@
   - [x] 7.2 Implement state management for GPU and model selections
   - [x] 7.3 Connect calculation engine to UI components
   - [x] 7.4 Add application header and navigation elements
-  - [ ] 7.5 Implement responsive layout for different screen sizes
+  - [x] 7.5 Implement responsive layout for different screen sizes
   - [ ] 7.6 Add loading states and error boundaries
 - [ ] 8.0 UI/UX Polish and Responsive Design
   - [ ] 8.1 Refine component styling for professional appearance

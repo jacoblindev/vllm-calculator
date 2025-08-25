@@ -1079,25 +1079,27 @@ const chartOptions = ref({
       </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
       <!-- Hero Section -->
-      <section class="text-center mb-12" v-if="applicationReady">
-        <div class="max-w-4xl mx-auto">
-          <h2 class="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+      <section class="text-center mb-8 sm:mb-12" v-if="applicationReady">
+        <div class="max-w-4xl mx-auto px-2 sm:px-0">
+          <h2 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 leading-tight">
             Optimize Your vLLM Deployment
           </h2>
-          <p class="text-xl text-gray-600 mb-8">
+          <p class="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8 leading-relaxed">
             Configure optimal vLLM parameters for your GPU and model setup with intelligent recommendations
             based on throughput, latency, and balanced performance profiles.
           </p>
           
           <!-- Configuration Status -->
-          <div class="flex justify-center mb-8">
-            <div class="flex items-center space-x-4 bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-3">
-              <div class="flex items-center space-x-2">
-                <div class="flex items-center">
-                  <div :class="[
-                    'w-3 h-3 rounded-full mr-2',
+          <div class="flex justify-center mb-6 sm:mb-8">
+            <div class="w-full max-w-2xl">
+              <!-- Desktop Layout -->
+              <div class="hidden sm:flex items-center space-x-4 bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-3">
+                <div class="flex items-center space-x-2">
+                  <div class="flex items-center">
+                    <div :class="[
+                      'w-3 h-3 rounded-full mr-2',
                     selectedGPUs.length > 0 ? 'bg-green-500' : 'bg-gray-300'
                   ]"></div>
                   <span class="text-sm font-medium text-gray-700">GPU Selected</span>
@@ -1119,36 +1121,61 @@ const chartOptions = ref({
                   <span class="text-sm font-medium text-gray-700">Ready to Configure</span>
                 </div>
               </div>
+
+              <!-- Mobile Layout -->
+              <div class="sm:hidden bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-gray-700">GPU Selected</span>
+                  <div :class="[
+                    'w-3 h-3 rounded-full',
+                    selectedGPUs.length > 0 ? 'bg-green-500' : 'bg-gray-300'
+                  ]"></div>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-gray-700">Model Selected</span>
+                  <div :class="[
+                    'w-3 h-3 rounded-full',
+                    selectedModels.length > 0 ? 'bg-green-500' : 'bg-gray-300'
+                  ]"></div>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-sm font-medium text-gray-700">Ready to Configure</span>
+                  <div :class="[
+                    'w-3 h-3 rounded-full',
+                    hasValidConfiguration ? 'bg-green-500' : 'bg-gray-300'
+                  ]"></div>
+                </div>
+              </div>
             </div>
           </div>
           
           <!-- Enhanced State Dashboard -->
-          <div v-if="stateAnalysis.isComplete" class="mb-8">
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h4 class="text-lg font-semibold text-gray-900 mb-4">Configuration Summary</h4>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div v-if="stateAnalysis.isComplete" class="mb-6 sm:mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+              <h4 class="text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Configuration Summary</h4>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div class="text-center">
-                  <div class="text-2xl font-bold text-blue-600">{{ stateAnalysis.gpuCount }}</div>
-                  <div class="text-sm text-gray-600">Total GPUs</div>
+                  <div class="text-xl sm:text-2xl font-bold text-blue-600">{{ stateAnalysis.gpuCount }}</div>
+                  <div class="text-xs sm:text-sm text-gray-600">Total GPUs</div>
                 </div>
                 <div class="text-center">
-                  <div class="text-2xl font-bold text-blue-600">{{ totalVRAM }}GB</div>
-                  <div class="text-sm text-gray-600">Total VRAM</div>
+                  <div class="text-xl sm:text-2xl font-bold text-blue-600">{{ totalVRAM }}GB</div>
+                  <div class="text-xs sm:text-sm text-gray-600">Total VRAM</div>
                 </div>
                 <div class="text-center">
-                  <div class="text-2xl font-bold text-blue-600">{{ stateAnalysis.modelCount }}</div>
-                  <div class="text-sm text-gray-600">Models</div>
+                  <div class="text-xl sm:text-2xl font-bold text-blue-600">{{ stateAnalysis.modelCount }}</div>
+                  <div class="text-xs sm:text-sm text-gray-600">Models</div>
                 </div>
                 <div class="text-center">
                   <div :class="[
-                    'text-2xl font-bold',
+                    'text-xl sm:text-2xl font-bold',
                     memoryPressure === 'low' ? 'text-green-600' :
                     memoryPressure === 'moderate' ? 'text-yellow-600' :
                     memoryPressure === 'high' ? 'text-orange-600' : 'text-red-600'
                   ]">
                     {{ Math.round(stateAnalysis.memoryEfficiency * 100) }}%
                   </div>
-                  <div class="text-sm text-gray-600">Memory Usage</div>
+                  <div class="text-xs sm:text-sm text-gray-600">Memory Usage</div>
                 </div>
               </div>
               
@@ -1178,46 +1205,46 @@ const chartOptions = ref({
               </div>
               
               <!-- VRAM Breakdown -->
-              <div v-if="vramBreakdown" class="mt-6">
-                <h5 class="text-md font-medium text-gray-900 mb-3">VRAM Allocation Breakdown</h5>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
-                  <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <div class="font-medium text-blue-900">Model Weights</div>
-                    <div class="text-blue-700">{{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
+              <div v-if="vramBreakdown" class="mt-4 sm:mt-6">
+                <h5 class="text-sm sm:text-md font-medium text-gray-900 mb-3">VRAM Allocation Breakdown</h5>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-3 text-sm">
+                  <div class="bg-blue-50 p-2 sm:p-3 rounded-lg border border-blue-200">
+                    <div class="font-medium text-blue-900 text-xs sm:text-sm">Model Weights</div>
+                    <div class="text-blue-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
                   </div>
-                  <div class="bg-green-50 p-3 rounded-lg border border-green-200">
-                    <div class="font-medium text-green-900">KV Cache</div>
-                    <div class="text-green-700">{{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
+                  <div class="bg-green-50 p-2 sm:p-3 rounded-lg border border-green-200">
+                    <div class="font-medium text-green-900 text-xs sm:text-sm">KV Cache</div>
+                    <div class="text-green-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
                   </div>
-                  <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                    <div class="font-medium text-yellow-900">Activations</div>
-                    <div class="text-yellow-700">{{ vramBreakdown.activations.toFixed(1) }}GB</div>
+                  <div class="bg-yellow-50 p-2 sm:p-3 rounded-lg border border-yellow-200">
+                    <div class="font-medium text-yellow-900 text-xs sm:text-sm">Activations</div>
+                    <div class="text-yellow-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.activations.toFixed(1) }}GB</div>
                   </div>
-                  <div class="bg-red-50 p-3 rounded-lg border border-red-200">
-                    <div class="font-medium text-red-900">System</div>
-                    <div class="text-red-700">{{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
+                  <div class="bg-red-50 p-2 sm:p-3 rounded-lg border border-red-200">
+                    <div class="font-medium text-red-900 text-xs sm:text-sm">System</div>
+                    <div class="text-red-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
                   </div>
-                  <div class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <div class="font-medium text-gray-900">Available</div>
-                    <div class="text-gray-700">{{ vramBreakdown.available.toFixed(1) }}GB</div>
+                  <div class="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
+                    <div class="font-medium text-gray-900 text-xs sm:text-sm">Available</div>
+                    <div class="text-gray-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.available.toFixed(1) }}GB</div>
                   </div>
                 </div>
               </div>
               
               <!-- Quantization Recommendations -->
-              <div v-if="quantizationRecommendations.length > 0" class="mt-6">
-                <h5 class="text-md font-medium text-gray-900 mb-3">Quantization Recommendations</h5>
+              <div v-if="quantizationRecommendations.length > 0" class="mt-4 sm:mt-6">
+                <h5 class="text-sm sm:text-md font-medium text-gray-900 mb-3">Quantization Recommendations</h5>
                 <div class="space-y-2">
                   <div 
                     v-for="rec in quantizationRecommendations" 
                     :key="rec.modelName"
-                    class="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                    class="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2 sm:space-y-0"
                   >
-                    <div>
+                    <div class="flex-1">
                       <div class="font-medium text-blue-900">{{ rec.modelName }}</div>
                       <div class="text-sm text-blue-700">{{ rec.reason }}</div>
                     </div>
-                    <div class="text-right">
+                    <div class="text-left sm:text-right">
                       <div class="text-sm font-medium text-blue-900">
                         {{ rec.currentFormat }} → {{ rec.recommendedFormat }}
                       </div>
@@ -1227,21 +1254,20 @@ const chartOptions = ref({
                     </div>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- Configuration Steps -->
-      <div class="space-y-12">
+      </section>      <!-- Configuration Steps -->
+      <div class="space-y-8 sm:space-y-12">
         <!-- Step 1: GPU Selection -->
         <section class="scroll-mt-20" id="gpu-selection">
-          <div class="flex items-center mb-6">
-            <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-4">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
               1
             </div>
-            <h3 class="text-2xl font-bold text-gray-900">Select Your GPU Configuration</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Select Your GPU Configuration</h3>
           </div>
           
           <!-- State Error Display -->
@@ -1277,11 +1303,11 @@ const chartOptions = ref({
 
         <!-- Step 2: Model Selection -->
         <section class="scroll-mt-20" id="model-selection">
-          <div class="flex items-center mb-6">
-            <div class="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-4">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
               2
             </div>
-            <h3 class="text-2xl font-bold text-gray-900">Choose Your Model</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Choose Your Model</h3>
           </div>
           <ModelSelector 
             v-model:selectedModels="selectedModels"
@@ -1291,11 +1317,11 @@ const chartOptions = ref({
 
         <!-- Configuration Results -->
         <section v-if="hasValidConfiguration" class="scroll-mt-20" id="configuration-output">
-          <div class="flex items-center mb-6">
-            <div class="flex items-center justify-center w-8 h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-4">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
               ✓
             </div>
-            <h3 class="text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
           </div>
           <ConfigurationOutput 
             :selectedGPUs="selectedGPUs"
@@ -1305,11 +1331,11 @@ const chartOptions = ref({
 
         <!-- VRAM Visualization -->
         <section v-if="hasValidConfiguration" class="scroll-mt-20" id="vram-analysis">
-          <div class="flex items-center mb-6">
-            <div class="flex items-center justify-center w-8 h-8 bg-purple-600 text-white rounded-full text-sm font-bold mr-4">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-purple-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
               📊
             </div>
-            <h3 class="text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
           </div>
           <VRAMChart 
             :selectedGPUs="selectedGPUs"
@@ -1322,10 +1348,10 @@ const chartOptions = ref({
       </div>
 
       <!-- Chart.js Integration Test (development only) -->
-      <section v-if="hasValidConfiguration" class="mt-16">
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-          <h4 class="text-xl font-bold text-gray-900 mb-6 text-center">Development: Chart.js Integration Test</h4>
-          <div class="h-64">
+      <section v-if="hasValidConfiguration" class="mt-12 sm:mt-16">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-8">
+          <h4 class="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">Development: Chart.js Integration Test</h4>
+          <div class="h-48 sm:h-64">
             <Bar :data="chartData" :options="chartOptions" />
           </div>
           <p class="text-green-600 font-semibold text-center mt-4">✅ Chart.js Integration Ready</p>
@@ -1334,13 +1360,13 @@ const chartOptions = ref({
     </main>
 
     <!-- Debug Information Panel -->
-    <section v-if="showDebugInfo" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
-      <div class="bg-gray-900 text-white rounded-xl p-6">
+    <section v-if="showDebugInfo" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 sm:mt-16">
+      <div class="bg-gray-900 text-white rounded-xl p-4 sm:p-6">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-bold">Debug Information</h3>
+          <h3 class="text-base sm:text-lg font-bold">Debug Information</h3>
           <button
             @click="showDebugInfo = false"
-            class="text-gray-400 hover:text-white transition-colors"
+            class="text-gray-400 hover:text-white transition-colors p-1"
             title="Close debug panel"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1349,11 +1375,11 @@ const chartOptions = ref({
           </button>
         </div>
         
-        <div class="grid md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <!-- State Analysis -->
           <div>
             <h4 class="text-sm font-bold text-blue-400 mb-2">State Analysis</h4>
-            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+            <div class="bg-gray-800 p-3 sm:p-4 rounded-lg text-xs sm:text-sm space-y-1 sm:space-y-2">
               <div><span class="text-gray-400">Configuration Step:</span> {{ configurationStep }}</div>
               <div><span class="text-gray-400">Setup Progress:</span> {{ Math.round(setupProgress) }}%</div>
               <div><span class="text-gray-400">Application Ready:</span> {{ applicationReady }}</div>
@@ -1378,7 +1404,7 @@ const chartOptions = ref({
           <!-- Hardware Summary -->
           <div>
             <h4 class="text-sm font-bold text-green-400 mb-2">Hardware Summary</h4>
-            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+            <div class="bg-gray-800 p-3 sm:p-4 rounded-lg text-xs sm:text-sm space-y-1 sm:space-y-2">
               <div><span class="text-gray-400">Total GPUs:</span> {{ stateAnalysis.gpuCount }}</div>
               <div><span class="text-gray-400">Total VRAM:</span> {{ totalVRAM }}GB</div>
               <div><span class="text-gray-400">Selected Models:</span> {{ stateAnalysis.modelCount }}</div>
@@ -1391,7 +1417,7 @@ const chartOptions = ref({
           <!-- VRAM Breakdown -->
           <div v-if="vramBreakdown">
             <h4 class="text-sm font-bold text-purple-400 mb-2">VRAM Breakdown</h4>
-            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-2">
+            <div class="bg-gray-800 p-3 sm:p-4 rounded-lg text-xs sm:text-sm space-y-1 sm:space-y-2">
               <div><span class="text-gray-400">Model Weights:</span> {{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
               <div><span class="text-gray-400">KV Cache:</span> {{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
               <div><span class="text-gray-400">Activations:</span> {{ vramBreakdown.activations.toFixed(1) }}GB</div>
@@ -1407,7 +1433,7 @@ const chartOptions = ref({
           <!-- State Errors -->
           <div v-if="stateErrors.length > 0">
             <h4 class="text-sm font-bold text-red-400 mb-2">State Errors</h4>
-            <div class="bg-gray-800 p-4 rounded-lg text-sm space-y-1">
+            <div class="bg-gray-800 p-3 sm:p-4 rounded-lg text-xs sm:text-sm space-y-1">
               <div v-for="error in stateErrors" :key="error.id" class="text-red-300">
                 {{ error.message }}
               </div>
