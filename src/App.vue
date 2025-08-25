@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import {
   Chart as ChartJS,
   Title,
@@ -18,18 +18,219 @@ import VRAMChart from './components/VRAMChart.vue'
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
-// Application state management
+// Enhanced state management with persistence and validation
 const selectedGPUs = ref([])
 const selectedModels = ref([])
 const applicationReady = ref(false)
+const lastSavedState = ref(null)
+const stateErrors = ref([])
+const isStateRestoring = ref(false)
 
-// Application lifecycle
+// State persistence keys
+const STATE_KEYS = {
+  gpus: 'vllm-calculator-selected-gpus',
+  models: 'vllm-calculator-selected-models',
+  timestamp: 'vllm-calculator-last-saved'
+}
+
+// State management functions
+const saveStateToStorage = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const state = {
+        gpus: selectedGPUs.value,
+        models: selectedModels.value,
+        timestamp: Date.now()
+      }
+      
+      window.localStorage.setItem(STATE_KEYS.gpus, JSON.stringify(selectedGPUs.value))
+      window.localStorage.setItem(STATE_KEYS.models, JSON.stringify(selectedModels.value))
+      window.localStorage.setItem(STATE_KEYS.timestamp, state.timestamp.toString())
+      
+      lastSavedState.value = state
+    }
+  } catch (error) {
+    console.warn('Failed to save state to localStorage:', error)
+    addStateError('Failed to save configuration. Your settings may not persist.')
+  }
+}
+
+const loadStateFromStorage = () => {
+  try {
+    isStateRestoring.value = true
+    
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const savedGPUs = window.localStorage.getItem(STATE_KEYS.gpus)
+      const savedModels = window.localStorage.getItem(STATE_KEYS.models)
+      const savedTimestamp = window.localStorage.getItem(STATE_KEYS.timestamp)
+      
+      if (savedGPUs) {
+        const parsedGPUs = JSON.parse(savedGPUs)
+        if (Array.isArray(parsedGPUs) && validateGPUSelections(parsedGPUs)) {
+          selectedGPUs.value = parsedGPUs
+        }
+      }
+      
+      if (savedModels) {
+        const parsedModels = JSON.parse(savedModels)
+        if (Array.isArray(parsedModels) && validateModelSelections(parsedModels)) {
+          selectedModels.value = parsedModels
+        }
+      }
+      
+      if (savedTimestamp) {
+        lastSavedState.value = {
+          gpus: selectedGPUs.value,
+          models: selectedModels.value,
+          timestamp: parseInt(savedTimestamp)
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load state from localStorage:', error)
+    addStateError('Failed to restore previous configuration.')
+  } finally {
+    isStateRestoring.value = false
+  }
+}
+
+const clearStoredState = () => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      Object.values(STATE_KEYS).forEach(key => {
+        window.localStorage.removeItem(key)
+      })
+      lastSavedState.value = null
+    }
+  } catch (error) {
+    console.warn('Failed to clear stored state:', error)
+  }
+}
+
+const addStateError = (message) => {
+  const error = {
+    id: Date.now(),
+    message,
+    timestamp: new Date()
+  }
+  stateErrors.value.push(error)
+  
+  // Auto-remove error after 5 seconds
+  setTimeout(() => {
+    removeStateError(error.id)
+  }, 5000)
+}
+
+const removeStateError = (errorId) => {
+  const index = stateErrors.value.findIndex(err => err.id === errorId)
+  if (index > -1) {
+    stateErrors.value.splice(index, 1)
+  }
+}
+
+// State validation functions
+const validateGPUSelections = (gpus) => {
+  if (!Array.isArray(gpus)) return false
+  
+  return gpus.every(selection => {
+    return (
+      selection &&
+      typeof selection === 'object' &&
+      selection.gpu &&
+      typeof selection.gpu.name === 'string' &&
+      typeof selection.gpu.vram_gb === 'number' &&
+      typeof selection.quantity === 'number' &&
+      selection.quantity > 0 &&
+      selection.quantity <= 8
+    )
+  })
+}
+
+const validateModelSelections = (models) => {
+  if (!Array.isArray(models)) return false
+  
+  return models.every(model => {
+    return (
+      model &&
+      typeof model === 'object' &&
+      typeof model.name === 'string' &&
+      (typeof model.size === 'number' || model.size === null)
+    )
+  })
+}
+
+// Enhanced state change handlers
+const handleGPUSelectionChange = (newGPUs) => {
+  if (!isStateRestoring.value) {
+    selectedGPUs.value = newGPUs
+    validateCurrentState()
+    nextTick(() => {
+      saveStateToStorage()
+    })
+  }
+}
+
+const handleModelSelectionChange = (newModels) => {
+  if (!isStateRestoring.value) {
+    selectedModels.value = newModels
+    validateCurrentState()
+    nextTick(() => {
+      saveStateToStorage()
+    })
+  }
+}
+
+const validateCurrentState = () => {
+  stateErrors.value = stateErrors.value.filter(err => err.message.includes('Failed to'))
+  
+  // Validate GPU selections
+  if (selectedGPUs.value.length > 0) {
+    const totalVRAMValue = totalVRAM.value
+    if (totalVRAMValue > 1000) {
+      addStateError('Extremely high VRAM configuration detected. Please verify your GPU selection.')
+    }
+    
+    const totalGPUCount = selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0)
+    if (totalGPUCount > 32) {
+      addStateError('Large number of GPUs selected. This may impact performance.')
+    }
+  }
+  
+  // Validate model selections
+  if (selectedModels.value.length > 0) {
+    const totalModelSizeValue = totalModelSize.value
+    if (totalModelSizeValue > totalVRAM.value * 0.8) {
+      addStateError('Model size approaching VRAM limits. Consider quantization or additional GPUs.')
+    }
+  }
+}
+
+// Enhanced application lifecycle with state management
 onMounted(() => {
+  // Load saved state first
+  loadStateFromStorage()
+  
   // Mark application as ready after initial load
   setTimeout(() => {
     applicationReady.value = true
   }, 100)
 })
+
+// State change watchers for automatic persistence
+watch(selectedGPUs, (newGPUs) => {
+  handleGPUSelectionChange(newGPUs)
+}, { deep: true })
+
+watch(selectedModels, (newModels) => {
+  handleModelSelectionChange(newModels)
+}, { deep: true })
+
+// Window beforeunload handler for cleanup
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    saveStateToStorage()
+  })
+}
 
 // Configuration validation
 const hasValidConfiguration = computed(
@@ -58,6 +259,70 @@ const setupProgress = computed(() => {
   const currentStepIndex = steps.indexOf(configurationStep.value)
   return Math.min(100, ((currentStepIndex + 1) / steps.length) * 100)
 })
+
+// Enhanced state analysis
+const stateAnalysis = computed(() => {
+  return {
+    hasErrors: stateErrors.value.length > 0,
+    isComplete: hasValidConfiguration.value,
+    gpuCount: selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0),
+    modelCount: selectedModels.value.length,
+    memoryEfficiency: totalVRAM.value > 0 ? (totalModelSize.value / totalVRAM.value) : 0,
+    hasCustomGPUs: selectedGPUs.value.some(sel => sel.gpu.custom),
+    hasMultipleModels: selectedModels.value.length > 1,
+    estimatedCost: calculateEstimatedCost(),
+    lastSaved: lastSavedState.value?.timestamp || null
+  }
+})
+
+const memoryPressure = computed(() => {
+  if (totalVRAM.value === 0) return 'unknown'
+  const ratio = totalModelSize.value / totalVRAM.value
+  if (ratio > 0.9) return 'critical'
+  if (ratio > 0.8) return 'high'
+  if (ratio > 0.6) return 'moderate'
+  return 'low'
+})
+
+const configurationHealth = computed(() => {
+  const issues = []
+  
+  if (stateErrors.value.length > 0) {
+    issues.push('State validation errors detected')
+  }
+  
+  if (memoryPressure.value === 'critical') {
+    issues.push('Critical memory pressure - models may not fit')
+  }
+  
+  if (stateAnalysis.value.gpuCount > 16) {
+    issues.push('Excessive GPU count may impact performance')
+  }
+  
+  return {
+    status: issues.length === 0 ? 'healthy' : issues.length === 1 ? 'warning' : 'critical',
+    issues
+  }
+})
+
+// Helper functions for state analysis
+const calculateEstimatedCost = () => {
+  // Simplified cost estimation based on GPU types
+  return selectedGPUs.value.reduce((total, selection) => {
+    const baseCost = selection.gpu.vram_gb * 0.1 // $0.10 per GB of VRAM per hour (example)
+    return total + (baseCost * selection.quantity)
+  }, 0)
+}
+
+// Development utilities (exposed to window for debugging)
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  window.vllmDebug = {
+    clearStoredState,
+    configurationHealth,
+    stateAnalysis,
+    memoryPressure
+  }
+}
 
 const configurations = computed(() => {
   if (!hasValidConfiguration.value) return []
@@ -297,6 +562,63 @@ const chartOptions = ref({
               </div>
             </div>
           </div>
+          
+          <!-- Enhanced State Dashboard -->
+          <div v-if="stateAnalysis.isComplete" class="mb-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h4 class="text-lg font-semibold text-gray-900 mb-4">Configuration Summary</h4>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-blue-600">{{ stateAnalysis.gpuCount }}</div>
+                  <div class="text-sm text-gray-600">Total GPUs</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-blue-600">{{ totalVRAM }}GB</div>
+                  <div class="text-sm text-gray-600">Total VRAM</div>
+                </div>
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-blue-600">{{ stateAnalysis.modelCount }}</div>
+                  <div class="text-sm text-gray-600">Models</div>
+                </div>
+                <div class="text-center">
+                  <div :class="[
+                    'text-2xl font-bold',
+                    memoryPressure === 'low' ? 'text-green-600' :
+                    memoryPressure === 'moderate' ? 'text-yellow-600' :
+                    memoryPressure === 'high' ? 'text-orange-600' : 'text-red-600'
+                  ]">
+                    {{ Math.round(stateAnalysis.memoryEfficiency * 100) }}%
+                  </div>
+                  <div class="text-sm text-gray-600">Memory Usage</div>
+                </div>
+              </div>
+              
+              <!-- Memory Pressure Indicator -->
+              <div v-if="memoryPressure !== 'low'" class="mt-4 p-3 rounded-lg" :class="{
+                'bg-yellow-50 border border-yellow-200': memoryPressure === 'moderate',
+                'bg-orange-50 border border-orange-200': memoryPressure === 'high',
+                'bg-red-50 border border-red-200': memoryPressure === 'critical'
+              }">
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 mr-2" :class="{
+                    'text-yellow-600': memoryPressure === 'moderate',
+                    'text-orange-600': memoryPressure === 'high',
+                    'text-red-600': memoryPressure === 'critical'
+                  }" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                  </svg>
+                  <span class="font-medium" :class="{
+                    'text-yellow-800': memoryPressure === 'moderate',
+                    'text-orange-800': memoryPressure === 'high',
+                    'text-red-800': memoryPressure === 'critical'
+                  }">
+                    {{ memoryPressure === 'moderate' ? 'Moderate' : 
+                       memoryPressure === 'high' ? 'High' : 'Critical' }} Memory Pressure
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -310,9 +632,35 @@ const chartOptions = ref({
             </div>
             <h3 class="text-2xl font-bold text-gray-900">Select Your GPU Configuration</h3>
           </div>
+          
+          <!-- State Error Display -->
+          <div v-if="stateErrors.length > 0" class="mb-6 space-y-2">
+            <div 
+              v-for="error in stateErrors" 
+              :key="error.id"
+              class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start"
+            >
+              <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+              </svg>
+              <div class="flex-1">
+                <p class="text-red-700 font-medium">{{ error.message }}</p>
+                <p class="text-red-600 text-sm mt-1">{{ error.timestamp.toLocaleTimeString() }}</p>
+              </div>
+              <button 
+                @click="removeStateError(error.id)"
+                class="ml-4 text-red-400 hover:text-red-600 focus:outline-none"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
           <GPUSelector 
             v-model:selectedGPUs="selectedGPUs"
-            @update:selectedGPUs="selectedGPUs = $event"
+            @update:selectedGPUs="handleGPUSelectionChange"
           />
         </section>
 
@@ -326,7 +674,7 @@ const chartOptions = ref({
           </div>
           <ModelSelector 
             v-model:selectedModels="selectedModels"
-            @update:selectedModels="selectedModels = $event"
+            @update:selectedModels="handleModelSelectionChange"
           />
         </section>
 
