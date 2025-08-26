@@ -476,7 +476,8 @@ export {
   estimateBalancedMetrics,
   calculateBalancedOptimizedConfig,
   optimizeForBalance,
-  getBalancedConsiderations
+  getBalancedConsiderations,
+  calculateLatencyOptimalBatchSize
 }
 
 // Workload management functions

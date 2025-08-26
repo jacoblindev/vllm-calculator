@@ -529,21 +529,38 @@ function identifyBottlenecks(characteristics, optimizations) {
  * @returns {object} Complete configuration package
  */
 export function generateWorkloadConfiguration(workloadProfile, modelInfo, hardwareInfo = {}) {
+  // Handle backward compatibility - if only one argument is passed, extract the components
+  if (arguments.length === 1 && typeof workloadProfile === 'object') {
+    const originalProfile = workloadProfile
+    // Extract model and hardware info from the single parameter
+    modelInfo = {
+      modelPath: originalProfile.modelPath || '/models/model',
+      modelSize: originalProfile.modelSize || 7,
+      architecture: originalProfile.architecture || { layers: 32, hiddenSize: 4096, numHeads: 32 }
+    }
+    hardwareInfo = {
+      gpuCount: originalProfile.gpuCount || 1,
+      memoryGB: originalProfile.gpuSpecs?.memoryGB || 24
+    }
+    // Keep the workload profile as is for optimization
+  }
+
   // Optimize for workload
   const optimization = optimizeForWorkload(workloadProfile)
   
   // Generate vLLM configuration
-  const vllmConfig = generateConfiguration({
-    deploymentType: workloadProfile.deploymentType || 'production',
-    modelPath: modelInfo.modelPath,
-    gpuCount: hardwareInfo.gpuCount || 1,
-    maxSequences: optimization.optimizations.batchingStrategy.maxNumSeqs,
-    maxSequenceLength: optimization.optimizations.batchingStrategy.maxSeqLen,
-    memoryUtilization: optimization.optimizations.memorySettings.gpuMemoryUtilization,
-    quantization: optimization.optimizations.recommendedQuantization,
-    enableFeatures: optimization.optimizations.enabledFeatures,
-    customSettings: optimization.optimizations.specialSettings
-  })
+  const vllmConfig = generateConfiguration(
+    workloadProfile.deploymentType || 'production',
+    {
+      model: modelInfo?.modelPath || '/models/model',
+      'tensor-parallel-size': hardwareInfo.gpuCount || 1,
+      'max-num-seqs': optimization.optimizations.batchingStrategy.maxNumSeqs,
+      'max-seq-len': optimization.optimizations.batchingStrategy.maxSeqLen,
+      'gpu-memory-utilization': optimization.optimizations.memorySettings.gpuMemoryUtilization,
+      quantization: optimization.optimizations.recommendedQuantization,
+      ...optimization.optimizations.specialSettings
+    }
+  )
   
   // Validate configuration
   const validation = validateConfiguration(vllmConfig)
@@ -555,13 +572,20 @@ export function generateWorkloadConfiguration(workloadProfile, modelInfo, hardwa
   })
   
   return {
-    workload: optimization,
+    workloadType: workloadProfile.workloadType || 'serving',
     configuration: vllmConfig,
     validation,
     command,
+    recommendations: [
+      `Optimized for ${workloadProfile.workloadType || 'serving'} workload`,
+      `Memory utilization: ${optimization.optimizations.memorySettings.gpuMemoryUtilization}`,
+      `Max sequences: ${optimization.optimizations.batchingStrategy.maxNumSeqs}`,
+      `Estimated GPU count: ${Math.ceil((modelInfo.estimatedMemoryGB || 0) / (hardwareInfo.memoryGB || 24))}`
+    ],
+    workload: optimization,
     deployment: {
       estimated_memory_usage: modelInfo.estimatedMemoryGB || 'N/A',
-      recommended_gpu_count: Math.ceil((modelInfo.estimatedMemoryGB || 0) / (hardwareInfo.gpuMemoryGB || 80)),
+      recommended_gpu_count: Math.ceil((modelInfo.estimatedMemoryGB || 0) / (hardwareInfo.memoryGB || 24)),
       scaling_recommendations: generateScalingRecommendations(optimization, modelInfo, hardwareInfo)
     }
   }
