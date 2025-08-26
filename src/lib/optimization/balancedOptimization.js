@@ -77,7 +77,8 @@ export function calculateBalancedBatchSize(config) {
   )
   
   // Calculate activation memory per token (more efficient estimation for balanced)
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers) * 0.5 // Reduce activation overhead
+  const activationResult = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers, 'fp16')
+  const activationPerTokenGB = activationResult.totalMemoryGB * 0.5 // Reduce activation overhead
   
   // Calculate optimal batch size based on target (with safety margin)
   const safeMemoryGB = remainingMemoryGB * 0.8 // Use 80% of remaining memory for safety
@@ -468,7 +469,7 @@ export function calculateBalancedOptimizedConfig(params) {
     
     // Balanced optimizations
     ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength > BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
+    ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength >= BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
       'enable-chunked-prefill': true,
       'max-chunked-prefill-tokens': BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillSize
     }),
@@ -485,7 +486,7 @@ export function calculateBalancedOptimizedConfig(params) {
     memoryConfiguration: memoryStrategy,
     balancedEstimate: balancedEstimates,
     vllmParameters: vllmArgs,
-    vllmCommand: generateVLLMCommand(vllmArgs),
+    vllmCommand: generateVLLMCommand(vllmArgs).command,
     
     optimizationSummary: {
       primaryOptimizations: [
@@ -515,7 +516,7 @@ export function calculateBalancedOptimizedConfig(params) {
     configuration: vllmArgs,
     memoryAllocation: memoryStrategy,
     batchOptimization: batchConfig,
-    command: generateVLLMCommand(vllmArgs),
+    command: generateVLLMCommand(vllmArgs).command,
   }
 }
 

@@ -10,7 +10,7 @@ import {
 } from '../memory/index.js'
 import { calculateQuantizationFactor } from '../quantization.js'
 import { estimateModelArchitecture } from '../workload/modelArchitecture.js'
-import { generateVLLMCommand } from '../workload/commandGenerator.js'
+import { generateVLLMCommand as generateVLLMCommandFromWorkload } from '../workload/commandGenerator.js'
 import { THROUGHPUT_OPTIMIZATION_CONFIGS } from '../configs/optimizationConfigs.js'
 
 // ===============================
@@ -432,7 +432,7 @@ export function calculateThroughputOptimizedConfig(params) {
     performanceEstimates,
     
     // Command generation
-    command: generateVLLMCommand(vllmArgs),
+    command: generateVLLMCommand(vllmArgs).command,
   }
 }
 
@@ -560,8 +560,13 @@ export function calculateVLLMMemoryUsage(config) {
 // Re-export the THROUGHPUT_OPTIMIZATION_CONFIGS for backward compatibility
 export { THROUGHPUT_OPTIMIZATION_CONFIGS }
 
+// Wrapper function for backward compatibility that returns just the command string
+export function generateVLLMCommand(args) {
+  const result = generateVLLMCommandFromWorkload(args)
+  return result.command
+}
+
 // Export all the functions needed by tests
 export {
-  generateVLLMCommand,
   estimateModelArchitecture
 }

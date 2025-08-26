@@ -35,6 +35,7 @@ export const THROUGHPUT_OPTIMIZATION_CONFIGS = {
     // For optimal throughput, especially with smaller models on large GPUs
     maxNumBatchedTokensOptimal: 8192, // Recommended for throughput
     maxNumSeqsOptimal: 256, // Higher seq count for better batching
+    maxNumSeqsMaximal: 512, // Maximum concurrent sequences
   },
   
   // Memory utilization for throughput (higher than default)
@@ -49,6 +50,13 @@ export const THROUGHPUT_OPTIMIZATION_CONFIGS = {
   
   // Chunked prefill thresholds
   chunkedPrefillThreshold: 8192, // Enable for sequences longer than this
+  
+  // Batch optimization settings
+  batchOptimization: {
+    targetBatchUtilization: 0.85, // Target batch utilization
+    optimalBatchSizes: [32, 64, 128, 256], // Recommended batch sizes
+    maxBatchPadding: 0.2, // Maximum padding allowed in batches
+  },
 }
 
 // ===============================
@@ -92,6 +100,14 @@ export const LATENCY_OPTIMIZATION_CONFIGS = {
     blockSize: 8, // Smaller blocks for better cache
     swapSpace: 2, // Minimal swap for faster memory access
   },
+  
+  // Response time targets for latency optimization
+  responseTimeTargets: {
+    p50: 100, // 50th percentile target (ms)
+    p95: 200, // 95th percentile target (ms)
+    p99: 500, // 99th percentile target (ms)
+    ttft: 50, // Time to first token target (ms)
+  },
 }
 
 // ===============================
@@ -111,6 +127,7 @@ export const BALANCED_OPTIMIZATION_CONFIGS = {
   gpuMemoryUtilization: {
     conservative: 0.80, // Safe for production
     balanced: 0.85, // Good balance of performance and safety
+    performance: 0.90, // Higher performance (same as aggressive)
     aggressive: 0.90, // Higher performance with more risk
   },
   
