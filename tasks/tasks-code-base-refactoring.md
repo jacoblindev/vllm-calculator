@@ -80,7 +80,7 @@
   * [x] 1.4 Extract validation logic to `src/lib/validation.js`.
   * [x] 1.5 Update imports and references across the codebase.
   * [x] 1.6 Add or update unit tests for each new module.
-  * [ ] 1.7 Further extract optimization strategies from `src/lib/calculationEngine.js` into focused modules.
+  * [x] 1.7 Further extract optimization strategies from `src/lib/calculationEngine.js` into focused modules.
     * [x] 1.7.1 Extract memory calculation functions to `src/lib/memory/` (kvCache.js, activations.js, systemOverhead.js).
     * [x] 1.7.2 Extract throughput optimization logic to `src/lib/optimization/throughputOptimization.js`.
     * [x] 1.7.3 Extract latency optimization logic to `src/lib/optimization/latencyOptimization.js`. **COMPLETE**
@@ -88,7 +88,7 @@
     * [x] 1.7.5 Extract workload management to `src/lib/workload/` (workloadOptimizer.js, commandGenerator.js, modelArchitecture.js).
     * [x] 1.7.6 Extract configuration constants to `src/lib/configs/optimizationConfigs.js`.
     * [x] 1.7.7 Refactor `src/lib/calculationEngine.js` to be a lightweight orchestrator (~400 lines).
-    * [ ] 1.7.8 Update all imports and add comprehensive unit tests for new modules.
+    * [x] 1.7.8 Update all imports and add comprehensive unit tests for new modules.
 
 * [ ] 2.0 Review and Optimize Test Coverage
   * [ ] 2.1 Audit existing tests for duplication and relevance.
