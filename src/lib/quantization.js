@@ -13,7 +13,8 @@
  */
 
 // Import validation utilities from main module
-import { Validators, VLLMValidators, ValidationError } from './calculationEngine.js'
+// Import validation utilities
+import { Validators, VLLMValidators, ValidationError } from './validation.js'
 
 /**
  * Quantization formats supported by vLLM and their characteristics

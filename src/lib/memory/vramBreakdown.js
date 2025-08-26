@@ -11,16 +11,23 @@
  * - Memory efficiency analysis and optimization recommendations
  */
 
-// Import validation utilities and quantization formats from main module
+// Import validation utilities from dedicated module
 import { 
   Validators, 
   VLLMValidators, 
   ValidationError,
+} from '../validation.js'
+
+// Import quantization utilities and other functions from main module
+import {
   QUANTIZATION_FORMATS,
+  calculateModelWeightsMemory,
+} from '../quantization.js'
+
+import {
   calculateKVCacheMemory,
   calculateActivationMemory,
   calculateSystemOverhead,
-  calculateModelWeightsMemory,
   estimateModelArchitecture
 } from '../calculationEngine.js'
 
