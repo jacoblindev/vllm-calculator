@@ -117,12 +117,27 @@ export function calculateVRAMBreakdown(config) {
   )
 
   // Calculate activation memory
+  // Map quantization format to activation precision
+  const activationPrecisionMap = {
+    'fp32': 'fp32',
+    'fp16': 'fp16', 
+    'bf16': 'bf16',
+    'int8': 'fp16',    // INT8 models typically use FP16 activations
+    'int4': 'fp16',    // INT4 models typically use FP16 activations
+    'awq': 'fp16',     // AWQ models use FP16 activations
+    'gptq': 'fp16',    // GPTQ models use FP16 activations
+    'gguf': 'fp16',    // GGUF models use FP16 activations
+    'default': 'fp16'
+  }
+  
+  const activationPrecision = activationPrecisionMap[quantization] || activationPrecisionMap.default
+  
   const activationMemory = calculateActivationMemory(
     batchSize,
     seqLen,
     arch.hiddenSize,
     arch.layers,
-    quantization
+    activationPrecision
   )
 
   // Calculate system overhead and reserved memory

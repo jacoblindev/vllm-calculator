@@ -16,7 +16,7 @@ import {
   calculateLayerNormMemory,
   ACTIVATION_DTYPES,
   MEMORY_OVERHEAD_FACTORS
-} from '../activations.js'
+} from './activations.js'
 
 describe('Activations Memory Module', () => {
   const mockArchitecture = {

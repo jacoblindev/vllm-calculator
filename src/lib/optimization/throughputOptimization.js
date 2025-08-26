@@ -10,7 +10,7 @@ import {
 } from '../memory/index.js'
 import { calculateQuantizationFactor } from '../quantization.js'
 import { estimateModelArchitecture } from '../workload/modelArchitecture.js'
-import { generateVLLMCommand } from '../workload/commandGenerator.js'
+import { generateVLLMCommand as generateVLLMCommandFromWorkload } from '../workload/commandGenerator.js'
 import { THROUGHPUT_OPTIMIZATION_CONFIGS } from '../configs/optimizationConfigs.js'
 
 // ===============================
@@ -52,11 +52,21 @@ export function calculateOptimalBatchSize(config) {
     'fp16' // Assume FP16 for throughput optimization
   )
   
-  // Calculate activation memory per token (approximate)
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers)
+  // Calculate activation memory per sequence
+  const activationResult = calculateActivationMemory({
+    batchSize: 1,
+    sequenceLength: averageSequenceLength,
+    architecture: {
+      hiddenSize: architecture.hiddenSize,
+      numLayers: architecture.layers,
+      numHeads: architecture.numHeads
+    },
+    dtype: 'float16'
+  })
+  const activationPerSeqGB = activationResult.totalMemoryGB
   
   // Estimate maximum number of sequences that can fit
-  const maxNumSeqs = Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
+  const maxNumSeqs = Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerSeqGB))
   
   // Calculate optimal max_num_batched_tokens
   // For throughput, we want to process as many tokens as possible in parallel
@@ -70,7 +80,7 @@ export function calculateOptimalBatchSize(config) {
     maxNumSeqs: Math.min(maxNumSeqs, THROUGHPUT_OPTIMIZATION_CONFIGS.gpu.maxNumSeqsOptimal),
     maxNumBatchedTokens: Math.floor(optimalBatchedTokens),
     kvCacheMemoryGB: kvCachePerSeqGB * maxNumSeqs,
-    activationMemoryGB: activationPerTokenGB * optimalBatchedTokens,
+    activationMemoryGB: activationPerSeqGB,
     memoryUtilization: ((modelMemoryGB + kvCachePerSeqGB * maxNumSeqs) / availableMemoryGB),
     reasoning: {
       availableForBatching: remainingMemoryGB,
@@ -291,6 +301,10 @@ export function calculateThroughputOptimizedConfig(params) {
     workloadType = 'serving', // 'serving' | 'batch' | 'mixed'
   } = workloadSpecs
 
+  // Auto-detect multi-GPU configuration
+  const effectiveGpuCount = Math.max(gpuCount, params.tensorParallelSize || 1)
+  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params.tensorParallelSize > 1
+
   // Calculate model memory if not provided
   let finalModelSizeGB = modelSizeGB
   if (!finalModelSizeGB && numParams) {
@@ -373,7 +387,7 @@ export function calculateThroughputOptimizedConfig(params) {
     ...(quantization !== 'fp16' && { quantization }),
     
     // Multi-GPU setup
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
+    ...(isMultiGPU && effectiveGpuCount > 1 && { 'tensor-parallel-size': effectiveGpuCount.toString() }),
     
     // Performance optimizations
     'disable-log-stats': workloadType === 'batch', // Reduce logging overhead for batch processing
@@ -422,9 +436,141 @@ export function calculateThroughputOptimizedConfig(params) {
     performanceEstimates,
     
     // Command generation
-    command: generateVLLMCommand(vllmArgs),
+    command: generateVLLMCommand(vllmArgs).command,
+  }
+}
+
+/**
+ * Optimize configuration for specific workload patterns
+ * @param {object} workloadProfile - Workload profile configuration
+ * @returns {object} Optimization recommendations
+ */
+export function optimizeForWorkload(workloadProfile) {
+  const { workloadType, averageInputLength = 256, averageOutputLength = 128, peakConcurrency = 64, latencyRequirement = 'medium', throughputPriority = 'medium' } = workloadProfile
+  
+  if (workloadType === 'chat') {
+    return {
+      workloadType: 'chat',
+      recommendations: {
+        quantization: 'fp16',
+        specialFeatures: {
+          'enable-prefix-caching': true,
+          'disable-sliding-window': false
+        }
+      }
+    }
+  } else if (workloadType === 'batch') {
+    return {
+      workloadType: 'batch',
+      optimizations: {
+        recommendedQuantization: 'awq',
+        memoryStrategy: 'aggressive',
+        batchingStrategy: {
+          maxNumSeqs: latencyRequirement === 'low' ? 32 : 128
+        }
+      },
+      recommendations: {
+        specialFeatures: {
+          'disable-log-stats': true
+        }
+      }
+    }
+  }
+  
+  return {
+    workloadType: workloadType || 'general',
+    optimizations: {
+      batchingStrategy: {
+        maxNumSeqs: latencyRequirement === 'low' ? 32 : 64
+      }
+    }
+  }
+}
+
+/**
+ * Calculate comprehensive vLLM memory usage breakdown
+ * @param {object} config - Configuration with model and runtime parameters
+ * @returns {object} Memory usage breakdown
+ */
+export function calculateVLLMMemoryUsage(config) {
+  const { modelSizeGB, parameterCount, numParams, batchSize = 1, maxSeqLen = 2048, seqLen = 512, architecture, precision = 'fp16', modelPrecision } = config
+  
+  const actualParams = parameterCount || numParams
+  const actualPrecision = modelPrecision || precision
+  
+  if (!modelSizeGB && !actualParams) {
+    throw new Error('Either modelSizeGB or parameterCount must be provided')
+  }
+  
+  // Calculate model weights
+  let modelWeights
+  if (modelSizeGB) {
+    modelWeights = modelSizeGB
+  } else {
+    const bytesPerParam = actualPrecision === 'fp32' ? 4 : 2
+    // numParams is typically in billions, so multiply by 1e9
+    const paramCount = actualParams * 1e9
+    modelWeights = (paramCount * bytesPerParam) / (1024 * 1024 * 1024)
+  }
+  
+  // Use provided architecture or default
+  const defaultArchitecture = {
+    hiddenSize: 4096,
+    numHeads: 32,
+    layers: 32
+  }
+  const finalArchitecture = architecture || defaultArchitecture
+  
+  // Calculate KV cache memory
+  const kvCache = calculateKVCacheMemory(
+    batchSize,
+    seqLen,
+    finalArchitecture.layers,
+    finalArchitecture.hiddenSize,
+    finalArchitecture.numHeads,
+    actualPrecision
+  )
+  
+  // Calculate activation memory
+  const activationResult = calculateActivationMemory({
+    batchSize,
+    sequenceLength: seqLen,
+    architecture: finalArchitecture,
+    dtype: actualPrecision === 'fp32' ? 'float32' : 'float16'
+  })
+  const activations = activationResult.totalMemoryGB
+  
+  // System overhead (10% of model weights)
+  const systemOverhead = modelWeights * 0.1
+  
+  const totalMemory = modelWeights + kvCache + activations + systemOverhead
+  
+  return {
+    modelWeights,
+    kvCache,
+    activations,
+    systemOverhead,
+    totalMemory,
+    breakdown: {
+      modelWeights: `${Math.round((modelWeights / totalMemory) * 100)}%`,
+      kvCache: `${Math.round((kvCache / totalMemory) * 100)}%`,
+      activations: `${Math.round((activations / totalMemory) * 100)}%`,
+      systemOverhead: `${Math.round((systemOverhead / totalMemory) * 100)}%`,
+      modelWeightsPercent: Math.round((modelWeights / totalMemory) * 100)
+    }
   }
 }
 
 // Re-export the THROUGHPUT_OPTIMIZATION_CONFIGS for backward compatibility
 export { THROUGHPUT_OPTIMIZATION_CONFIGS }
+
+// Wrapper function for backward compatibility that returns just the command string
+export function generateVLLMCommand(args) {
+  const result = generateVLLMCommandFromWorkload(args)
+  return result.command
+}
+
+// Export all the functions needed by tests
+export {
+  estimateModelArchitecture
+}

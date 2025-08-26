@@ -16,7 +16,7 @@ import {
   generateDockerCommand,
   COMMAND_TEMPLATES,
   PARAMETER_MAPPINGS
-} from '../commandGenerator.js'
+} from './commandGenerator.js'
 
 describe('Command Generator Module', () => {
   describe('generateVLLMCommand', () => {

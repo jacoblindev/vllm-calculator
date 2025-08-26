@@ -77,7 +77,16 @@ export function calculateBalancedBatchSize(config) {
   )
   
   // Calculate activation memory per token (more efficient estimation for balanced)
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers) * 0.5 // Reduce activation overhead
+  const activationResult = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers, 'fp16')
+  const activationPerTokenGB = (typeof activationResult === 'number' ? activationResult : activationResult.totalMemoryGB) * 0.5 // Reduce activation overhead
+
+  // Validate calculations to prevent NaN
+  if (!kvCachePerSeqGB || isNaN(kvCachePerSeqGB) || kvCachePerSeqGB <= 0) {
+    throw new Error('Invalid KV cache calculation')
+  }
+  if (!activationPerTokenGB || isNaN(activationPerTokenGB) || activationPerTokenGB <= 0) {
+    throw new Error('Invalid activation memory calculation')
+  }
   
   // Calculate optimal batch size based on target (with safety margin)
   const safeMemoryGB = remainingMemoryGB * 0.8 // Use 80% of remaining memory for safety
@@ -376,6 +385,10 @@ export function calculateBalancedOptimizedConfig(params) {
     gpuCount = 1,
   } = gpuSpecs
 
+  // Auto-detect multi-GPU configuration
+  const effectiveGpuCount = Math.max(gpuCount, params.tensorParallelSize || 1)
+  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params.tensorParallelSize > 1
+
   const {
     modelSizeGB,
     numParams,
@@ -468,12 +481,12 @@ export function calculateBalancedOptimizedConfig(params) {
     
     // Balanced optimizations
     ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength > BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
+    ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength >= BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
       'enable-chunked-prefill': true,
       'max-chunked-prefill-tokens': BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillSize
     }),
     ...(quantization !== 'fp16' && { quantization }),
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
+    ...(isMultiGPU && effectiveGpuCount > 1 && { 'tensor-parallel-size': effectiveGpuCount.toString() }),
     
     // Balanced performance settings
     'disable-log-stats': workloadType === 'batch', // Only for batch workloads
@@ -484,8 +497,9 @@ export function calculateBalancedOptimizedConfig(params) {
     batchConfiguration: batchConfig,
     memoryConfiguration: memoryStrategy,
     balancedEstimate: balancedEstimates,
+    performanceEstimate: balancedEstimates, // Alias for integration test compatibility
     vllmParameters: vllmArgs,
-    vllmCommand: generateVLLMCommand(vllmArgs),
+    vllmCommand: generateVLLMCommand(vllmArgs).command,
     
     optimizationSummary: {
       primaryOptimizations: [
@@ -515,7 +529,7 @@ export function calculateBalancedOptimizedConfig(params) {
     configuration: vllmArgs,
     memoryAllocation: memoryStrategy,
     batchOptimization: batchConfig,
-    command: generateVLLMCommand(vllmArgs),
+    command: generateVLLMCommand(vllmArgs).command,
   }
 }
 

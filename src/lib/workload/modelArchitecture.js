@@ -29,24 +29,24 @@ import { calculateModelWeightsMemory } from '../quantization.js'
  */
 export const MODEL_ARCHITECTURE_PRESETS = {
   // Small models (experimental/testing)
-  0.1: { layers: 6, hiddenSize: 512, numHeads: 8, name: 'tiny' },
-  0.5: { layers: 12, hiddenSize: 768, numHeads: 12, name: 'small' },
+  0.1: { layers: 6, hiddenSize: 512, numHeads: 8, vocabSize: 32000, intermediateSize: 2048, architecture: 'llama', name: 'tiny' },
+  0.5: { layers: 12, hiddenSize: 768, numHeads: 12, vocabSize: 32000, intermediateSize: 3072, architecture: 'llama', name: 'small' },
   
   // Medium models (1-3B)
-  1: { layers: 16, hiddenSize: 1024, numHeads: 16, name: 'medium-1b' },
-  1.5: { layers: 20, hiddenSize: 1280, numHeads: 20, name: 'medium-1.5b' },
-  3: { layers: 24, hiddenSize: 1536, numHeads: 24, name: 'medium-3b' },
+  1: { layers: 24, hiddenSize: 2048, numHeads: 16, vocabSize: 32000, intermediateSize: 5632, architecture: 'llama', name: 'medium-1b' },
+  1.5: { layers: 24, hiddenSize: 2048, numHeads: 32, vocabSize: 32000, intermediateSize: 5632, architecture: 'llama', name: 'medium-1.5b' },
+  3: { layers: 28, hiddenSize: 2816, numHeads: 32, vocabSize: 32000, intermediateSize: 7552, architecture: 'llama', name: 'medium-3b' },
   
   // Large models (7-13B)
-  7: { layers: 32, hiddenSize: 4096, numHeads: 32, name: 'large-7b' },     // Llama-2 7B, Mistral 7B
-  8: { layers: 32, hiddenSize: 4096, numHeads: 32, name: 'large-8b' },     // Llama-3 8B
-  13: { layers: 40, hiddenSize: 5120, numHeads: 40, name: 'large-13b' },   // Llama-2 13B
+  7: { layers: 32, hiddenSize: 4096, numHeads: 32, vocabSize: 32000, intermediateSize: 11008, architecture: 'llama', name: 'large-7b' },     // Llama-2 7B, Mistral 7B
+  8: { layers: 32, hiddenSize: 4096, numHeads: 32, vocabSize: 32000, intermediateSize: 11008, architecture: 'llama', name: 'large-8b' },     // Llama-3 8B
+  13: { layers: 40, hiddenSize: 5120, numHeads: 40, vocabSize: 32000, intermediateSize: 13824, architecture: 'llama', name: 'large-13b' },   // Llama-2 13B
   
   // Very large models (30-70B)
-  30: { layers: 60, hiddenSize: 6656, numHeads: 52, name: 'xl-30b' },      // Code Llama 34B
-  34: { layers: 60, hiddenSize: 6656, numHeads: 52, name: 'xl-34b' },      // Code Llama 34B
-  65: { layers: 80, hiddenSize: 8192, numHeads: 64, name: 'xl-65b' },      // Llama-2 70B
-  70: { layers: 80, hiddenSize: 8192, numHeads: 64, name: 'xl-70b' },      // Llama-2 70B
+  30: { layers: 60, hiddenSize: 6656, numHeads: 52, vocabSize: 32000, intermediateSize: 17920, architecture: 'llama', name: 'xl-30b' },      // Code Llama 34B
+  34: { layers: 60, hiddenSize: 6656, numHeads: 52, vocabSize: 32000, intermediateSize: 17920, architecture: 'llama', name: 'xl-34b' },      // Code Llama 34B
+  65: { layers: 80, hiddenSize: 8192, numHeads: 64, vocabSize: 32000, intermediateSize: 22016, architecture: 'llama', name: 'xl-65b' },      // Llama-2 70B
+  70: { layers: 80, hiddenSize: 8192, numHeads: 64, vocabSize: 32000, intermediateSize: 22016, architecture: 'llama', name: 'xl-70b' },      // Llama-2 70B
   
   // Massive models (100B+)
   175: { layers: 96, hiddenSize: 12288, numHeads: 96, name: 'xxl-175b' },  // GPT-3 175B
@@ -59,8 +59,19 @@ export const MODEL_ARCHITECTURE_PRESETS = {
  * @returns {object} Estimated architecture parameters
  */
 export function estimateModelArchitecture(numParams) {
+  // Handle edge cases gracefully
   if (!numParams || numParams <= 0) {
-    throw new Error('Number of parameters must be a positive number')
+    // Return a minimal architecture for edge cases
+    return {
+      layers: 6,
+      hiddenSize: 512,
+      numHeads: 8,
+      vocabSize: 32000,
+      intermediateSize: 2048,
+      architecture: 'llama',
+      name: 'minimal',
+      isEdgeCase: true
+    }
   }
 
   // Find the closest preset architecture
@@ -121,6 +132,9 @@ function interpolateArchitecture(targetParams, presetSizes) {
     layers: Math.round(lowerArch.layers + (upperArch.layers - lowerArch.layers) * factor),
     hiddenSize: Math.round(lowerArch.hiddenSize + (upperArch.hiddenSize - lowerArch.hiddenSize) * factor),
     numHeads: Math.round(lowerArch.numHeads + (upperArch.numHeads - lowerArch.numHeads) * factor),
+    vocabSize: Math.round(lowerArch.vocabSize + (upperArch.vocabSize - lowerArch.vocabSize) * factor),
+    intermediateSize: Math.round(lowerArch.intermediateSize + (upperArch.intermediateSize - lowerArch.intermediateSize) * factor),
+    architecture: lowerArch.architecture,
   }
 }
 
@@ -422,3 +436,156 @@ function generateValidationRecommendations(architecture) {
 
   return recommendations
 }
+
+/**
+ * Calculate model parameters breakdown by component
+ * @param {object} architecture - Model architecture object
+ * @returns {object} Parameter breakdown by component
+ */
+export function calculateModelParameters(architecture) {
+  const { layers, hiddenSize, numHeads, vocabSize, intermediateSize } = architecture
+  
+  // Handle missing intermediate size
+  const effectiveIntermediateSize = intermediateSize || hiddenSize * 4 // Standard transformer ratio
+  
+  // Calculate parameters for each component
+  // Embedding layer includes both input embeddings and output (lm_head) typically shares weights
+  const embedding = vocabSize * hiddenSize
+  
+  // Attention: Q, K, V projections + output projection (each hiddenSize x hiddenSize)
+  const attention = layers * (hiddenSize * hiddenSize * 4) 
+  
+  // Feedforward: up projection + down projection + gate projection (for models like Llama)
+  // Many modern models have 3 linear layers in MLP (up, gate, down)
+  const feedforward = layers * (hiddenSize * effectiveIntermediateSize * 3)
+  
+  // Layer norm parameters (weight for each layer, 2 layer norms per transformer block)
+  const layerNorm = layers * hiddenSize * 2 
+  
+  const totalParameters = embedding + attention + feedforward + layerNorm
+  
+  return {
+    totalParameters,
+    embedding,
+    attention,
+    feedforward,
+    layerNorm,
+    breakdown: {
+      embeddingPercent: Math.round((embedding / totalParameters) * 100),
+      attentionPercent: Math.round((attention / totalParameters) * 100),
+      feedforwardPercent: Math.round((feedforward / totalParameters) * 100),
+      layerNormPercent: Math.round((layerNorm / totalParameters) * 100),
+    }
+  }
+}
+
+/**
+ * Estimate layer-wise memory usage
+ * @param {object} architecture - Model architecture object
+ * @param {number} batchSize - Batch size
+ * @param {number} sequenceLength - Sequence length (optional, default 1024)
+ * @param {boolean} training - Training mode (optional, default false)
+ * @returns {object} Layer-wise memory breakdown
+ */
+export function estimateLayerWiseMemory(architecture, batchSize, sequenceLength = 1024, training = false) {
+  const { layers, hiddenSize, numHeads, intermediateSize } = architecture
+  
+  // Handle edge cases
+  const effectiveBatchSize = Math.max(batchSize || 1, 1)
+  const effectiveSequenceLength = Math.max(sequenceLength || 1024, 1)
+  
+  // Calculate memory components (in GB)
+  const activations = (effectiveBatchSize * effectiveSequenceLength * hiddenSize * layers * 2) / (1024 ** 3) // fp16
+  const attention = (effectiveBatchSize * effectiveSequenceLength * effectiveSequenceLength * numHeads * layers * 2) / (1024 ** 3) // attention weights
+  const weights = calculateModelParameters(architecture).totalParameters * 2 / (1024 ** 3) // model weights in fp16
+  
+  // Training requires gradient memory
+  const gradients = training ? weights : 0
+  
+  const total = activations + attention + weights + gradients
+  
+  return {
+    total,
+    activations,
+    attention,
+    weights,
+    gradients,
+    breakdown: {
+      activationsPercent: Math.round((activations / total) * 100),
+      attentionPercent: Math.round((attention / total) * 100),
+      weightsPercent: Math.round((weights / total) * 100),
+      gradientsPercent: Math.round((gradients / total) * 100),
+    },
+    config: {
+      batchSize: effectiveBatchSize,
+      sequenceLength: effectiveSequenceLength,
+      training,
+      layers
+    }
+  }
+}
+
+/**
+ * Get model family specifications
+ * @param {string} family - Model family ('llama', 'gpt', 'mistral', etc.)
+ * @returns {object} Family-specific specifications and scaling factors
+ */
+export function getModelFamilySpecs(family) {
+  const familySpecs = {
+    llama: {
+      architecture: 'llama',
+      defaultVocabSize: 32000,
+      attentionType: 'grouped_query',
+      normType: 'rms_norm',
+      activationType: 'silu',
+      layerScaling: 1.0,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
+      memoryEfficiency: 0.85,
+      description: 'Llama family models (efficient attention)'
+    },
+    gpt: {
+      architecture: 'gpt',
+      defaultVocabSize: 50257,
+      attentionType: 'standard',
+      normType: 'layer_norm',
+      activationType: 'gelu',
+      layerScaling: 1.1,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
+      memoryEfficiency: 0.80,
+      description: 'GPT family models (standard attention)'
+    },
+    mistral: {
+      architecture: 'mistral',
+      defaultVocabSize: 32000,
+      attentionType: 'sliding_window',
+      normType: 'rms_norm',
+      activationType: 'silu',
+      layerScaling: 0.95,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
+      memoryEfficiency: 0.88,
+      description: 'Mistral family models (sliding window attention)'
+    },
+    default: {
+      architecture: 'transformer',
+      defaultVocabSize: 32000,
+      attentionType: 'standard',
+      normType: 'layer_norm',
+      activationType: 'relu',
+      layerScaling: 1.0,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
+      memoryEfficiency: 0.80,
+      description: 'Generic transformer model'
+    }
+  }
+  
+  return familySpecs[family] || familySpecs.default
+}
+
+/**
+ * Supported architectures constant
+ */
+export const SUPPORTED_ARCHITECTURES = ['llama', 'gpt', 'mistral', 'gemma', 'qwen', 'phi']

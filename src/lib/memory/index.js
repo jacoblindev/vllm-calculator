@@ -27,6 +27,15 @@ export {
   optimizeSystemOverhead
 } from './systemOverhead.js'
 
+export {
+  calculateVRAMBreakdown,
+  calculateModelWeightsMemoryFromSize,
+  calculateOptimalSwapSpace,
+  calculateReservedMemory,
+  calculateMemoryEfficiency,
+  generateMemoryOptimizationRecommendations
+} from './vramBreakdown.js'
+
 // Import from quantization module for model weights
 export { 
   calculateModelWeightsMemory

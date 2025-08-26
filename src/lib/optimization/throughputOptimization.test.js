@@ -297,21 +297,21 @@ describe('Throughput Optimization Module', () => {
   describe('estimateModelArchitecture', () => {
     it('should estimate architecture for common model sizes', () => {
       const arch7B = estimateModelArchitecture(7)
-      expect(arch7B).toEqual({
+      expect(arch7B).toMatchObject({
         layers: 32,
         hiddenSize: 4096,
         numHeads: 32
       })
 
       const arch13B = estimateModelArchitecture(13)
-      expect(arch13B).toEqual({
+      expect(arch13B).toMatchObject({
         layers: 40,
         hiddenSize: 5120,
         numHeads: 40
       })
 
       const arch175B = estimateModelArchitecture(175)
-      expect(arch175B).toEqual({
+      expect(arch175B).toMatchObject({
         layers: 96,
         hiddenSize: 12288,
         numHeads: 96
@@ -321,7 +321,7 @@ describe('Throughput Optimization Module', () => {
     it('should find closest architecture for intermediate sizes', () => {
       const arch8B = estimateModelArchitecture(8)
       // Should be closest to 7B
-      expect(arch8B).toEqual({
+      expect(arch8B).toMatchObject({
         layers: 32,
         hiddenSize: 4096,
         numHeads: 32

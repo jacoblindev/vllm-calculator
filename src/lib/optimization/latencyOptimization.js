@@ -59,8 +59,15 @@ export function calculateLatencyOptimalBatchSize(config) {
     'fp16' // Keep FP16 for balance of speed and quality
   )
   
-  // Calculate activation memory per token
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers)
+  // Calculate activation memory per sequence for average sequence length
+  const activationPerSeqGB = calculateActivationMemory({
+    batchSize: 1,
+    sequenceLength: averageSequenceLength,
+    hiddenSize: architecture.hiddenSize,
+    layers: architecture.layers,
+    precision: 'fp16',
+    architecture: architecture
+  }).totalMemoryGB
   
   // For latency optimization, prioritize smaller batches
   let maxNumSeqs, maxNumBatchedTokens
@@ -70,7 +77,7 @@ export function calculateLatencyOptimalBatchSize(config) {
       // Minimal batching for absolute lowest latency
       maxNumSeqs = Math.min(
         LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumSeqsMinimal,
-        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
+        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerSeqGB))
       )
       maxNumBatchedTokens = LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumBatchedTokensMinimal
       break
@@ -79,7 +86,7 @@ export function calculateLatencyOptimalBatchSize(config) {
       // Balance between latency and some throughput
       maxNumSeqs = Math.min(
         64, // Moderate batch size
-        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
+        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerSeqGB))
       )
       maxNumBatchedTokens = 4096
       break
@@ -88,7 +95,7 @@ export function calculateLatencyOptimalBatchSize(config) {
       // Low latency with reasonable throughput
       maxNumSeqs = Math.min(
         LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumSeqsOptimal,
-        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
+        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerSeqGB))
       )
       maxNumBatchedTokens = LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumBatchedTokensOptimal
   }
@@ -99,7 +106,7 @@ export function calculateLatencyOptimalBatchSize(config) {
   
   // Calculate memory usage breakdown
   const kvCacheMemoryGB = maxNumSeqs * kvCachePerSeqGB
-  const activationMemoryGB = maxNumSeqs * activationPerTokenGB * averageSequenceLength
+  const activationMemoryGB = maxNumSeqs * activationPerSeqGB
   const totalUsedMemoryGB = modelMemoryGB + kvCacheMemoryGB + activationMemoryGB
   const memoryUtilization = totalUsedMemoryGB / availableMemoryGB
   
