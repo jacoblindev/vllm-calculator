@@ -18,7 +18,7 @@ import {
   OVERHEAD_CATEGORIES,
   FRAMEWORK_OVERHEADS,
   GPU_DRIVER_OVERHEADS
-} from '../systemOverhead.js'
+} from './systemOverhead.js'
 
 describe('System Overhead Module', () => {
   describe('calculateSystemOverhead', () => {

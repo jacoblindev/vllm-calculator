@@ -14,7 +14,7 @@ import {
   generateWorkloadConfiguration,
   WORKLOAD_TYPES,
   PERFORMANCE_PRIORITIES
-} from '../workloadOptimizer.js'
+} from './workloadOptimizer.js'
 
 describe('Workload Optimizer Module', () => {
   describe('optimizeForWorkload', () => {

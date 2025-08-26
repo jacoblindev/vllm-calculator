@@ -5,14 +5,14 @@ import {
   MemoryError,
   Validators,
   VLLMValidators,
-} from '../validation.js'
+} from './validation.js'
 import {
   calculateQuantizationFactor,
   calculateModelWeightsMemory,
-} from '../quantization.js'
+} from './quantization.js'
 import {
   calculateVRAMBreakdown,
-} from '../memory/vramBreakdown.js'
+} from './memory/vramBreakdown.js'
 import {
   calculateBalancedOptimizedConfig,
 } from '../calculationEngine.js'

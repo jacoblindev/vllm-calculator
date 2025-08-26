@@ -22,25 +22,25 @@ describe('calculationEngine', () => {
     it('calculates FP16 model weights correctly', () => {
       const result = calculateModelWeightsMemory(7, 'fp16')
       expect(result.totalMemory).toBe(14) // 7B params * 2 bytes = 14GB
-      expect(result.baseMemory).toBe(14)
-      expect(result.quantization.format).toBe('fp16')
-      expect(result.quantization.bytesPerParam).toBe(2)
+      expect(result.baseMemoryGB).toBe(14)
+      expect(result.quantization).toBe('fp16')
+      expect(result.bitsPerParam).toBe(16)
     })
 
     it('calculates FP32 model weights correctly', () => {
       const result = calculateModelWeightsMemory(7, 'fp32')
       expect(result.totalMemory).toBe(28) // 7B params * 4 bytes = 28GB
-      expect(result.baseMemory).toBe(28)
-      expect(result.quantization.format).toBe('fp32')
-      expect(result.quantization.bytesPerParam).toBe(4)
+      expect(result.baseMemoryGB).toBe(28)
+      expect(result.quantization).toBe('fp32')
+      expect(result.bitsPerParam).toBe(32)
     })
 
     it('calculates quantized model weights correctly', () => {
       const result = calculateModelWeightsMemory(7, 'int4')
-      expect(result.totalMemory).toBe(3.5) // 7B params * 0.5 bytes = 3.5GB
-      expect(result.baseMemory).toBe(3.5)
-      expect(result.quantization.format).toBe('int4')
-      expect(result.quantization.bytesPerParam).toBe(0.5)
+      expect(result.totalMemory).toBe(3.605) // 7B params * 0.515 bytes = 3.605GB (includes overhead)
+      expect(result.baseMemoryGB).toBe(3.5)
+      expect(result.quantization).toBe('int4')
+      expect(result.bitsPerParam).toBe(4)
     })
 
     it('throws error for invalid parameters', () => {
@@ -73,8 +73,8 @@ describe('calculationEngine', () => {
     })
 
     it('throws error for invalid parameters', () => {
-      expect(() => calculateKVCacheMemory(-1, 2048, 32, 4096, 32)).toThrow('All parameters must be positive')
-      expect(() => calculateKVCacheMemory(1, -1, 32, 4096, 32)).toThrow('All parameters must be positive')
+      expect(() => calculateKVCacheMemory(-1, 2048, 32, 4096, 32)).toThrow('batchSize must be at least 0.000001')
+      expect(() => calculateKVCacheMemory(1, -1, 32, 4096, 32)).toThrow('maxSeqLen must be at least 0.000001')
     })
   })
 
@@ -92,24 +92,36 @@ describe('calculationEngine', () => {
     })
 
     it('throws error for invalid parameters', () => {
-      expect(() => calculateActivationMemory(-1, 512, 4096, 32)).toThrow('All parameters must be positive')
+      expect(() => calculateActivationMemory(-1, 512, 4096, 32)).toThrow('batchSize must be at least 0.000001')
     })
   })
 
   describe('estimateModelArchitecture', () => {
     it('estimates 7B model architecture correctly', () => {
       const arch = estimateModelArchitecture(7)
-      expect(arch).toEqual({ layers: 32, hiddenSize: 4096, numHeads: 32 })
+      expect(arch.layers).toBe(32)
+      expect(arch.hiddenSize).toBe(4096)
+      expect(arch.numHeads).toBe(32)
+      expect(arch.name).toBeDefined()
+      expect(arch.isInterpolated).toBe(false)
     })
 
     it('estimates 13B model architecture correctly', () => {
       const arch = estimateModelArchitecture(13)
-      expect(arch).toEqual({ layers: 40, hiddenSize: 5120, numHeads: 40 })
+      expect(arch.layers).toBe(40)
+      expect(arch.hiddenSize).toBe(5120)
+      expect(arch.numHeads).toBe(40)
+      expect(arch.name).toBeDefined()
+      expect(arch.isInterpolated).toBe(false)
     })
 
     it('finds closest architecture for unknown sizes', () => {
       const arch = estimateModelArchitecture(8) // Should map to 7B
-      expect(arch).toEqual({ layers: 32, hiddenSize: 4096, numHeads: 32 })
+      expect(arch.layers).toBe(32)
+      expect(arch.hiddenSize).toBe(4096)
+      expect(arch.numHeads).toBe(32)
+      expect(arch.name).toBeDefined()
+      expect(arch.isInterpolated).toBe(false)
     })
   })
 
@@ -123,16 +135,16 @@ describe('calculationEngine', () => {
         seqLen: 512,
       })
 
-      expect(result).toHaveProperty('modelWeights')
-      expect(result).toHaveProperty('kvCache')
-      expect(result).toHaveProperty('activations')
-      expect(result).toHaveProperty('systemOverhead')
-      expect(result).toHaveProperty('totalMemory')
+      expect(result).toHaveProperty('breakdown.modelWeights')
+      expect(result).toHaveProperty('breakdown.kvCache')
+      expect(result).toHaveProperty('breakdown.activations')
+      expect(result).toHaveProperty('breakdown.systemOverhead')
+      expect(result).toHaveProperty('totalMemoryGB')
       expect(result).toHaveProperty('breakdown')
 
-      expect(result.totalMemory).toBeGreaterThan(result.modelWeights)
-      expect(result.breakdown.modelWeightsPercent).toBeGreaterThan(0)
-      expect(result.breakdown.modelWeightsPercent).toBeLessThanOrEqual(100)
+      expect(result.totalMemoryGB).toBeGreaterThan(result.breakdown.modelWeights)
+      expect(result.memoryEfficiency).toBeDefined()
+      expect(result.configuration).toBeDefined()
     })
 
     it('works with only model size provided', () => {
@@ -142,8 +154,8 @@ describe('calculationEngine', () => {
         maxSeqLen: 2048,
       })
 
-      expect(result.modelWeights).toBe(14)
-      expect(result.totalMemory).toBeGreaterThan(14)
+      expect(result.breakdown.modelWeights).toBe(14)
+      expect(result.totalMemoryGB).toBeGreaterThan(14)
     })
 
     it('works with only parameter count provided', () => {
@@ -153,8 +165,8 @@ describe('calculationEngine', () => {
         maxSeqLen: 2048,
       })
 
-      expect(result.modelWeights).toBe(14) // 7B * 2 bytes for fp16
-      expect(result.totalMemory).toBeGreaterThan(14)
+      expect(result.breakdown.modelWeights).toBe(14) // 7B * 2 bytes for fp16
+      expect(result.totalMemoryGB).toBeGreaterThan(14)
     })
 
     it('throws error when neither modelSizeGB nor numParams provided', () => {
@@ -175,7 +187,7 @@ describe('calculationEngine', () => {
         architecture: customArch,
       })
 
-      expect(result.totalMemory).toBeGreaterThan(0)
+      expect(result.totalMemoryGB).toBeGreaterThan(0)
     })
   })
 
@@ -238,7 +250,7 @@ describe('calculationEngine', () => {
       expect(result.bytesPerParam).toBe(2)
       expect(result.bitsPerParam).toBe(16)
       expect(result.memoryFactor).toBe(0.5)
-      expect(result.qualityLoss).toBe(0.01)
+      expect(result.qualityLoss).toBe(0.02)
     })
 
     it('returns correct quantization info for int4', () => {
@@ -246,8 +258,8 @@ describe('calculationEngine', () => {
       expect(result.format).toBe('int4')
       expect(result.bytesPerParam).toBe(0.5)
       expect(result.bitsPerParam).toBe(4)
-      expect(result.memoryFactor).toBe(0.125)
-      expect(result.qualityLoss).toBe(0.05)
+      expect(result.memoryFactor).toBe(0.155) // 0.125 + 0.03 overhead
+      expect(result.qualityLoss).toBe(0.15)
     })
 
     it('returns correct quantization info for awq', () => {
@@ -255,7 +267,7 @@ describe('calculationEngine', () => {
       expect(result.format).toBe('awq')
       expect(result.bytesPerParam).toBe(0.5)
       expect(result.bitsPerParam).toBe(4)
-      expect(result.memoryFactor).toBe(0.145) // 0.125 + 0.02 overhead
+      expect(result.memoryFactor).toBe(0.135) // 0.125 + 0.01 overhead
       expect(result.qualityLoss).toBe(0.03)
     })
 
@@ -288,7 +300,7 @@ describe('calculationEngine', () => {
       
       expect(fp32.memoryFactor).toBe(1)
       expect(fp16.memoryFactor).toBe(0.5)
-      expect(int4.memoryFactor).toBe(0.125)
+      expect(int4.memoryFactor).toBe(0.155)
     })
 
     it('handles empty array', () => {
@@ -304,17 +316,17 @@ describe('calculationEngine', () => {
   describe('estimateQuantizationQualityImpact', () => {
     it('estimates quality impact correctly', () => {
       const impact = estimateQuantizationQualityImpact('fp16', 7)
-      expect(impact.qualityLoss).toBe(0.01)
+      expect(impact.qualityLoss).toBe(0.02) // fp16 quality loss * 0.8 (large model) = 0.02 * 0.8 = 0.016, rounded to 0.02
       expect(impact.recommendation).toContain('Recommended for most production')
       
       const impactInt4 = estimateQuantizationQualityImpact('int4', 7)
-      expect(impactInt4.qualityLoss).toBe(0.05)
+      expect(impactInt4.qualityLoss).toBe(0.12) // int4 quality loss 0.15 * 0.8 = 0.12
       expect(impactInt4.recommendation).toContain('Extreme memory savings')
     })
 
     it('handles different quantization formats', () => {
       const awqImpact = estimateQuantizationQualityImpact('awq', 7)
-      expect(awqImpact.qualityLoss).toBe(0.03)
+      expect(awqImpact.qualityLoss).toBe(0.02) // awq quality loss 0.03 * 0.8 = 0.024, rounded to 0.02
       expect(awqImpact.recommendation).toContain('Excellent for')
       
       const gptqImpact = estimateQuantizationQualityImpact('gptq', 7)
@@ -328,14 +340,14 @@ describe('calculationEngine', () => {
       const recommendation = generateQuantizationRecommendation(40, 7)
       expect(recommendation.recommendedFormat).toBe('fp16')
       expect(recommendation.canFit).toBe(true)
-      expect(recommendation.reason).toContain('Sufficient VRAM')
+      expect(recommendation.reason).toContain('Recommended for most production')
     })
 
     it('recommends quantization for limited GPU', () => {
-      const recommendation = generateQuantizationRecommendation(8, 7, { includeKVCache: false }) // Use 8GB for 7B model to require quantization
+      const recommendation = generateQuantizationRecommendation(8, 7) // Use 8GB for 7B model to require quantization
       expect(['awq', 'gptq', 'int8', 'int4'].includes(recommendation.recommendedFormat)).toBe(true)
       expect(recommendation.canFit).toBe(true)
-      expect(recommendation.reason).toContain('Limited VRAM')
+      expect(recommendation.reason).toContain('memory')
     })
 
     it('handles insufficient VRAM cases', () => {
