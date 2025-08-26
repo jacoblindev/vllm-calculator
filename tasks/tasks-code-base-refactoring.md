@@ -91,7 +91,7 @@
     * [x] 1.7.8 Update all imports and add comprehensive unit tests for new modules.
 
 * [ ] 2.0 Review and Optimize Test Coverage
-  * [ ] 2.1 Audit existing tests for duplication and relevance.
+  * [x] 2.1 Audit existing tests for duplication and relevance.
   * [ ] 2.2 Group related tests and remove unnecessary edge cases.
   * [ ] 2.3 Ensure all new modules have focused unit tests.
   * [ ] 2.4 Add integration tests for critical user flows (GPU/model selection → config output).
