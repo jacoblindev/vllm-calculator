@@ -32,7 +32,7 @@ import {
 
 import {
   estimateModelArchitecture
-} from '../optimization/throughputOptimization.js'
+} from '../workload/modelArchitecture.js'
 
 /**
  * Calculate detailed VRAM breakdown with quantization support

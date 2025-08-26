@@ -87,7 +87,7 @@
     * [x] 1.7.4 Extract balanced optimization logic to `src/lib/optimization/balancedOptimization.js`.
     * [x] 1.7.5 Extract workload management to `src/lib/workload/` (workloadOptimizer.js, commandGenerator.js, modelArchitecture.js).
     * [x] 1.7.6 Extract configuration constants to `src/lib/configs/optimizationConfigs.js`.
-    * [ ] 1.7.7 Refactor `src/lib/calculationEngine.js` to be a lightweight orchestrator (~400 lines).
+    * [x] 1.7.7 Refactor `src/lib/calculationEngine.js` to be a lightweight orchestrator (~400 lines).
     * [ ] 1.7.8 Update all imports and add comprehensive unit tests for new modules.
 
 * [ ] 2.0 Review and Optimize Test Coverage
