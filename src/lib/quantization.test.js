@@ -210,4 +210,80 @@ describe('Quantization Module', () => {
       })
     })
   })
+
+  describe('Edge Cases and Boundary Testing', () => {
+    it('handles extremely small models (< 1B parameters)', () => {
+      const result = calculateModelWeightsMemory(0.1, 'fp16') // 100M parameters
+      expect(result.totalMemory).toBeCloseTo(0.2, 1) // 100M * 2 bytes = 0.2GB
+    })
+
+    it('handles extremely large models (> 100B parameters)', () => {
+      const result = calculateModelWeightsMemory(175, 'fp16') // GPT-3 size
+      expect(result.totalMemory).toBeCloseTo(350, 1) // 175B * 2 bytes = 350GB
+    })
+
+    it('compares all supported quantization formats', () => {
+      const formats = getSupportedQuantizationFormats()
+      const comparison = compareQuantizationFormats(formats)
+      
+      expect(comparison.length).toBe(formats.length)
+      
+      comparison.forEach(result => {
+        expect(result.format).toBeTypeOf('string')
+        expect(result.memoryFactor).toBeGreaterThan(0)
+        expect(result.qualityLoss).toBeGreaterThanOrEqual(0)
+        expect(result.bitsPerParam).toBeGreaterThan(0)
+        expect(result.bitsPerParam).toBeLessThanOrEqual(32)
+      })
+    })
+
+    it('validates format ordering by memory efficiency', () => {
+      const formats = ['fp32', 'fp16', 'awq', 'gptq', 'int4']
+      const factors = formats.map(format => {
+        const result = calculateQuantizationFactor(format)
+        return { format, factor: result.memoryFactor }
+      })
+      
+      // Memory factors should generally decrease (more compression)
+      for (let i = 1; i < factors.length - 1; i++) {
+        expect(factors[i].factor).toBeLessThanOrEqual(factors[i - 1].factor)
+      }
+    })
+  })
+
+  describe('Quantization Recommendations', () => {
+    it('generates appropriate recommendations for different GPU memory sizes', () => {
+      const testCases = [
+        { memory: 8, modelSize: 7, expectedMaxFormat: 'int4' },
+        { memory: 16, modelSize: 7, expectedFormats: ['int8', 'awq', 'gptq'] },
+        { memory: 24, modelSize: 7, expectedFormats: ['fp16', 'awq'] },
+        { memory: 80, modelSize: 7, expectedFormats: ['fp16', 'bf16'] }
+      ]
+      
+      testCases.forEach(testCase => {
+        const recommendation = generateQuantizationRecommendation(testCase.memory, testCase.modelSize)
+        expect(recommendation).toHaveProperty('recommendedFormat')
+        expect(recommendation).toHaveProperty('canFit')
+        expect(recommendation).toHaveProperty('memoryUsageGB')
+        
+        if (testCase.expectedFormats) {
+          expect(testCase.expectedFormats.includes(recommendation.recommendedFormat)).toBe(true)
+        }
+      })
+    })
+
+    it('handles large models requiring aggressive quantization', () => {
+      const largeModels = [65, 175] // B parameters
+      
+      largeModels.forEach(modelSize => {
+        const int4Result = calculateModelWeightsMemory(modelSize, 'int4')
+        expect(int4Result.totalMemory).toBeGreaterThan(0)
+        
+        // Even with int4, very large models should still require significant memory
+        if (modelSize >= 175) {
+          expect(int4Result.totalMemory).toBeGreaterThan(50) // At least 50GB for 175B+ models
+        }
+      })
+    })
+  })
 })
