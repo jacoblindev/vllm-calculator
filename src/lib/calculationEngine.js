@@ -86,12 +86,27 @@ import {
   calculateOptimalBatchSize,
   calculateMemoryAllocationStrategy,
   estimateThroughputMetrics,
-  calculateThroughputOptimizedConfig,
-  generateVLLMCommand,
+  calculateThroughputOptimizedConfig
+} from './optimization/throughputOptimization.js'
+
+// Import workload management functions
+import {
   optimizeForWorkload,
+  generateWorkloadConfiguration,
+  WORKLOAD_TYPES,
+  PERFORMANCE_PRIORITIES
+} from './workload/workloadOptimizer.js'
+
+import {
+  generateVLLMCommand,
+  generateConfiguration,
+  validateConfiguration
+} from './workload/commandGenerator.js'
+
+import {
   estimateModelArchitecture,
   calculateVLLMMemoryUsage
-} from './optimization/throughputOptimization.js'
+} from './workload/modelArchitecture.js'
 
 // Import latency optimization functions
 import {
@@ -122,9 +137,24 @@ export {
   calculateOptimalBatchSize,
   calculateMemoryAllocationStrategy,
   estimateThroughputMetrics,
-  calculateThroughputOptimizedConfig,
-  generateVLLMCommand,
+  calculateThroughputOptimizedConfig
+}
+
+// Re-export workload management functions to maintain backward compatibility
+export {
   optimizeForWorkload,
+  generateWorkloadConfiguration,
+  WORKLOAD_TYPES,
+  PERFORMANCE_PRIORITIES
+}
+
+export {
+  generateVLLMCommand,
+  generateConfiguration,
+  validateConfiguration
+}
+
+export {
   estimateModelArchitecture,
   calculateVLLMMemoryUsage
 }
