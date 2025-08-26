@@ -3,8 +3,8 @@ import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import VRAMChart from './VRAMChart.vue'
 
-// Mock the calculation engine
-vi.mock('../lib/calculationEngine.js', () => ({
+// Mock the memory calculation module
+vi.mock('../lib/memory/vramBreakdown.js', () => ({
   calculateVRAMBreakdown: vi.fn(() => ({
     breakdown: {
       modelWeights: { sizeGB: 13.5, percentage: 40 },
@@ -350,7 +350,7 @@ describe('VRAMChart.vue - Error Handling', () => {
     })
     
     // Replace the mock temporarily
-    vi.doMock('../lib/calculationEngine.js', () => ({
+    vi.doMock('../lib/memory/vramBreakdown.js', () => ({
       calculateVRAMBreakdown: mockCalculateVRAMBreakdown
     }))
 

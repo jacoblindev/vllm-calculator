@@ -58,8 +58,8 @@
   * [x] 1.2 Extract VRAM breakdown logic to `src/lib/memory/vramBreakdown.js`.
   * [x] 1.3 Extract quantization logic to `src/lib/quantization.js`.
   * [x] 1.4 Extract validation logic to `src/lib/validation.js`.
-  * [ ] 1.5 Update imports and references across the codebase.
-  * [ ] 1.6 Add or update unit tests for each new module.
+  * [x] 1.5 Update imports and references across the codebase.
+  * [x] 1.6 Add or update unit tests for each new module.
 
 * [ ] 2.0 Review and Optimize Test Coverage
   * [ ] 2.1 Audit existing tests for duplication and relevance.

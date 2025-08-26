@@ -114,7 +114,7 @@ import {
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { Bar } from 'vue-chartjs'
-import { calculateVRAMBreakdown } from '../lib/calculationEngine.js'
+import { calculateVRAMBreakdown } from '../lib/memory/vramBreakdown.js'
 import { useLoadingWithRetry } from '../composables/useLoadingState.js'
 
 // Register Chart.js components and plugins

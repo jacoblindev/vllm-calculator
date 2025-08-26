@@ -5,9 +5,15 @@ import {
   MemoryError,
   Validators,
   VLLMValidators,
+} from '../validation.js'
+import {
   calculateQuantizationFactor,
   calculateModelWeightsMemory,
+} from '../quantization.js'
+import {
   calculateVRAMBreakdown,
+} from '../memory/vramBreakdown.js'
+import {
   calculateBalancedOptimizedConfig,
 } from '../calculationEngine.js'
 
@@ -295,7 +301,7 @@ describe('Validation Framework', () => {
       it('should work with valid inputs', () => {
         const result = calculateModelWeightsMemory(7, 'fp16')
         expect(result.totalMemory).toBeGreaterThan(0)
-        expect(result.quantization.format).toBe('fp16')
+        expect(result.quantization).toBe('fp16')
       })
 
       it('should throw ValidationError for invalid numParams', () => {
