@@ -7,12 +7,12 @@ import {
   calculateReservedMemory,
   calculateMemoryEfficiency,
   getEfficiencyRating,
-  analyzememoryPressure,
+  analyzeMemoryPressure,
   analyzeQuantizationBenefit,
   generateMemoryOptimizationRecommendations,
   calculateOptimalBatchSizeForVRAM,
   calculateMaxConcurrentSequences,
-} from '../calculationEngine.js'
+} from '../memory/vramBreakdown.js'
 
 describe('VRAM Breakdown Functions', () => {
   describe('calculateVRAMBreakdown', () => {
@@ -328,9 +328,9 @@ describe('VRAM Breakdown Functions', () => {
     })
   })
 
-  describe('analyzememoryPressure', () => {
+  describe('analyzeMemoryPressure', () => {
     it('should analyze critical memory pressure correctly', () => {
-      const analysis = analyzememoryPressure(96, 1.5)
+      const analysis = analyzeMemoryPressure(96, 1.5)
 
       expect(analysis.level).toBe('Critical')
       expect(analysis.isStable).toBe(false)
@@ -338,7 +338,7 @@ describe('VRAM Breakdown Functions', () => {
     })
 
     it('should analyze high memory pressure correctly', () => {
-      const analysis = analyzememoryPressure(92, 3.2)
+      const analysis = analyzeMemoryPressure(92, 3.2)
 
       expect(analysis.level).toBe('High')
       expect(analysis.isStable).toBe(false)
@@ -346,7 +346,7 @@ describe('VRAM Breakdown Functions', () => {
     })
 
     it('should analyze moderate memory pressure correctly', () => {
-      const analysis = analyzememoryPressure(85, 8)
+      const analysis = analyzeMemoryPressure(85, 8)
 
       expect(analysis.level).toBe('Moderate')
       expect(analysis.isStable).toBe(true)
@@ -354,7 +354,7 @@ describe('VRAM Breakdown Functions', () => {
     })
 
     it('should analyze low memory pressure correctly', () => {
-      const analysis = analyzememoryPressure(65, 20)
+      const analysis = analyzeMemoryPressure(65, 20)
 
       expect(analysis.level).toBe('Low')
       expect(analysis.isStable).toBe(true)
@@ -362,7 +362,7 @@ describe('VRAM Breakdown Functions', () => {
     })
 
     it('should analyze very low memory pressure correctly', () => {
-      const analysis = analyzememoryPressure(40, 35)
+      const analysis = analyzeMemoryPressure(40, 35)
 
       expect(analysis.level).toBe('Very Low')
       expect(analysis.recommendations).toContain('Increase batch size significantly')
