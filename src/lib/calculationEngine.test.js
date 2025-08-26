@@ -2,17 +2,20 @@ import { describe, it, expect } from 'vitest'
 import {
   calculateVRAMUsage,
   canRunOnGPU,
-  calculateModelWeightsMemory,
   calculateKVCacheMemory,
   calculateActivationMemory,
   estimateModelArchitecture,
   calculateVLLMMemoryUsage,
+} from './calculationEngine.js'
+
+import {
+  calculateModelWeightsMemory,
   calculateQuantizationFactor,
   getSupportedQuantizationFormats,
   compareQuantizationFormats,
   estimateQuantizationQualityImpact,
   generateQuantizationRecommendation,
-} from './calculationEngine.js'
+} from './quantization.js'
 
 describe('calculationEngine', () => {
   describe('calculateModelWeightsMemory', () => {

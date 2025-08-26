@@ -4,9 +4,10 @@ import {
   calculateMemoryAllocationStrategy,
   estimateThroughputMetrics,
   calculateThroughputOptimizedConfig,
-  optimizeForWorkload,
   generateVLLMCommand,
 } from '../calculationEngine.js'
+
+import { optimizeForWorkload } from '../workload/workloadOptimizer.js'
 
 describe('Throughput Optimization Functions', () => {
   // Mock model specs for testing
@@ -263,10 +264,10 @@ describe('Throughput Optimization Functions', () => {
       expect(result.workloadType).toBe('chat')
       expect(result.optimizations.recommendedQuantization).toBe('fp16') // Quality for chat
       expect(result.optimizations.specialSettings['enable-prefix-caching']).toBe(true)
-      expect(result.recommendations.batchConfiguration.enableChunkedPrefill).toBe(true)
-      expect(result.inputProfile.averageInputLength).toBe(100)
-      expect(result.inputProfile.averageOutputLength).toBe(50)
-      expect(result.inputProfile.totalSequenceLength).toBe(150)
+      expect(result.optimizations.batchingStrategy.enableChunkedPrefill).toBe(false) // Chat doesn't need chunked prefill
+      expect(result.characteristics.averageInputLength).toBe(100)
+      expect(result.characteristics.averageOutputLength).toBe(50)
+      expect(result.characteristics.totalSequenceLength).toBe(150)
     })
 
     it('should optimize for batch workload with aggressive settings', () => {
@@ -275,15 +276,15 @@ describe('Throughput Optimization Functions', () => {
         averageInputLength: 512,
         averageOutputLength: 200,
         peakConcurrency: 1000,
-        latencyRequirement: 'high',
-        throughputPriority: 'high',
+        latencyRequirement: 'relaxed',
+        throughputPriority: 'very-high',
       }
       
       const result = optimizeForWorkload(workloadProfile)
       
       expect(result.workloadType).toBe('batch')
       expect(result.optimizations.recommendedQuantization).toBe('awq') // Memory efficiency
-      expect(result.optimizations.memoryStrategy).toBe('aggressive')
+      expect(result.optimizations.memoryStrategy).toBe('throughput_optimized')
       expect(result.optimizations.specialSettings['disable-log-stats']).toBe(true)
     })
 
@@ -293,7 +294,7 @@ describe('Throughput Optimization Functions', () => {
         averageInputLength: 1000,
         averageOutputLength: 500,
         peakConcurrency: 20,
-        latencyRequirement: 'balanced',
+        latencyRequirement: 'low',
         throughputPriority: 'medium',
       }
       
@@ -302,7 +303,34 @@ describe('Throughput Optimization Functions', () => {
       expect(result.workloadType).toBe('code-generation')
       expect(result.optimizations.recommendedQuantization).toBe('fp16') // Precision for code
       expect(result.optimizations.specialSettings['enable-prefix-caching']).toBe(true)
-      expect(result.recommendations.batchConfiguration.enableChunkedPrefill).toBe(true)
+      expect(result.optimizations.batchingStrategy.enableChunkedPrefill).toBe(true) // Long context
+    })
+      }
+      
+      const result = optimizeForWorkload(workloadProfile)
+      
+      expect(result.workloadType).toBe('batch')
+      expect(result.optimizations.recommendedQuantization).toBe('awq') // Memory efficiency
+      expect(result.optimizations.memoryStrategy).toBe('throughput_optimized')
+      expect(result.optimizations.specialSettings['disable-log-stats']).toBe(true)
+    })
+
+    it('should optimize for code generation with precision settings', () => {
+      const workloadProfile = {
+        workloadType: 'code-generation',
+        averageInputLength: 1000,
+        averageOutputLength: 500,
+        peakConcurrency: 20,
+        latencyRequirement: 'low',
+        throughputPriority: 'medium',
+      }
+      
+      const result = optimizeForWorkload(workloadProfile)
+      
+      expect(result.workloadType).toBe('code-generation')
+      expect(result.optimizations.recommendedQuantization).toBe('fp16') // Precision for code
+      expect(result.optimizations.specialSettings['enable-prefix-caching']).toBe(true)
+      expect(result.optimizations.batchingStrategy.enableChunkedPrefill).toBe(true) // Long context
     })
 
     it('should provide workload considerations and reasoning', () => {

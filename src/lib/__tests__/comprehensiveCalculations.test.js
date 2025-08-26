@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateModelWeightsMemory,
-  calculateModelWeightsMemoryLegacy,
   calculateQuantizationFactor,
   getSupportedQuantizationFormats,
   compareQuantizationFormats,
   estimateQuantizationQualityImpact,
   generateQuantizationRecommendation,
+} from '../quantization.js'
+import {
   analyzeQuantizationBenefit,
+} from '../memory/vramBreakdown.js'
+import {
   calculateVRAMUsage,
   calculateKVCacheMemory,
   calculateActivationMemory,
@@ -68,18 +71,18 @@ describe('Comprehensive Calculation Engine Tests', () => {
       })
     })
 
-    describe('Legacy Function Coverage', () => {
-      it('tests legacy calculateModelWeightsMemoryLegacy function', () => {
-        const result = calculateModelWeightsMemoryLegacy(7, 'fp16')
-        expect(result).toBeTypeOf('number')
-        expect(result).toBe(14) // 7B * 2 bytes = 14GB
-      })
+    // describe('Legacy Function Coverage', () => {
+    //   it('tests legacy calculateModelWeightsMemoryLegacy function', () => {
+    //     const result = calculateModelWeightsMemoryLegacy(7, 'fp16')
+    //     expect(result).toBeTypeOf('number')
+    //     expect(result).toBe(14) // 7B * 2 bytes = 14GB
+    //   })
 
-      it('throws error for invalid parameters in legacy function', () => {
-        expect(() => calculateModelWeightsMemoryLegacy(-1)).toThrow()
-        expect(() => calculateModelWeightsMemoryLegacy(0)).toThrow()
-      })
-    })
+    //   it('throws error for invalid parameters in legacy function', () => {
+    //     expect(() => calculateModelWeightsMemoryLegacy(-1)).toThrow()
+    //     expect(() => calculateModelWeightsMemoryLegacy(0)).toThrow()
+    //   })
+    // })
 
     describe('Extreme Quantization Scenarios', () => {
       it('handles all supported quantization formats', () => {

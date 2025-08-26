@@ -3,10 +3,12 @@ import {
   calculateQuantizationFactor,
   calculateModelWeightsMemory,
   generateQuantizationRecommendation,
-  analyzeQuantizationBenefit,
   estimateQuantizationQualityImpact,
   getSupportedQuantizationFormats,
   compareQuantizationFormats,
+} from '../quantization.js'
+import {
+  analyzeQuantizationBenefit,
 } from '../calculationEngine.js'
 
 describe('Advanced Quantization Scenarios', () => {
