@@ -25,6 +25,26 @@
 * `src/lib/calculationEngine.test.js` - To be updated to reflect the new structure.
 * `src/lib/memory/vramBreakdown.js` - New module for VRAM calculation logic.
 * `src/lib/memory/vramBreakdown.test.js` - Unit tests for the new VRAM module.
+* `src/lib/memory/kvCache.js` - New module for KV cache memory calculations.
+* `src/lib/memory/kvCache.test.js` - Unit tests for KV cache module.
+* `src/lib/memory/activations.js` - New module for activation memory calculations.
+* `src/lib/memory/activations.test.js` - Unit tests for activation memory module.
+* `src/lib/memory/systemOverhead.js` - New module for system overhead calculations.
+* `src/lib/memory/systemOverhead.test.js` - Unit tests for system overhead module.
+* `src/lib/optimization/throughputOptimization.js` - New module for throughput optimization strategies.
+* `src/lib/optimization/throughputOptimization.test.js` - Unit tests for throughput optimization.
+* `src/lib/optimization/latencyOptimization.js` - New module for latency optimization strategies.
+* `src/lib/optimization/latencyOptimization.test.js` - Unit tests for latency optimization.
+* `src/lib/optimization/balancedOptimization.js` - New module for balanced optimization strategies.
+* `src/lib/optimization/balancedOptimization.test.js` - Unit tests for balanced optimization.
+* `src/lib/workload/workloadOptimizer.js` - New module for workload-specific optimizations.
+* `src/lib/workload/workloadOptimizer.test.js` - Unit tests for workload optimizer.
+* `src/lib/workload/commandGenerator.js` - New module for vLLM command generation.
+* `src/lib/workload/commandGenerator.test.js` - Unit tests for command generator.
+* `src/lib/workload/modelArchitecture.js` - New module for model architecture estimation.
+* `src/lib/workload/modelArchitecture.test.js` - Unit tests for model architecture.
+* `src/lib/configs/optimizationConfigs.js` - New module for optimization configuration constants.
+* `src/lib/configs/optimizationConfigs.test.js` - Unit tests for optimization configs.
 * `src/lib/quantization.js` - New module for quantization logic.
 * `src/lib/quantization.test.js` - Unit tests for the new quantization module.
 * `src/lib/validation.js` - New module for input validation logic.
@@ -53,13 +73,22 @@
 
 ## Tasks
 
-* [ ] 1.0 Refactor Large Files for Maintainability
+* [x] 1.0 Refactor Large Files for Maintainability
   * [x] 1.1 Audit `src/lib/calculationEngine.js` for logical domains (VRAM, quantization, validation).
   * [x] 1.2 Extract VRAM breakdown logic to `src/lib/memory/vramBreakdown.js`.
   * [x] 1.3 Extract quantization logic to `src/lib/quantization.js`.
   * [x] 1.4 Extract validation logic to `src/lib/validation.js`.
   * [x] 1.5 Update imports and references across the codebase.
   * [x] 1.6 Add or update unit tests for each new module.
+  * [ ] 1.7 Further extract optimization strategies from `src/lib/calculationEngine.js` into focused modules.
+    * [x] 1.7.1 Extract memory calculation functions to `src/lib/memory/` (kvCache.js, activations.js, systemOverhead.js).
+    * [x] 1.7.2 Extract throughput optimization logic to `src/lib/optimization/throughputOptimization.js`.
+    * [ ] 1.7.3 Extract latency optimization logic to `src/lib/optimization/latencyOptimization.js`.
+    * [ ] 1.7.4 Extract balanced optimization logic to `src/lib/optimization/balancedOptimization.js`.
+    * [ ] 1.7.5 Extract workload management to `src/lib/workload/` (workloadOptimizer.js, commandGenerator.js, modelArchitecture.js).
+    * [ ] 1.7.6 Extract configuration constants to `src/lib/configs/optimizationConfigs.js`.
+    * [ ] 1.7.7 Refactor `src/lib/calculationEngine.js` to be a lightweight orchestrator (~400 lines).
+    * [ ] 1.7.8 Update all imports and add comprehensive unit tests for new modules.
 
 * [ ] 2.0 Review and Optimize Test Coverage
   * [ ] 2.1 Audit existing tests for duplication and relevance.
