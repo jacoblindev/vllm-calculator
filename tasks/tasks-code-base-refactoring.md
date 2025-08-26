@@ -84,7 +84,7 @@
     * [x] 1.7.1 Extract memory calculation functions to `src/lib/memory/` (kvCache.js, activations.js, systemOverhead.js).
     * [x] 1.7.2 Extract throughput optimization logic to `src/lib/optimization/throughputOptimization.js`.
     * [x] 1.7.3 Extract latency optimization logic to `src/lib/optimization/latencyOptimization.js`. **COMPLETE**
-    * [ ] 1.7.4 Extract balanced optimization logic to `src/lib/optimization/balancedOptimization.js`.
+    * [x] 1.7.4 Extract balanced optimization logic to `src/lib/optimization/balancedOptimization.js`.
     * [ ] 1.7.5 Extract workload management to `src/lib/workload/` (workloadOptimizer.js, commandGenerator.js, modelArchitecture.js).
     * [ ] 1.7.6 Extract configuration constants to `src/lib/configs/optimizationConfigs.js`.
     * [ ] 1.7.7 Refactor `src/lib/calculationEngine.js` to be a lightweight orchestrator (~400 lines).
