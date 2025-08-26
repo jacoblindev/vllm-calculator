@@ -25,11 +25,13 @@ import {
   estimateLatencyMetrics,
   calculateMemoryAllocationStrategy,
   generateVLLMCommand,
-  calculateModelWeightsMemory,
   calculateKVCacheMemory,
+} from './lib/calculationEngine.js'
+import {
+  calculateModelWeightsMemory,
   getSupportedQuantizationFormats,
   generateQuantizationRecommendation
-} from './lib/calculationEngine.js'
+} from './lib/quantization.js'
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
