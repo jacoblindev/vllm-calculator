@@ -27,9 +27,12 @@ import {
 import {
   calculateKVCacheMemory,
   calculateActivationMemory,
-  calculateSystemOverhead,
-  estimateModelArchitecture
+  calculateSystemOverhead
 } from '../calculationEngine.js'
+
+import {
+  estimateModelArchitecture
+} from '../optimization/throughputOptimization.js'
 
 /**
  * Calculate detailed VRAM breakdown with quantization support
