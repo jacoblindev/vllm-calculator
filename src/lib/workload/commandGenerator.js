@@ -16,95 +16,18 @@
  * - Deployment best practices
  */
 
+import { VLLM_PARAMETERS } from '../configs/optimizationConfigs.js'
+
 // ================================
-// COMMAND GENERATION CONSTANTS
+// COMMAND GENERATION CONSTANTS (imported from central config)
 // ================================
 
-/**
- * vLLM parameter definitions and their types
- */
-export const VLLM_PARAMETERS = {
-  // Model and tokenizer
-  model: { type: 'string', required: true, description: 'Model name or path' },
-  tokenizer: { type: 'string', description: 'Tokenizer name or path' },
-  'tokenizer-mode': { type: 'string', options: ['auto', 'slow'], description: 'Tokenizer mode' },
-  'trust-remote-code': { type: 'boolean', description: 'Trust remote code in model' },
-  'download-dir': { type: 'string', description: 'Directory to download and cache model weights' },
-  'load-format': { type: 'string', options: ['auto', 'pt', 'safetensors', 'npcache', 'dummy'], description: 'Model weight loading format' },
-  'revision': { type: 'string', description: 'Model revision (branch, tag, or commit)' },
-  'code-revision': { type: 'string', description: 'Code revision for trust-remote-code' },
-  
-  // Model execution
-  dtype: { type: 'string', options: ['auto', 'half', 'float16', 'bfloat16', 'float', 'float32'], description: 'Model data type' },
-  'kv-cache-dtype': { type: 'string', options: ['auto', 'fp8', 'fp8_e5m2', 'fp8_e4m3'], description: 'KV cache data type' },
-  quantization: { type: 'string', options: ['awq', 'gptq', 'squeezellm', 'fp8'], description: 'Quantization method' },
-  'enforce-eager': { type: 'boolean', description: 'Disable CUDA graphs for debugging' },
-  'max-context-len-to-capture': { type: 'number', description: 'Maximum context length for CUDA graphs' },
-  
-  // Memory and performance
-  'gpu-memory-utilization': { type: 'number', min: 0.1, max: 1.0, description: 'GPU memory utilization fraction' },
-  'swap-space': { type: 'string', description: 'CPU swap space size (e.g., 4GB)' },
-  'cpu-offload-gb': { type: 'number', description: 'CPU offload memory in GB' },
-  'max-num-batched-tokens': { type: 'number', description: 'Maximum batched tokens' },
-  'max-num-seqs': { type: 'number', description: 'Maximum concurrent sequences' },
-  'max-model-len': { type: 'number', description: 'Maximum model context length' },
-  'max-seq-len-to-capture': { type: 'number', description: 'Maximum sequence length for CUDA graphs' },
-  
-  // Chunked prefill
-  'enable-chunked-prefill': { type: 'boolean', description: 'Enable chunked prefill' },
-  'max-chunked-prefill-tokens': { type: 'number', description: 'Maximum tokens in chunked prefill' },
-  
-  // Block management
-  'block-size': { type: 'number', options: [8, 16, 32], description: 'KV cache block size' },
-  'num-lookahead-slots': { type: 'number', description: 'Lookahead slots for speculative decoding' },
-  'seed': { type: 'number', description: 'Random seed' },
-  
-  // Parallelism
-  'tensor-parallel-size': { type: 'number', description: 'Tensor parallelism size' },
-  'pipeline-parallel-size': { type: 'number', description: 'Pipeline parallelism size' },
-  'distributed-executor-backend': { type: 'string', options: ['ray', 'mp'], description: 'Distributed backend' },
-  
-  // Server configuration
-  host: { type: 'string', description: 'Server host address' },
-  port: { type: 'number', description: 'Server port' },
-  'uvloop': { type: 'boolean', description: 'Use uvloop event loop' },
-  'allow-credentials': { type: 'boolean', description: 'Allow credentials in CORS' },
-  'allowed-origins': { type: 'array', description: 'Allowed CORS origins' },
-  'allowed-methods': { type: 'array', description: 'Allowed CORS methods' },
-  'allowed-headers': { type: 'array', description: 'Allowed CORS headers' },
-  
-  // API configuration
-  'api-key': { type: 'string', description: 'API key for authentication' },
-  'served-model-name': { type: 'string', description: 'Model name in API responses' },
-  'chat-template': { type: 'string', description: 'Chat template file path' },
-  'response-role': { type: 'string', description: 'Response role in chat completions' },
-  
-  // Logging and monitoring
-  'disable-log-stats': { type: 'boolean', description: 'Disable logging statistics' },
-  'disable-log-requests': { type: 'boolean', description: 'Disable logging requests' },
-  'max-log-len': { type: 'number', description: 'Maximum log entry length' },
-  
-  // Engine arguments
-  'worker-use-ray': { type: 'boolean', description: 'Use Ray for workers' },
-  'engine-use-ray': { type: 'boolean', description: 'Use Ray for engine' },
-  'disable-custom-all-reduce': { type: 'boolean', description: 'Disable custom all-reduce kernels' },
-  
-  // Speculative decoding
-  'speculative-model': { type: 'string', description: 'Speculative model name' },
-  'num-speculative-tokens': { type: 'number', description: 'Number of speculative tokens' },
-  'speculative-draft-tensor-parallel-size': { type: 'number', description: 'Draft model tensor parallel size' },
-  
-  // LoRA
-  'enable-lora': { type: 'boolean', description: 'Enable LoRA adapters' },
-  'lora-modules': { type: 'array', description: 'LoRA module configurations' },
-  'max-lora-rank': { type: 'number', description: 'Maximum LoRA rank' },
-  'max-loras': { type: 'number', description: 'Maximum number of LoRA adapters' },
-  'max-cpu-loras': { type: 'number', description: 'Maximum CPU LoRA adapters' },
-  
-  // Prefix caching
-  'enable-prefix-caching': { type: 'boolean', description: 'Enable prefix caching' },
-  'disable-sliding-window': { type: 'boolean', description: 'Disable sliding window attention' },
-}
+// Re-export for backward compatibility
+export { VLLM_PARAMETERS }
+
+// ================================
+// COMMAND GENERATION TEMPLATES
+// ================================
 
 /**
  * Default command templates for different deployment scenarios
@@ -163,385 +86,319 @@ export const COMMAND_TEMPLATES = {
 // ================================
 
 /**
- * Generate vLLM command string from configuration arguments
- * @param {object} args - vLLM arguments object
- * @param {object} options - Generation options
- * @param {string} options.entrypoint - vLLM entrypoint ('api_server', 'offline_inference')
- * @param {boolean} options.includeComments - Include parameter descriptions as comments
- * @param {boolean} options.multiline - Format as multiline command
- * @returns {string} Complete vLLM command
+ * Generate a vLLM command string from configuration
+ * @param {object} config - Configuration object
+ * @param {object} options - Command generation options
+ * @returns {string} Generated command string
  */
-export function generateVLLMCommand(args, options = {}) {
+export function generateVLLMCommand(config, options = {}) {
   const {
-    entrypoint = 'api_server',
     includeComments = false,
-    multiline = false
+    includeOptional = true,
+    format = 'shell', // 'shell' or 'python'
+    pythonModule = 'vllm.entrypoints.openai.api_server'
   } = options
 
-  // Validate entrypoint
-  const validEntrypoints = ['api_server', 'offline_inference', 'openai.api_server']
-  if (!validEntrypoints.some(ep => entrypoint.includes(ep))) {
-    throw new Error(`Invalid entrypoint: ${entrypoint}. Valid options: ${validEntrypoints.join(', ')}`)
+  if (!config.model) {
+    throw new Error('Model parameter is required')
   }
 
-  // Start with base command
-  let command = entrypoint === 'api_server' || entrypoint.includes('api_server') 
-    ? 'python -m vllm.entrypoints.openai.api_server'
-    : 'python -m vllm.entrypoints.offline_inference'
+  const args = []
   
-  const parts = []
-  
-  for (const [key, value] of Object.entries(args)) {
-    if (value === undefined || value === null) continue
-    
-    // Convert camelCase to kebab-case
-    const kebabKey = key.replace(/([A-Z])/g, '-$1').toLowerCase()
-    
-    // Validate parameter if it exists in our definitions
-    if (VLLM_PARAMETERS[kebabKey]) {
-      const paramDef = VLLM_PARAMETERS[kebabKey]
-      const validationResult = validateParameter(kebabKey, value, paramDef)
-      if (!validationResult.isValid) {
-        console.warn(`Invalid parameter ${kebabKey}: ${validationResult.error}`)
-      }
-    }
-    
-    let paramString = ''
-    
-    if (value === true) {
-      paramString = `--${kebabKey}`
-    } else if (value === false) {
-      // Skip false boolean values
-      continue
-    } else if (Array.isArray(value)) {
-      paramString = `--${kebabKey} ${value.join(' ')}`
-    } else {
-      paramString = `--${kebabKey} ${value}`
-    }
-    
-    // Add comment if requested
-    if (includeComments && VLLM_PARAMETERS[kebabKey]) {
-      paramString += ` # ${VLLM_PARAMETERS[kebabKey].description}`
-    }
-    
-    parts.push(paramString)
-  }
-  
-  if (multiline) {
-    return command + ' \\\n  ' + parts.join(' \\\n  ')
+  // Add model as positional argument for shell format
+  if (format === 'shell') {
+    args.push('vllm serve')
+    args.push(config.model)
   } else {
-    return command + (parts.length > 0 ? ' ' + parts.join(' ') : '')
+    args.push(`python -m ${pythonModule}`)
+    args.push(`--model ${config.model}`)
   }
+
+  // Process all configuration parameters
+  for (const [key, value] of Object.entries(config)) {
+    if (key === 'model') continue // Already handled
+    
+    const paramString = formatParameter(key, value, includeComments)
+    if (paramString) {
+      args.push(paramString)
+    }
+  }
+
+  return args.join(' ')
 }
 
 /**
- * Generate command from template
- * @param {string} templateName - Template name
- * @param {object} overrides - Template overrides
- * @param {object} options - Generation options
- * @returns {string} Generated command
+ * Format a single parameter for command line
+ * @param {string} key - Parameter name
+ * @param {*} value - Parameter value
+ * @param {boolean} includeComments - Whether to include comments
+ * @returns {string} Formatted parameter string
  */
-export function generateFromTemplate(templateName, overrides = {}, options = {}) {
+function formatParameter(key, value, includeComments = false) {
+  // Convert camelCase to kebab-case
+  const kebabKey = key.replace(/([A-Z])/g, '-$1').toLowerCase()
+  
+  if (value === undefined || value === null) {
+    return ''
+  }
+
+  let paramString = ''
+  
+  if (typeof value === 'boolean') {
+    if (value) {
+      paramString = `--${kebabKey}`
+    }
+  } else if (Array.isArray(value)) {
+    if (value.length > 0) {
+      paramString = `--${kebabKey} ${value.join(',')}`
+    }
+  } else {
+    paramString = `--${kebabKey} ${value}`
+  }
+
+  // Add comments if requested and parameter exists in definitions
+  if (includeComments && VLLM_PARAMETERS[kebabKey]) {
+    paramString += ` # ${VLLM_PARAMETERS[kebabKey].description}`
+  }
+
+  return paramString
+}
+
+/**
+ * Generate configuration from template
+ * @param {string} templateName - Name of the template to use
+ * @param {object} overrides - Configuration overrides
+ * @returns {object} Generated configuration
+ */
+export function generateConfiguration(templateName, overrides = {}) {
   if (!COMMAND_TEMPLATES[templateName]) {
     throw new Error(`Unknown template: ${templateName}. Available: ${Object.keys(COMMAND_TEMPLATES).join(', ')}`)
   }
-  
+
   const template = { ...COMMAND_TEMPLATES[templateName] }
-  const args = { ...template, ...overrides }
-  
-  return generateVLLMCommand(args, options)
+  return { ...template, ...overrides }
 }
 
 /**
- * Generate configuration object from requirements
- * @param {object} requirements - Deployment requirements
- * @returns {object} vLLM configuration object
+ * Generate complete deployment configuration
+ * @param {object} params - Generation parameters
+ * @returns {object} Complete configuration object
  */
-export function generateConfiguration(requirements) {
+export function generateDeploymentConfig(params) {
   const {
+    model,
     deploymentType = 'production',
-    modelPath,
-    gpuCount = 1,
-    maxSequences = 128,
+    gpuMemoryGB,
     maxSequenceLength = 2048,
-    memoryUtilization = 0.90,
-    quantization,
-    enableFeatures = [],
-    customSettings = {}
-  } = requirements
+    expectedTPS = 10,
+    customConfig = {}
+  } = params
 
-  // Start with template
   const baseConfig = deploymentType in COMMAND_TEMPLATES 
     ? { ...COMMAND_TEMPLATES[deploymentType] }
     : { ...COMMAND_TEMPLATES.production }
 
-  // Core configuration
-  const config = {
-    ...baseConfig,
-    model: modelPath || 'MODEL_PATH',
-    'max-num-seqs': maxSequences,
-    'max-model-len': maxSequenceLength,
-    'gpu-memory-utilization': memoryUtilization,
-    ...customSettings
+  // Add model
+  baseConfig.model = model
+
+  // Calculate memory utilization based on available GPU memory
+  if (gpuMemoryGB) {
+    const utilizationFactor = deploymentType === 'production' ? 0.90 : 0.85
+    baseConfig['gpu-memory-utilization'] = Math.min(0.95, utilizationFactor)
   }
 
-  // Multi-GPU configuration
-  if (gpuCount > 1) {
-    config['tensor-parallel-size'] = gpuCount
+  // Set sequence length
+  baseConfig['max-model-len'] = maxSequenceLength
+
+  // Estimate batch size based on expected throughput
+  if (expectedTPS) {
+    const estimatedBatchSize = Math.min(256, Math.max(16, expectedTPS * 2))
+    baseConfig['max-num-seqs'] = estimatedBatchSize
   }
 
-  // Quantization
-  if (quantization && quantization !== 'fp16') {
-    config.quantization = quantization
-  }
-
-  // Feature flags
-  enableFeatures.forEach(feature => {
-    switch (feature) {
-      case 'chunked-prefill':
-        config['enable-chunked-prefill'] = true
-        config['max-chunked-prefill-tokens'] = Math.min(maxSequenceLength / 2, 2048)
-        break
-      case 'prefix-caching':
-        config['enable-prefix-caching'] = true
-        break
-      case 'lora':
-        config['enable-lora'] = true
-        config['max-loras'] = 16
-        break
-      case 'speculative':
-        config['num-speculative-tokens'] = 5
-        break
-      default:
-        console.warn(`Unknown feature: ${feature}`)
-    }
-  })
-
-  return config
-}
-
-// ================================
-// COMMAND VALIDATION
-// ================================
-
-/**
- * Validate a single parameter
- * @param {string} key - Parameter key
- * @param {any} value - Parameter value
- * @param {object} definition - Parameter definition
- * @returns {object} Validation result
- */
-function validateParameter(key, value, definition) {
-  const { type, options, min, max, required } = definition
-
-  if (required && (value === undefined || value === null)) {
-    return { isValid: false, error: 'Required parameter is missing' }
-  }
-
-  if (value === undefined || value === null) {
-    return { isValid: true }
-  }
-
-  // Type validation
-  switch (type) {
-    case 'string':
-      if (typeof value !== 'string') {
-        return { isValid: false, error: 'Must be a string' }
-      }
-      if (options && !options.includes(value)) {
-        return { isValid: false, error: `Must be one of: ${options.join(', ')}` }
-      }
-      break
-
-    case 'number':
-      if (typeof value !== 'number' || isNaN(value)) {
-        return { isValid: false, error: 'Must be a number' }
-      }
-      if (min !== undefined && value < min) {
-        return { isValid: false, error: `Must be at least ${min}` }
-      }
-      if (max !== undefined && value > max) {
-        return { isValid: false, error: `Must be at most ${max}` }
-      }
-      break
-
-    case 'boolean':
-      if (typeof value !== 'boolean') {
-        return { isValid: false, error: 'Must be a boolean' }
-      }
-      break
-
-    case 'array':
-      if (!Array.isArray(value)) {
-        return { isValid: false, error: 'Must be an array' }
-      }
-      break
-  }
-
-  return { isValid: true }
+  // Apply custom configurations
+  return { ...baseConfig, ...customConfig }
 }
 
 /**
- * Validate complete command configuration
- * @param {object} config - Command configuration
- * @returns {object} Validation result with errors and warnings
+ * Validate command configuration
+ * @param {object} config - Configuration to validate
+ * @returns {object} Validation result with isValid and errors
  */
 export function validateConfiguration(config) {
   const errors = []
   const warnings = []
 
-  // Required parameters
+  // Check required parameters
   if (!config.model) {
-    errors.push('Model path is required')
+    errors.push('Model parameter is required')
   }
 
-  // Parameter validation
+  // Validate parameter types and values
   for (const [key, value] of Object.entries(config)) {
     const kebabKey = key.replace(/([A-Z])/g, '-$1').toLowerCase()
     
     if (VLLM_PARAMETERS[kebabKey]) {
       const result = validateParameter(kebabKey, value, VLLM_PARAMETERS[kebabKey])
       if (!result.isValid) {
-        errors.push(`${kebabKey}: ${result.error}`)
+        errors.push(`${key}: ${result.error}`)
+      }
+      if (result.warning) {
+        warnings.push(`${key}: ${result.warning}`)
       }
     }
   }
 
-  // Cross-parameter validation
-  if (config['max-num-seqs'] && config['max-num-batched-tokens']) {
-    if (config['max-num-batched-tokens'] < config['max-num-seqs']) {
-      warnings.push('max-num-batched-tokens should typically be >= max-num-seqs')
+  // Check parameter compatibility
+  if (config['tensor-parallel-size'] && config['pipeline-parallel-size']) {
+    const totalParallelism = config['tensor-parallel-size'] * config['pipeline-parallel-size']
+    if (totalParallelism > 8) {
+      warnings.push('High parallelism may impact performance on smaller models')
     }
   }
 
-  if (config['tensor-parallel-size'] && config['pipeline-parallel-size']) {
-    warnings.push('Using both tensor and pipeline parallelism - ensure sufficient GPUs')
-  }
-
   if (config['gpu-memory-utilization'] && config['gpu-memory-utilization'] > 0.95) {
-    warnings.push('Very high GPU memory utilization may cause OOM errors')
-  }
-
-  // Performance recommendations
-  if (config['enable-chunked-prefill'] && !config['max-chunked-prefill-tokens']) {
-    warnings.push('Consider setting max-chunked-prefill-tokens when enabling chunked prefill')
+    warnings.push('GPU memory utilization above 95% may cause OOM errors')
   }
 
   return {
     isValid: errors.length === 0,
     errors,
-    warnings,
-    recommendations: generateConfigRecommendations(config)
+    warnings
   }
 }
 
 /**
- * Generate configuration recommendations
- * @param {object} config - Configuration object
- * @returns {string[]} List of recommendations
+ * Validate a single parameter
+ * @param {string} paramName - Parameter name
+ * @param {*} value - Parameter value
+ * @param {object} paramDef - Parameter definition
+ * @returns {object} Validation result
  */
-function generateConfigRecommendations(config) {
-  const recommendations = []
+function validateParameter(paramName, value, paramDef) {
+  const result = { isValid: true, error: null, warning: null }
 
-  // Memory optimization
-  if (!config['swap-space'] && config['gpu-memory-utilization'] < 0.85) {
-    recommendations.push('Consider adding swap space for better memory utilization')
+  // Check required parameters
+  if (paramDef.required && (value === undefined || value === null)) {
+    result.isValid = false
+    result.error = 'Required parameter is missing'
+    return result
   }
 
-  // Performance optimization
-  if (!config['enable-chunked-prefill'] && config['max-model-len'] > 4096) {
-    recommendations.push('Enable chunked prefill for better handling of long sequences')
+  if (value === undefined || value === null) {
+    return result
   }
 
-  if (!config['enable-prefix-caching'] && config['max-num-seqs'] > 32) {
-    recommendations.push('Consider enabling prefix caching for improved efficiency with similar prompts')
+  // Type validation
+  switch (paramDef.type) {
+    case 'number':
+      if (typeof value !== 'number' || isNaN(value)) {
+        result.isValid = false
+        result.error = 'Must be a valid number'
+      }
+      break
+    
+    case 'boolean':
+      if (typeof value !== 'boolean') {
+        result.isValid = false
+        result.error = 'Must be a boolean value'
+      }
+      break
+    
+    case 'string':
+      if (typeof value !== 'string') {
+        result.isValid = false
+        result.error = 'Must be a string'
+      } else if (paramDef.options && !paramDef.options.includes(value)) {
+        result.isValid = false
+        result.error = `Must be one of: ${paramDef.options.join(', ')}`
+      }
+      break
+    
+    case 'array':
+      if (!Array.isArray(value)) {
+        result.isValid = false
+        result.error = 'Must be an array'
+      }
+      break
   }
 
-  // Production settings
-  if (config.host === '0.0.0.0' && !config['api-key']) {
-    recommendations.push('Consider adding API key authentication for production deployment')
+  // Range validation for numbers
+  if (paramDef.type === 'number' && result.isValid) {
+    if (paramDef.min !== undefined && value < paramDef.min) {
+      result.isValid = false
+      result.error = `Must be at least ${paramDef.min}`
+    }
+    if (paramDef.max !== undefined && value > paramDef.max) {
+      result.isValid = false
+      result.error = `Must be at most ${paramDef.max}`
+    }
   }
 
-  return recommendations
+  return result
 }
-
-// ================================
-// DEPLOYMENT HELPERS
-// ================================
 
 /**
  * Generate Docker command for vLLM deployment
- * @param {object} config - vLLM configuration
+ * @param {object} config - Configuration object
  * @param {object} dockerOptions - Docker-specific options
- * @returns {string} Docker command
+ * @returns {string} Docker command string
  */
 export function generateDockerCommand(config, dockerOptions = {}) {
   const {
     image = 'vllm/vllm-openai:latest',
     gpuCount = 1,
-    sharedMemorySize = '4g',
-    volumeMounts = [],
+    ports = ['8000:8000'],
+    volumes = [],
     environmentVars = {},
-    containerName = 'vllm-server'
+    additionalArgs = []
   } = dockerOptions
 
-  const vllmCommand = generateVLLMCommand(config)
+  const dockerArgs = [
+    'docker run',
+    '--gpus all',
+    `-e CUDA_VISIBLE_DEVICES=0-${gpuCount - 1}`,
+    ...ports.map(port => `-p ${port}`),
+    ...volumes.map(volume => `-v ${volume}`),
+    ...Object.entries(environmentVars).map(([key, value]) => `-e ${key}="${value}"`),
+    ...additionalArgs,
+    image
+  ]
+
+  // Generate vLLM command
+  const vllmCommand = generateVLLMCommand(config, { format: 'python' })
   
-  let dockerCommand = `docker run -d --name ${containerName}`
+  // Split the python command to get arguments
+  const vllmArgs = vllmCommand.split(' ').slice(3) // Remove 'python -m module'
   
-  // GPU support
-  if (gpuCount === 'all') {
-    dockerCommand += ' --gpus all'
-  } else {
-    dockerCommand += ` --gpus ${gpuCount}`
-  }
-  
-  // Shared memory
-  dockerCommand += ` --shm-size=${sharedMemorySize}`
-  
-  // Port mapping
-  if (config.port) {
-    dockerCommand += ` -p ${config.port}:${config.port}`
-  }
-  
-  // Volume mounts
-  volumeMounts.forEach(mount => {
-    dockerCommand += ` -v ${mount.host}:${mount.container}`
-  })
-  
-  // Environment variables
-  Object.entries(environmentVars).forEach(([key, value]) => {
-    dockerCommand += ` -e ${key}=${value}`
-  })
-  
-  dockerCommand += ` ${image} ${vllmCommand.replace('python -m vllm.entrypoints.openai.api_server', '')}`
-  
-  return dockerCommand
+  dockerArgs.push('python', '-m', 'vllm.entrypoints.openai.api_server')
+  dockerArgs.push(...vllmArgs)
+
+  return dockerArgs.join(' ')
 }
 
 /**
- * Generate Kubernetes deployment YAML
+ * Generate Kubernetes YAML configuration
  * @param {object} config - vLLM configuration
  * @param {object} k8sOptions - Kubernetes-specific options
- * @returns {string} Kubernetes YAML
+ * @returns {string} Kubernetes YAML configuration
  */
-export function generateKubernetesYAML(config, k8sOptions = {}) {
+export function generateKubernetesConfig(config, k8sOptions = {}) {
   const {
     name = 'vllm-deployment',
     namespace = 'default',
     replicas = 1,
     image = 'vllm/vllm-openai:latest',
-    resources = {},
-    nodeSelector = {}
+    resources = {
+      requests: { 'nvidia.com/gpu': 1, memory: '8Gi', cpu: '2' },
+      limits: { 'nvidia.com/gpu': 1, memory: '16Gi', cpu: '4' }
+    },
+    service = { type: 'ClusterIP', port: 8000 }
   } = k8sOptions
 
-  const vllmArgs = Object.entries(config)
-    .filter(([key, value]) => value !== false && value !== undefined)
-    .map(([key, value]) => {
-      const kebabKey = key.replace(/([A-Z])/g, '-$1').toLowerCase()
-      if (value === true) return `--${kebabKey}`
-      return `--${kebabKey}=${value}`
-    })
+  const vllmArgs = generateVLLMCommand(config, { format: 'python' })
+    .split(' ')
+    .slice(3) // Remove 'python -m module'
 
   const yaml = `
 apiVersion: apps/v1
@@ -553,24 +410,31 @@ spec:
   replicas: ${replicas}
   selector:
     matchLabels:
-      app: vllm
+      app: ${name}
   template:
     metadata:
       labels:
-        app: vllm
+        app: ${name}
     spec:
       containers:
       - name: vllm
         image: ${image}
         command: ["python", "-m", "vllm.entrypoints.openai.api_server"]
-        args:
-${vllmArgs.map(arg => `          - "${arg}"`).join('\n')}
+        args: ${JSON.stringify(vllmArgs, null, 10).replace(/"/g, '"')}
         ports:
-        - containerPort: ${config.port || 8000}
+        - containerPort: 8000
         resources:
-${resources.requests ? `          requests:\n${Object.entries(resources.requests).map(([k, v]) => `            ${k}: ${v}`).join('\n')}` : ''}
-${resources.limits ? `          limits:\n${Object.entries(resources.limits).map(([k, v]) => `            ${k}: ${v}`).join('\n')}` : ''}
-${Object.keys(nodeSelector).length > 0 ? `      nodeSelector:\n${Object.entries(nodeSelector).map(([k, v]) => `        ${k}: ${v}`).join('\n')}` : ''}
+          requests:
+            nvidia.com/gpu: ${resources.requests['nvidia.com/gpu']}
+            memory: ${resources.requests.memory}
+            cpu: ${resources.requests.cpu}
+          limits:
+            nvidia.com/gpu: ${resources.limits['nvidia.com/gpu']}
+            memory: ${resources.limits.memory}
+            cpu: ${resources.limits.cpu}
+        env:
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
 ---
 apiVersion: v1
 kind: Service
@@ -579,12 +443,13 @@ metadata:
   namespace: ${namespace}
 spec:
   selector:
-    app: vllm
+    app: ${name}
   ports:
-  - port: ${config.port || 8000}
-    targetPort: ${config.port || 8000}
-  type: ClusterIP
-`.trim()
+  - protocol: TCP
+    port: ${service.port}
+    targetPort: 8000
+  type: ${service.type}
+`
 
-  return yaml
+  return yaml.trim()
 }

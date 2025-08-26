@@ -9,41 +9,14 @@ import {
   calculateModelWeightsMemory 
 } from '../memory/index.js'
 import { calculateQuantizationFactor } from '../quantization.js'
+import { LATENCY_OPTIMIZATION_CONFIGS } from '../configs/optimizationConfigs.js'
 
 // ===============================
-// LATENCY OPTIMIZATION CONFIGS
+// LATENCY OPTIMIZATION CONFIGS (imported from central config)
 // ===============================
 
-export const LATENCY_OPTIMIZATION_CONFIGS = {
-  // Batch sizes for low latency (smaller batches)
-  gpu: {
-    maxNumSeqsOptimal: 32, // Lower concurrent sequences for faster processing
-    maxNumBatchedTokensOptimal: 2048, // Smaller batched tokens to reduce prefill time
-    maxNumSeqsMinimal: 8, // For ultra-low latency scenarios
-    maxNumBatchedTokensMinimal: 512, // Minimal batching for lowest latency
-  },
-  
-  // Memory utilization for latency (more conservative to avoid swapping)
-  gpuMemoryUtilization: {
-    conservative: 0.75, // Lower to avoid memory pressure
-    balanced: 0.80,
-    aggressive: 0.85, // Still conservative compared to throughput
-  },
-  
-  // Chunked prefill settings for latency
-  chunkedPrefillSize: 512, // Smaller chunks for lower TTFT
-  disableChunkedPrefillThreshold: 4096, // Disable for shorter sequences
-  
-  // KV cache block sizes (smaller for better memory locality)
-  kvCacheBlockSizes: [8, 16], // Smaller blocks for better cache efficiency
-  
-  // Speculation settings for latency
-  speculation: {
-    enableSpeculativeDecoding: true,
-    speculationLength: 4, // Conservative speculation length
-    draftModelRatio: 0.25, // Ratio of draft model size to main model
-  },
-}
+// Export the centralized config for backward compatibility
+export { LATENCY_OPTIMIZATION_CONFIGS }
 
 // ===============================
 // CORE LATENCY OPTIMIZATION FUNCTIONS

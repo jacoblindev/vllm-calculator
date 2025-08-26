@@ -20,48 +20,16 @@ import { calculateKVCacheMemory } from '../memory/kvCache.js'
 import { calculateActivationMemory } from '../memory/activations.js'
 import { calculateQuantizationFactor, calculateModelWeightsMemory } from '../quantization.js'
 import { Validators, VLLMValidators, ValidationError } from '../validation.js'
-import { estimateModelArchitecture } from './throughputOptimization.js'
-import { generateVLLMCommand } from './throughputOptimization.js'
+import { estimateModelArchitecture } from '../workload/modelArchitecture.js'
+import { generateVLLMCommand } from '../workload/commandGenerator.js'
+import { BALANCED_OPTIMIZATION_CONFIGS } from '../configs/optimizationConfigs.js'
 
 // ================================
-// BALANCED OPTIMIZATION CONFIGURATIONS
+// BALANCED OPTIMIZATION CONFIGURATIONS (imported from central config)
 // ================================
 
-/**
- * Configuration constants for balanced optimization strategies
- */
-export const BALANCED_OPTIMIZATION_CONFIGS = {
-  // Moderate batch sizes for balanced performance
-  gpu: {
-    maxNumSeqsOptimal: 128, // Between throughput (256) and latency (32)
-    maxNumBatchedTokensOptimal: 4096, // Between throughput (8192) and latency (2048)
-    maxNumSeqsMinimal: 32, // For cost-optimized scenarios
-    maxNumSeqsMaximal: 192, // For performance-focused balanced configs
-  },
-  
-  // Balanced memory utilization
-  gpuMemoryUtilization: {
-    conservative: 0.80, // Between latency (75%) and throughput (85%)
-    balanced: 0.85, // Sweet spot for most workloads
-    performance: 0.90, // Higher utilization when performance is prioritized
-  },
-  
-  // Chunked prefill settings for balance
-  chunkedPrefillThreshold: 2048, // Enable for sequences longer than this
-  chunkedPrefillSize: 1024, // Moderate chunk size
-  
-  // KV cache block sizes (balanced for efficiency and locality)
-  kvCacheBlockSizes: [16, 24], // Between latency (8-16) and throughput (16-32)
-  
-  // Balanced optimization targets
-  targets: {
-    'general': { priority: 'balanced', memoryUtil: 0.85, maxSeqs: 128 },
-    'web-api': { priority: 'latency-focused', memoryUtil: 0.80, maxSeqs: 96 },
-    'multi-user': { priority: 'throughput-focused', memoryUtil: 0.90, maxSeqs: 160 },
-    'cost-optimized': { priority: 'efficiency', memoryUtil: 0.85, maxSeqs: 64 },
-    'production': { priority: 'reliability', memoryUtil: 0.80, maxSeqs: 96 },
-  },
-}
+// Export the centralized config for backward compatibility
+export { BALANCED_OPTIMIZATION_CONFIGS }
 
 // ================================
 // BALANCED OPTIMIZATION FUNCTIONS
