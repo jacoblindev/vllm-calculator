@@ -29,8 +29,11 @@ export {
 
 export {
   calculateVRAMBreakdown,
-  optimizeVRAMUsage,
-  validateVRAMConfiguration
+  calculateModelWeightsMemoryFromSize,
+  calculateOptimalSwapSpace,
+  calculateReservedMemory,
+  calculateMemoryEfficiency,
+  generateMemoryOptimizationRecommendations
 } from './vramBreakdown.js'
 
 // Import from quantization module for model weights

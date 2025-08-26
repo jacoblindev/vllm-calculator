@@ -57,12 +57,12 @@ const MEMORY_OVERHEAD_FACTORS = {
  * @param {number} hiddenSize - Hidden dimension size (for backward compatibility)
  * @param {number} numLayers - Number of transformer layers (for backward compatibility)
  * @param {string} precision - Activation precision (for backward compatibility)
- * @returns {number} Activation memory in GB
+ * @returns {number|object} Activation memory in GB (number for backward compatibility, object for detailed breakdown)
  */
 export function calculateActivationMemory(configOrBatchSize, seqLen, hiddenSize, numLayers, precision = 'fp16') {
   // Handle both calling styles
   if (typeof configOrBatchSize === 'object') {
-    // New style: config object
+    // New style: config object - return detailed breakdown
     const { batchSize, sequenceLength, architecture, dtype = 'float16', includeGradients = false } = configOrBatchSize
     
     // Map dtype to precision format
@@ -102,7 +102,7 @@ export function calculateActivationMemory(configOrBatchSize, seqLen, hiddenSize,
       }
     }
   } else {
-    // Backward compatibility: parameter-based calling
+    // Backward compatibility: parameter-based calling - return number only
     const totalGB = calculateActivationMemoryInternal(
       configOrBatchSize, 
       seqLen, 
@@ -111,17 +111,8 @@ export function calculateActivationMemory(configOrBatchSize, seqLen, hiddenSize,
       precision
     )
     
-    return {
-      totalMemoryGB: totalGB,
-      breakdown: {
-        attention: totalGB * 0.4,
-        mlp: totalGB * 0.3,
-        layerNorm: totalGB * 0.1,
-        embeddings: totalGB * 0.1,
-        overhead: totalGB * 0.1,
-        gradients: 0
-      }
-    }
+    // Return simple number for backward compatibility with tests and existing code
+    return totalGB
   }
 }
 

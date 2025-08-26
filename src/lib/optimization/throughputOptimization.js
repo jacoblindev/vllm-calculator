@@ -301,6 +301,10 @@ export function calculateThroughputOptimizedConfig(params) {
     workloadType = 'serving', // 'serving' | 'batch' | 'mixed'
   } = workloadSpecs
 
+  // Auto-detect multi-GPU configuration
+  const effectiveGpuCount = Math.max(gpuCount, params.tensorParallelSize || 1)
+  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params.tensorParallelSize > 1
+
   // Calculate model memory if not provided
   let finalModelSizeGB = modelSizeGB
   if (!finalModelSizeGB && numParams) {
@@ -383,7 +387,7 @@ export function calculateThroughputOptimizedConfig(params) {
     ...(quantization !== 'fp16' && { quantization }),
     
     // Multi-GPU setup
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
+    ...(isMultiGPU && effectiveGpuCount > 1 && { 'tensor-parallel-size': effectiveGpuCount.toString() }),
     
     // Performance optimizations
     'disable-log-stats': workloadType === 'batch', // Reduce logging overhead for batch processing

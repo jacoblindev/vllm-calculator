@@ -26,7 +26,8 @@ export {
 export {
   calculateBalancedOptimizedConfig,
   calculateBalancedMemoryStrategy,
-  calculateBalanceScore,
+  estimateBalancedMetrics,
   optimizeForBalance,
+  getBalancedConsiderations,
   BALANCED_OPTIMIZATION_CONFIGS
 } from './balancedOptimization.js'

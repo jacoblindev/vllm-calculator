@@ -93,8 +93,8 @@
 * [ ] 2.0 Review and Optimize Test Coverage
   * [x] 2.1 Audit existing tests for duplication and relevance.
   * [x] 2.2 Group related tests and remove unnecessary edge cases.
-  * [ ] 2.3 Ensure all new modules have focused unit tests.
-  * [ ] 2.4 Add integration tests for critical user flows (GPU/model selection → config output).
+  * [x] 2.3 Ensure all new modules have focused unit tests.
+  * [x] 2.4 Add integration tests for critical user flows (GPU/model selection → config output).
   * [ ] 2.5 Update test documentation and coverage reporting.
 
 * [ ] 3.0 Implement Pinia and Refactor Components for State Management

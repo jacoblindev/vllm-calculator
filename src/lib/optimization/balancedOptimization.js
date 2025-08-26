@@ -377,6 +377,10 @@ export function calculateBalancedOptimizedConfig(params) {
     gpuCount = 1,
   } = gpuSpecs
 
+  // Auto-detect multi-GPU configuration
+  const effectiveGpuCount = Math.max(gpuCount, params.tensorParallelSize || 1)
+  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params.tensorParallelSize > 1
+
   const {
     modelSizeGB,
     numParams,
@@ -474,7 +478,7 @@ export function calculateBalancedOptimizedConfig(params) {
       'max-chunked-prefill-tokens': BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillSize
     }),
     ...(quantization !== 'fp16' && { quantization }),
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
+    ...(isMultiGPU && effectiveGpuCount > 1 && { 'tensor-parallel-size': effectiveGpuCount.toString() }),
     
     // Balanced performance settings
     'disable-log-stats': workloadType === 'batch', // Only for batch workloads
@@ -485,6 +489,7 @@ export function calculateBalancedOptimizedConfig(params) {
     batchConfiguration: batchConfig,
     memoryConfiguration: memoryStrategy,
     balancedEstimate: balancedEstimates,
+    performanceEstimate: balancedEstimates, // Alias for integration test compatibility
     vllmParameters: vllmArgs,
     vllmCommand: generateVLLMCommand(vllmArgs).command,
     
