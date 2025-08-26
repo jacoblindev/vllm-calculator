@@ -15,7 +15,7 @@ import {
 } from './memory/vramBreakdown.js'
 import {
   calculateBalancedOptimizedConfig,
-} from '../calculationEngine.js'
+} from './calculationEngine.js'
 
 describe('Validation Framework', () => {
   describe('Custom Error Classes', () => {

@@ -80,11 +80,32 @@ export function optimizeForWorkload(workloadProfile) {
   // Apply custom constraints
   const finalOptimizations = applyCustomConstraints(optimizations, customConstraints)
 
+  // Generate vLLM configuration from optimizations
+  const config = {
+    'max-num-seqs': finalOptimizations.batchingStrategy.maxNumSeqs,
+    'max-num-batched-tokens': finalOptimizations.batchingStrategy.maxBatchedTokens,
+    'gpu-memory-utilization': finalOptimizations.memorySettings.gpuMemoryUtilization,
+    'swap-space': finalOptimizations.memorySettings.swapSpace,
+    'quantization': finalOptimizations.recommendedQuantization,
+    'tensor-parallel-size': finalOptimizations.parallelization.tensorParallelSize,
+    'pipeline-parallel-size': finalOptimizations.parallelization.pipelineParallelSize,
+    'enable-chunked-prefill': finalOptimizations.performance.enableChunkedPrefill,
+    'block-size': finalOptimizations.performance.blockSize
+  }
+
   return {
     workloadType,
     characteristics,
     strategy: optimizationStrategy,
     optimizations: finalOptimizations,
+    config,
+    metrics: {
+      estimatedThroughput: finalOptimizations.performance.estimatedThroughput || 0,
+      estimatedLatency: finalOptimizations.performance.estimatedLatency || 0,
+      memoryUtilization: finalOptimizations.memorySettings.gpuMemoryUtilization,
+      tokenThroughput: finalOptimizations.performance.tokenThroughput || 0
+    },
+    considerations: getWorkloadConsiderations(workloadType),
     recommendations: generateWorkloadRecommendations(workloadProfile, finalOptimizations),
     reasoning: {
       workloadConsiderations: getWorkloadConsiderations(workloadType),

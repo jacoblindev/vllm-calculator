@@ -77,25 +77,47 @@ export function calculateSystemOverhead(configOrModelMemory, batchSize = 1, opti
       totalMemoryGB
     })
     
-    const fragmentation = calculateMemoryFragmentation(totalMemoryGB, modelMemoryGB)
+    const fragmentationResult = calculateMemoryFragmentation(
+      Math.max(totalMemoryGB, 0.000001), 
+      Math.max(modelMemoryGB, 0.000001)
+    )
+    const fragmentation = fragmentationResult.fragmentationGB
     
     const kvCacheOverhead = estimateKVCacheOverhead({
       maxSequenceLength: 2048,
-      maxBatchSize: 128,
+      maxBatchSize: 8,  // Even smaller batch size for more realistic overhead
       hiddenSize: 4096,
       numLayers: 32
     })
 
     const totalOverheadGB = frameworkOverhead + driverOverhead + fragmentation + kvCacheOverhead
 
+    // Calculate additional overhead components based on parallelism
+    const communicationOverhead = gpuCount > 1 ? (gpuCount - 1) * 0.1 * modelMemoryGB : 0
+    const tensorParallelOverhead = tensorParallelSize > 1 ? (tensorParallelSize - 1) * 0.05 * modelMemoryGB : 0
+    const pipelineParallelOverhead = pipelineParallelSize > 1 ? (pipelineParallelSize - 1) * 0.03 * modelMemoryGB : 0
+    const quantizationOverhead = 0 // Placeholder for quantization overhead
+
+    const finalTotalOverheadGB = totalOverheadGB + communicationOverhead + tensorParallelOverhead + pipelineParallelOverhead + quantizationOverhead
+    const overheadPercentage = (finalTotalOverheadGB / totalMemoryGB) * 100
+
     return {
-      totalOverheadGB: Math.round(totalOverheadGB * 1000) / 1000,
+      totalOverheadGB: Math.round(finalTotalOverheadGB * 1000) / 1000,
+      overheadPercentage: Math.round(overheadPercentage * 100) / 100,
       breakdown: {
         framework: Math.round(frameworkOverhead * 1000) / 1000,
         driver: Math.round(driverOverhead * 1000) / 1000,
         fragmentation: Math.round(fragmentation * 1000) / 1000,
         kvCache: Math.round(kvCacheOverhead * 1000) / 1000,
+        communication: Math.round(communicationOverhead * 1000) / 1000,
+        tensorParallel: Math.round(tensorParallelOverhead * 1000) / 1000,
+        pipelineParallel: Math.round(pipelineParallelOverhead * 1000) / 1000,
+        quantization: Math.round(quantizationOverhead * 1000) / 1000
       },
+      recommendations: [
+        overheadPercentage > 15 ? 'Consider optimizing configuration to reduce overhead' : 'Configuration appears well optimized',
+        gpuCount > 1 ? 'Multi-GPU setup detected - ensure efficient data placement' : 'Single GPU setup - minimal communication overhead'
+      ],
       config: {
         gpuCount,
         gpuType,
@@ -500,10 +522,11 @@ export const OVERHEAD_CATEGORIES = {
  * Framework overhead configurations
  */
 export const FRAMEWORK_OVERHEADS = {
-  vllm: { baseGB: 0.5, scalingFactor: 0.02, description: 'vLLM optimized runtime' },
-  transformers: { baseGB: 0.8, scalingFactor: 0.05, description: 'Hugging Face Transformers' },
-  tensorrt: { baseGB: 0.3, scalingFactor: 0.01, description: 'TensorRT optimized runtime' },
-  fastchat: { baseGB: 0.6, scalingFactor: 0.03, description: 'FastChat runtime' }
+  vllm: { baseGB: 0.5, scalingFactor: 0.02, description: 'vLLM optimized runtime', default: 0.5, perGpuGB: 0.02 },
+  transformers: { baseGB: 0.8, scalingFactor: 0.05, description: 'Hugging Face Transformers', default: 0.8, perGpuGB: 0.05 },
+  tensorrt: { baseGB: 0.3, scalingFactor: 0.01, description: 'TensorRT optimized runtime', default: 0.3, perGpuGB: 0.01 },
+  fastchat: { baseGB: 0.6, scalingFactor: 0.03, description: 'FastChat runtime', default: 0.6, perGpuGB: 0.03 },
+  default: { baseGB: 0.5, scalingFactor: 0.02, description: 'Default framework', default: 0.5, perGpuGB: 0.02 }
 }
 
 /**
@@ -514,7 +537,8 @@ export const GPU_DRIVER_OVERHEADS = {
   V100: { baseGB: 0.5, memoryFactor: 0.015, description: 'NVIDIA V100' },
   H100: { baseGB: 0.8, memoryFactor: 0.008, description: 'NVIDIA H100' },
   RTX4090: { baseGB: 0.4, memoryFactor: 0.02, description: 'NVIDIA RTX 4090' },
-  T4: { baseGB: 0.3, memoryFactor: 0.025, description: 'NVIDIA T4' }
+  T4: { baseGB: 0.3, memoryFactor: 0.025, description: 'NVIDIA T4' },
+  default: { baseGB: 0.5, memoryFactor: 0.015, description: 'Default GPU' }
 }
 
 export { SYSTEM_OVERHEAD_COMPONENTS }

@@ -27,6 +27,12 @@ export {
   optimizeSystemOverhead
 } from './systemOverhead.js'
 
+export {
+  calculateVRAMBreakdown,
+  optimizeVRAMUsage,
+  validateVRAMConfiguration
+} from './vramBreakdown.js'
+
 // Import from quantization module for model weights
 export { 
   calculateModelWeightsMemory

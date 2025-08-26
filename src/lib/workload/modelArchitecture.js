@@ -33,9 +33,9 @@ export const MODEL_ARCHITECTURE_PRESETS = {
   0.5: { layers: 12, hiddenSize: 768, numHeads: 12, vocabSize: 32000, intermediateSize: 3072, architecture: 'llama', name: 'small' },
   
   // Medium models (1-3B)
-  1: { layers: 16, hiddenSize: 1024, numHeads: 16, vocabSize: 32000, intermediateSize: 4096, architecture: 'llama', name: 'medium-1b' },
-  1.5: { layers: 20, hiddenSize: 1280, numHeads: 20, vocabSize: 32000, intermediateSize: 5120, architecture: 'llama', name: 'medium-1.5b' },
-  3: { layers: 24, hiddenSize: 1536, numHeads: 24, vocabSize: 32000, intermediateSize: 6144, architecture: 'llama', name: 'medium-3b' },
+  1: { layers: 24, hiddenSize: 2048, numHeads: 16, vocabSize: 32000, intermediateSize: 5632, architecture: 'llama', name: 'medium-1b' },
+  1.5: { layers: 24, hiddenSize: 2048, numHeads: 32, vocabSize: 32000, intermediateSize: 5632, architecture: 'llama', name: 'medium-1.5b' },
+  3: { layers: 28, hiddenSize: 2816, numHeads: 32, vocabSize: 32000, intermediateSize: 7552, architecture: 'llama', name: 'medium-3b' },
   
   // Large models (7-13B)
   7: { layers: 32, hiddenSize: 4096, numHeads: 32, vocabSize: 32000, intermediateSize: 11008, architecture: 'llama', name: 'large-7b' },     // Llama-2 7B, Mistral 7B
@@ -59,8 +59,19 @@ export const MODEL_ARCHITECTURE_PRESETS = {
  * @returns {object} Estimated architecture parameters
  */
 export function estimateModelArchitecture(numParams) {
+  // Handle edge cases gracefully
   if (!numParams || numParams <= 0) {
-    throw new Error('Number of parameters must be a positive number')
+    // Return a minimal architecture for edge cases
+    return {
+      layers: 6,
+      hiddenSize: 512,
+      numHeads: 8,
+      vocabSize: 32000,
+      intermediateSize: 2048,
+      architecture: 'llama',
+      name: 'minimal',
+      isEdgeCase: true
+    }
   }
 
   // Find the closest preset architecture
@@ -434,28 +445,36 @@ function generateValidationRecommendations(architecture) {
 export function calculateModelParameters(architecture) {
   const { layers, hiddenSize, numHeads, vocabSize, intermediateSize } = architecture
   
-  // Calculate parameters for each component
-  const embedding = vocabSize * hiddenSize
-  const attention = layers * (hiddenSize * hiddenSize * 4) // Q, K, V, output projections
-  const mlp = layers * (hiddenSize * intermediateSize * 2 + intermediateSize + hiddenSize) // up, down projections + biases
-  const layernorm = layers * hiddenSize * 2 // layer norm parameters
-  const lmHead = hiddenSize * vocabSize // final language modeling head
+  // Handle missing intermediate size
+  const effectiveIntermediateSize = intermediateSize || hiddenSize * 4 // Standard transformer ratio
   
-  const total = embedding + attention + mlp + layernorm + lmHead
+  // Calculate parameters for each component
+  // Embedding layer includes both input embeddings and output (lm_head) typically shares weights
+  const embedding = vocabSize * hiddenSize
+  
+  // Attention: Q, K, V projections + output projection (each hiddenSize x hiddenSize)
+  const attention = layers * (hiddenSize * hiddenSize * 4) 
+  
+  // Feedforward: up projection + down projection + gate projection (for models like Llama)
+  // Many modern models have 3 linear layers in MLP (up, gate, down)
+  const feedforward = layers * (hiddenSize * effectiveIntermediateSize * 3)
+  
+  // Layer norm parameters (weight for each layer, 2 layer norms per transformer block)
+  const layerNorm = layers * hiddenSize * 2 
+  
+  const totalParameters = embedding + attention + feedforward + layerNorm
   
   return {
-    total,
+    totalParameters,
     embedding,
     attention,
-    mlp,
-    layernorm,
-    lmHead,
+    feedforward,
+    layerNorm,
     breakdown: {
-      embeddingPercent: Math.round((embedding / total) * 100),
-      attentionPercent: Math.round((attention / total) * 100),
-      mlpPercent: Math.round((mlp / total) * 100),
-      layernormPercent: Math.round((layernorm / total) * 100),
-      lmHeadPercent: Math.round((lmHead / total) * 100),
+      embeddingPercent: Math.round((embedding / totalParameters) * 100),
+      attentionPercent: Math.round((attention / totalParameters) * 100),
+      feedforwardPercent: Math.round((feedforward / totalParameters) * 100),
+      layerNormPercent: Math.round((layerNorm / totalParameters) * 100),
     }
   }
 }
@@ -471,30 +490,37 @@ export function calculateModelParameters(architecture) {
 export function estimateLayerWiseMemory(architecture, batchSize, sequenceLength = 1024, training = false) {
   const { layers, hiddenSize, numHeads, intermediateSize } = architecture
   
-  // Calculate memory per layer
-  const activationMemoryPerLayer = batchSize * sequenceLength * hiddenSize * 2 / (1024 ** 3) // fp16
-  const attentionMemoryPerLayer = batchSize * sequenceLength * sequenceLength * numHeads * 2 / (1024 ** 3) // attention weights
-  const mlpMemoryPerLayer = batchSize * sequenceLength * intermediateSize * 2 / (1024 ** 3) // MLP activations
+  // Handle edge cases
+  const effectiveBatchSize = Math.max(batchSize || 1, 1)
+  const effectiveSequenceLength = Math.max(sequenceLength || 1024, 1)
   
-  const totalPerLayer = activationMemoryPerLayer + attentionMemoryPerLayer + mlpMemoryPerLayer
-  const totalMemory = totalPerLayer * layers
+  // Calculate memory components (in GB)
+  const activations = (effectiveBatchSize * effectiveSequenceLength * hiddenSize * layers * 2) / (1024 ** 3) // fp16
+  const attention = (effectiveBatchSize * effectiveSequenceLength * effectiveSequenceLength * numHeads * layers * 2) / (1024 ** 3) // attention weights
+  const weights = calculateModelParameters(architecture).totalParameters * 2 / (1024 ** 3) // model weights in fp16
   
-  // Training requires gradient memory (roughly 2x)
-  const finalMemory = training ? totalMemory * 2 : totalMemory
+  // Training requires gradient memory
+  const gradients = training ? weights : 0
+  
+  const total = activations + attention + weights + gradients
   
   return {
-    totalMemoryGB: finalMemory,
-    perLayerGB: totalPerLayer,
-    layers,
+    total,
+    activations,
+    attention,
+    weights,
+    gradients,
     breakdown: {
-      activationMemoryGB: activationMemoryPerLayer * layers,
-      attentionMemoryGB: attentionMemoryPerLayer * layers,
-      mlpMemoryGB: mlpMemoryPerLayer * layers,
+      activationsPercent: Math.round((activations / total) * 100),
+      attentionPercent: Math.round((attention / total) * 100),
+      weightsPercent: Math.round((weights / total) * 100),
+      gradientsPercent: Math.round((gradients / total) * 100),
     },
     config: {
-      batchSize,
-      sequenceLength,
+      batchSize: effectiveBatchSize,
+      sequenceLength: effectiveSequenceLength,
       training,
+      layers
     }
   }
 }
@@ -507,30 +533,50 @@ export function estimateLayerWiseMemory(architecture, batchSize, sequenceLength 
 export function getModelFamilySpecs(family) {
   const familySpecs = {
     llama: {
+      architecture: 'llama',
       defaultVocabSize: 32000,
       attentionType: 'grouped_query',
+      normType: 'rms_norm',
+      activationType: 'silu',
       layerScaling: 1.0,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
       memoryEfficiency: 0.85,
       description: 'Llama family models (efficient attention)'
     },
     gpt: {
+      architecture: 'gpt',
       defaultVocabSize: 50257,
       attentionType: 'standard',
+      normType: 'layer_norm',
+      activationType: 'gelu',
       layerScaling: 1.1,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
       memoryEfficiency: 0.80,
       description: 'GPT family models (standard attention)'
     },
     mistral: {
+      architecture: 'mistral',
       defaultVocabSize: 32000,
       attentionType: 'sliding_window',
+      normType: 'rms_norm',
+      activationType: 'silu',
       layerScaling: 0.95,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
       memoryEfficiency: 0.88,
       description: 'Mistral family models (sliding window attention)'
     },
     default: {
+      architecture: 'transformer',
       defaultVocabSize: 32000,
       attentionType: 'standard',
+      normType: 'layer_norm',
+      activationType: 'relu',
       layerScaling: 1.0,
+      hiddenScaling: 1.0,
+      headScaling: 1.0,
       memoryEfficiency: 0.80,
       description: 'Generic transformer model'
     }

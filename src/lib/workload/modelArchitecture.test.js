@@ -15,7 +15,7 @@ import {
   estimateLayerWiseMemory,
   getModelFamilySpecs,
   SUPPORTED_ARCHITECTURES
-} from '../workload/modelArchitecture.js'
+} from './modelArchitecture.js'
 
 describe('Model Architecture Estimation Module', () => {
   describe('estimateModelArchitecture', () => {
