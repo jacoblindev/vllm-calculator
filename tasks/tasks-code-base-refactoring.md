@@ -97,7 +97,7 @@
   * [x] 2.4 Add integration tests for critical user flows (GPU/model selection → config output).
   * [x] 2.5 Update test documentation and coverage reporting.
 
-* [ ] 3.0 Implement Pinia and Refactor Components for State Management
+* [x] 3.0 Implement Pinia and Refactor Components for State Management
   * [x] 3.1 Install Pinia and configure it in `src/main.js`.
   * [x] 3.2 Create Pinia stores (e.g., `useGpuStore`, `useModelStore`, `useConfigStore`) to manage global state.
   * [x] 3.3 Move state logic (e.g., `selectedGPUs`, `selectedModels`) and computed properties (e.g., `configurations`, `vramBreakdown`) from `App.vue` into the appropriate Pinia stores.
