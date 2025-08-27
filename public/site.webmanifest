@@ -1,0 +1,18 @@
+{
+  "name": "vLLM Configuration Calculator",
+  "short_name": "vLLM Calculator",
+  "description": "Calculate GPU memory requirements for vLLM deployment with quantization support",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#3B82F6",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary"
+}
