@@ -116,7 +116,7 @@
   * [x] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
   * [x] 4.2 Create `src/components/layout/TheFooter.vue` for the application footer.
   * [x] 4.3 Create `src/components/HeroSection.vue` for the main title and description.
-  * [ ] 4.4 Create `src/components/ConfigurationSummary.vue` to display the summary dashboard (VRAM breakdown, memory pressure, etc.).
+  * [x] 4.4 Create `src/components/ConfigurationSummary.vue` to display the summary dashboard (VRAM breakdown, memory pressure, etc.).
   * [ ] 4.5 Create `src/components/DebugPanel.vue` to encapsulate the debug information section.
   * [ ] 4.6 Update `App.vue` to use these new layout and UI components, drastically
   
