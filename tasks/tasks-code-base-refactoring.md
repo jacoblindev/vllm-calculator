@@ -58,12 +58,17 @@
 * `src/components/ModelSelector.test.js` - To be updated for Pinia integration.
 * `src/components/ConfigurationOutput.vue` - To be refactored to read from the Pinia store.
 * `src/components/VRAMChart.vue` - To be refactored to read from the Pinia store.
+
+### Layout Components
+
 * `src/components/layout/` - New directory for layout components.
-* `src/components/layout/TheHeader.vue` - New component for the site header.
+* `src/components/layout/TheHeader.vue` - New component for the site header and navigation.
+* `src/components/layout/TheHeader.test.js` - Unit tests for the header component.
 * `src/components/layout/TheFooter.vue` - New component for the site footer.
 * `src/components/HeroSection.vue` - New component for the introductory section.
 * `src/components/ConfigurationSummary.vue` - New component for the results dashboard.
 * `src/components/DebugPanel.vue` - New component for the debugging section.
+
 
 ## Notes
 
@@ -108,7 +113,7 @@
   * [x] 3.8 Implement state persistence for Pinia stores to replace the old `localStorage` logic (e.g., using `pinia-plugin-persistedstate`).
 
 * [ ] 4.0 Decompose App.vue into Smaller, Focused Components
-  * [ ] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
+  * [x] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
   * [ ] 4.2 Create `src/components/layout/TheFooter.vue` for the application footer.
   * [ ] 4.3 Create `src/components/HeroSection.vue` for the main title and description.
   * [ ] 4.4 Create `src/components/ConfigurationSummary.vue` to display the summary dashboard (VRAM breakdown, memory pressure, etc.).
