@@ -162,23 +162,23 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-3 text-sm">
               <div class="bg-blue-50 p-2 sm:p-3 rounded-lg border border-blue-200">
                 <div class="font-medium text-blue-900 text-xs sm:text-sm">Model Weights</div>
-                <div class="text-blue-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
+                <div class="text-blue-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.modelWeights?.toFixed(1) || '0.0' }}GB</div>
               </div>
               <div class="bg-green-50 p-2 sm:p-3 rounded-lg border border-green-200">
                 <div class="font-medium text-green-900 text-xs sm:text-sm">KV Cache</div>
-                <div class="text-green-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
+                <div class="text-green-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.kvCache?.toFixed(1) || '0.0' }}GB</div>
               </div>
               <div class="bg-yellow-50 p-2 sm:p-3 rounded-lg border border-yellow-200">
                 <div class="font-medium text-yellow-900 text-xs sm:text-sm">Activations</div>
-                <div class="text-yellow-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.activations.toFixed(1) }}GB</div>
+                <div class="text-yellow-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.activations?.toFixed(1) || '0.0' }}GB</div>
               </div>
               <div class="bg-red-50 p-2 sm:p-3 rounded-lg border border-red-200">
                 <div class="font-medium text-red-900 text-xs sm:text-sm">System</div>
-                <div class="text-red-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
+                <div class="text-red-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.systemOverhead?.toFixed(1) || '0.0' }}GB</div>
               </div>
               <div class="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
                 <div class="font-medium text-gray-900 text-xs sm:text-sm">Available</div>
-                <div class="text-gray-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.available.toFixed(1) }}GB</div>
+                <div class="text-gray-700 text-sm sm:text-base font-semibold">{{ vramBreakdown.available?.toFixed(1) || '0.0' }}GB</div>
               </div>
             </div>
           </div>
@@ -201,7 +201,7 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
                     {{ rec.currentFormat }} → {{ rec.recommendedFormat }}
                   </div>
                   <div class="text-xs text-blue-700">
-                    Save {{ rec.memorySavings.toFixed(1) }}GB
+                    Save {{ rec.memorySavings?.toFixed(1) || '0.0' }}GB
                   </div>
                 </div>
               </div>

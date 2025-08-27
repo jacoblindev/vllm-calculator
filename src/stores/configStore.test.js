@@ -43,6 +43,15 @@ vi.mock('../lib/calculationEngine.js', () => ({
 
 vi.mock('../lib/quantization.js', () => ({
   calculateModelWeightsMemory: vi.fn(() => 13.5),
+  calculateQuantizationFactor: vi.fn((format) => ({
+    format: format,
+    bitsPerParam: format === 'fp16' ? 16 : format === 'int8' ? 8 : 16,
+    bytesPerParam: format === 'fp16' ? 2.0 : format === 'int8' ? 1.0 : 2.0,
+    memoryFactor: format === 'fp16' ? 0.5 : format === 'int8' ? 0.25 : 0.5,
+    qualityLoss: format === 'fp16' ? 0.02 : format === 'int8' ? 0.05 : 0.02,
+    description: `${format} quantization`,
+    overhead: 0.0
+  })),
   generateQuantizationRecommendation: vi.fn(() => ({
     recommendedFormat: 'int8',
     memorySavings: '50%',
@@ -268,10 +277,10 @@ describe('Config Store', () => {
     })
 
     it('should detect excessive GPU count', () => {
-      gpuStore.addGPU({ name: 'Extra GPU', vram_gb: 24 }, 16)
+      gpuStore.addGPU({ name: 'Extra GPU', vram_gb: 24 }, 17) // 17 > 16, should trigger
       
       const health = configStore.configurationHealth
-      expect(health.status).toBe('warning')
+      expect(health.status).toBe('critical')
       expect(health.issues).toContain('Excessive GPU count may impact performance')
     })
   })

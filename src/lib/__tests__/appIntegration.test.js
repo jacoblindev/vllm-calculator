@@ -91,14 +91,42 @@ vi.mock('../calculationEngine.js', async (importOriginal) => {
       return baseCommand
     }),
     // Legacy functions for backward compatibility with tests
-    calculateThroughputOptimizedConfig: vi.fn(() => ({
-      config: { tensor_parallel_size: 2, gpu_memory_utilization: 0.9 },
-      performance: { expectedThroughput: 35.0 }
-    })),
-    calculateBalancedOptimizedConfig: vi.fn(() => ({
-      config: { tensor_parallel_size: 1, gpu_memory_utilization: 0.85 },
-      performance: { expectedThroughput: 25.0 }
-    })),
+    calculateThroughputOptimizedConfig: vi.fn((params) => {
+      const gpuCount = params?.hardware?.gpuCount || 1
+      return {
+        parameters: {
+          'gpu-memory-utilization': '0.9',
+          'max-model-len': '2048',
+          'max-num-seqs': '256',
+          'tensor-parallel-size': gpuCount.toString()
+        },
+        metrics: { 
+          throughput: 35.0,
+          latency: 80,
+          memoryUsage: '85%'
+        },
+        description: 'Optimized for maximum throughput performance.',
+        considerations: ['High memory utilization', 'Maximum parallel processing']
+      }
+    }),
+    calculateBalancedOptimizedConfig: vi.fn((params) => {
+      const gpuCount = params?.hardware?.gpuCount || 1
+      return {
+        parameters: {
+          'gpu-memory-utilization': '0.85',
+          'max-model-len': '3072',
+          'max-num-seqs': '128',
+          'tensor-parallel-size': gpuCount.toString()
+        },
+        metrics: { 
+          throughput: 25.0,
+          latency: 120,
+          memoryUsage: '75%'
+        },
+        description: 'Balanced configuration for general-purpose usage.',
+        considerations: ['Moderate memory usage', 'Good balance of throughput and latency']
+      }
+    }),
     checkModelGPUCompatibility: vi.fn(() => ({
       isCompatible: true,
       warnings: [],

@@ -14,7 +14,8 @@ import {
 } from '../lib/calculationEngine.js'
 import {
   calculateModelWeightsMemory,
-  generateQuantizationRecommendation
+  generateQuantizationRecommendation,
+  calculateQuantizationFactor
 } from '../lib/quantization.js'
 
 export const useConfigStore = defineStore('config', () => {
@@ -81,8 +82,10 @@ export const useConfigStore = defineStore('config', () => {
       // Calculate KV cache memory (estimate based on configuration)
       const avgConfig = configurations.value.find(c => c.type === 'balanced') || configurations.value[0]
       if (avgConfig && avgConfig.parameters) {
-        const maxSeqs = parseInt(avgConfig.parameters.find(p => p.name === '--max-num-seqs')?.value || '16')
-        const maxLen = parseInt(avgConfig.parameters.find(p => p.name === '--max-model-len')?.value || '2048')
+        const maxSeqsParam = avgConfig.parameters.find(p => p.name === '--max-num-seqs')
+        const maxLenParam = avgConfig.parameters.find(p => p.name === '--max-model-len')
+        const maxSeqs = parseInt(maxSeqsParam?.value || '16')
+        const maxLen = parseInt(maxLenParam?.value || '2048')
         
         modelStore.selectedModels.forEach(model => {
           const params = model.parameters || modelStore.estimateParametersFromSize(model.size)
@@ -208,11 +211,22 @@ export const useConfigStore = defineStore('config', () => {
           )
           
           if (recommendation) {
+            // Calculate memory savings based on current vs recommended format
+            const currentFormat = model.quantization || 'fp16'
+            const currentQuantInfo = calculateQuantizationFactor(currentFormat)
+            const recommendedQuantInfo = calculateQuantizationFactor(recommendation.recommendedFormat)
+            
+            // Estimate model weights memory with current vs recommended quantization
+            const baseMemory = (model.size || model.parameters || 7) * 2 // Base fp16 memory in GB
+            const currentMemory = baseMemory * currentQuantInfo.memoryFactor
+            const recommendedMemory = baseMemory * recommendedQuantInfo.memoryFactor
+            const memorySavings = Math.max(0, currentMemory - recommendedMemory)
+            
             recommendations.push({
               modelName: model.name,
-              currentFormat: model.quantization || 'fp16',
+              currentFormat: currentFormat,
               recommendedFormat: recommendation.recommendedFormat,
-              memorySavings: recommendation.memorySavings,
+              memorySavings: memorySavings,
               qualityImpact: recommendation.qualityImpact,
               reason: recommendation.reason
             })
@@ -243,8 +257,16 @@ export const useConfigStore = defineStore('config', () => {
       issues.push('Model size approaching VRAM limits')
     }
     
+    // Determine status: critical if excessive GPUs or multiple issues
+    let status = 'healthy'
+    if (gpuStore.totalGPUCount > 16) {
+      status = 'critical'
+    } else if (issues.length > 0) {
+      status = issues.length === 1 ? 'warning' : 'critical'
+    }
+    
     return {
-      status: issues.length === 0 ? 'healthy' : issues.length === 1 ? 'warning' : 'critical',
+      status,
       issues
     }
   })
@@ -341,7 +363,7 @@ export const useConfigStore = defineStore('config', () => {
         latency: metrics.latency || 'N/A',
         memoryUsage: metrics.memoryUsage || 'N/A'
       },
-      command: generateVLLMCommand(params),
+  command: generateVLLMCommand(params).command,
       considerations: engineConfig.considerations || []
     }
   }

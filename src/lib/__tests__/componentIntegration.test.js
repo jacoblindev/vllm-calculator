@@ -30,7 +30,14 @@ vi.mock('../../lib/calculationEngine.js', () => ({
   calculateVLLMMemoryUsage: vi.fn(),
   checkModelGPUCompatibility: vi.fn(),
   calculateThroughputOptimizedConfig: vi.fn(),
-  calculateBalancedOptimizedConfig: vi.fn()
+  calculateBalancedOptimizedConfig: vi.fn(),
+  calculateKVCacheMemory: vi.fn(() => 2.5), // Mock KV cache memory
+  calculateActivationMemory: vi.fn(() => 1.5), // Mock activation memory
+  calculateSystemOverhead: vi.fn(() => 0.5), // Mock system overhead
+  generateVLLMCommand: vi.fn((config) => ({
+    command: `vllm serve ${config.modelPath} --gpu-memory-utilization ${config.parameters?.['gpu-memory-utilization'] || '0.85'} --tensor-parallel-size ${config.tensorParallelSize || 1}`,
+    script: 'launch_vllm.sh'
+  }))
 }))
 
 // Test data
@@ -176,7 +183,7 @@ describe('Component Integration Tests: UI Flow Testing', () => {
       gpuStore.updateSelectedGPUs(lowVRAMSelection)
       await wrapper.vm.$nextTick()
 
-      const warnings = gpuStore.selectionWarnings
+      const warnings = wrapper.vm.selectionWarnings
       expect(warnings.some(w => w.type === 'low_vram')).toBe(true)
     })
   })
@@ -363,7 +370,7 @@ describe('Component Integration Tests: UI Flow Testing', () => {
       const modelStore = useModelStore()
 
       const multiGPUSpecs = [
-        { name: 'NVIDIA A100', vram_gb: 80, quantity: 2 }
+        { gpu: { name: 'NVIDIA A100', vram_gb: 80 }, quantity: 2 }
       ]
       const configuration = {
         type: 'balanced',

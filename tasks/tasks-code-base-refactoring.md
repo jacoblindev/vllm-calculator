@@ -121,7 +121,7 @@
   * [x] 4.6 Update `App.vue` to use these new layout and UI components, drastically
 
 * [ ] 5.0 Post-Refactoring Cleanup and Test Alignment
-  * [ ] 5.1 Update integration tests to align with new modular component architecture.
+  * [x] 5.1 Update integration tests to align with new modular component architecture.
   * [ ] 5.2 Fix failing tests that expect old App.vue computed properties (now handled by individual components).
   * [ ] 5.3 Add unit tests for new components that might be missing test coverage.
   * [ ] 5.4 Review and update component tests to use Pinia store mocking instead of prop-based testing.
