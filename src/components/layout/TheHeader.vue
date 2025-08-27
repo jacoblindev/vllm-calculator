@@ -213,10 +213,10 @@ onMounted(() => {
             <button
               v-if="hasValidConfiguration"
               @click="saveStateToStorage"
-              class="btn-professional px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md shadow-sm hover:shadow-md border border-blue-600"
+              class="!hidden lg:!inline-flex btn-professional px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md shadow-sm hover:shadow-md border border-blue-600 items-center"
               title="Save current configuration"
             >
-              <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
               <span class="hidden sm:inline">Save</span>
@@ -226,10 +226,10 @@ onMounted(() => {
             <button
               v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
               @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels();"
-              class="btn-professional px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 text-xs rounded-md shadow-sm hover:shadow-md"
+              class="!hidden lg:!inline-flex btn-professional px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 text-xs rounded-md shadow-sm hover:shadow-md items-center"
               title="Clear all selections"
             >
-              <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
               <span class="hidden sm:inline">Clear</span>
@@ -239,10 +239,10 @@ onMounted(() => {
             <div class="relative" @click="$event.stopPropagation()" data-settings-menu>
               <button
                 @click="uiStore.toggleSettingsMenu()"
-                class="btn-professional p-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-md shadow-sm hover:shadow-md"
+                class="btn-professional p-2 lg:p-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-md shadow-sm hover:shadow-md"
                 title="Settings and options"
               >
-                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6 lg:w-4 lg:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                 </svg>
               </button>
@@ -406,23 +406,23 @@ onMounted(() => {
             <button
               v-if="hasValidConfiguration"
               @click="saveStateToStorage(); uiStore.showMobileMenu = false"
-              class="w-full btn-professional px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
+              class="w-full btn-professional px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm flex items-center justify-center"
             >
-              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
-              Save Configuration
+              <span class="text-sm font-medium">Save Configuration</span>
             </button>
             
             <button
               v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
               @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels(); uiStore.showMobileMenu = false"
-              class="w-full btn-professional px-4 py-3 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg shadow-sm"
+              class="w-full btn-professional px-3 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg shadow-sm flex items-center justify-center"
             >
-              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
-              Clear All
+              <span class="text-sm font-medium">Clear All</span>
             </button>
           </div>
         </div>

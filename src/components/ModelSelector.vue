@@ -160,11 +160,11 @@
       </div>
 
       <!-- Model Grid -->
-      <div v-else-if="filteredModels.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div v-else-if="filteredModels.length > 0" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
         <div
           v-for="model in filteredModels"
           :key="model.name"
-          class="group relative border border-gray-200 rounded-xl p-6 cursor-pointer transition-all duration-200 hover:border-blue-300 hover:shadow-md"
+          class="group relative border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 cursor-pointer transition-all duration-200 hover:border-blue-300 hover:shadow-md touch-manipulation"
           :class="
             isModelSelected(model)
               ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500 ring-opacity-20'
@@ -172,31 +172,31 @@
           "
           @click="toggleModel(model)"
         >
-          <div class="mb-4">
-            <div class="flex items-start justify-between mb-3">
-              <h4 class="font-semibold text-gray-900 text-lg leading-tight">{{ model.name }}</h4>
-              <div v-if="isModelSelected(model)" class="flex-shrink-0 ml-2">
-                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <div class="mb-3 sm:mb-4">
+            <div class="flex items-start justify-between mb-2 sm:mb-3">
+              <h4 class="font-semibold text-gray-900 text-base sm:text-lg leading-tight flex-1 min-w-0 pr-2">{{ model.name }}</h4>
+              <div v-if="isModelSelected(model)" class="flex-shrink-0">
+                <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 rounded-full"></div>
               </div>
             </div>
             
-            <div class="space-y-3">
+            <div class="space-y-2 sm:space-y-3">
               <!-- Hugging Face ID -->
               <div class="flex items-center text-sm text-gray-600">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8z" clip-rule="evenodd"></path>
                 </svg>
-                <span class="font-mono text-xs truncate">{{ model.huggingface_id }}</span>
+                <span class="font-mono text-xs sm:text-sm truncate">{{ model.huggingface_id }}</span>
               </div>
               
               <!-- Enhanced Quantization Information -->
-              <div class="bg-gray-50 rounded-lg p-3 space-y-2">
+              <div class="bg-gray-50 rounded-lg p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-gray-700">Quantization:</span>
-                  <div class="flex items-center space-x-2">
+                  <span class="text-xs sm:text-sm font-medium text-gray-700">Quantization:</span>
+                  <div class="flex items-center space-x-1.5 sm:space-x-2">
                     <span 
                       :class="[
-                        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
                         getQuantizationColor(model.quantization)
                       ]"
                       :title="getQuantizationDescription(model.quantization)"
