@@ -28,9 +28,12 @@ export const useConfigStore = defineStore('config', () => {
   const modelStore = useModelStore()
 
   // Getters
-  const hasValidConfiguration = computed(() => 
-    gpuStore.hasValidGPUSelection && modelStore.hasValidModelSelection
-  )
+  const hasValidConfiguration = computed(() => {
+    const hasGPUs = gpuStore.selectedGPUs.length > 0
+    const hasModels = modelStore.selectedModels.length > 0
+    console.log('hasValidConfiguration check:', { hasGPUs, hasModels, selectedGPUs: gpuStore.selectedGPUs.length, selectedModels: modelStore.selectedModels.length })
+    return hasGPUs && hasModels
+  })
 
   const configurationStep = computed(() => {
     if (gpuStore.selectedGPUs.length === 0) return 'gpu'

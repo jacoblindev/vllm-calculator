@@ -54,12 +54,11 @@ const totalVRAM = computed(() => gpuStore.totalVRAM)
 const totalModelSize = computed(() => modelStore.totalModelSize)
 const configurationStep = computed(() => configStore.configurationStep)
 const setupProgress = computed(() => configStore.setupProgress)
-const vramBreakdown = computed(() => configStore.vramBreakdown)
-const quantizationRecommendations = computed(() => configStore.quantizationRecommendations)
-const stateAnalysis = computed(() => configStore.stateAnalysis)
 const memoryPressure = computed(() => configStore.memoryPressure)
 const configurationHealth = computed(() => configStore.configurationHealth)
-const configurations = computed(() => configStore.configurations)
+const vramBreakdown = computed(() => configStore.vramBreakdown)
+const stateAnalysis = computed(() => configStore.stateAnalysis)
+const quantizationRecommendations = computed(() => configStore.quantizationRecommendations)
 
 // State management functions - now delegated to stores
 const saveStateToStorage = () => {

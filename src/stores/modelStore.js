@@ -130,8 +130,8 @@ export const useModelStore = defineStore('model', () => {
       return (
         model &&
         typeof model === 'object' &&
-        typeof model.name === 'string' &&
-        (typeof model.size === 'number' || model.size === null)
+        typeof model.name === 'string'
+        // Size is optional - models can work without explicit size information
       )
     })
   }
