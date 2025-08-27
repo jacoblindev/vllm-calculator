@@ -84,14 +84,10 @@ describe('GPUSelector.vue', () => {
     wrapper.vm.availableGPUs = mockGPUs
     await wrapper.vm.$nextTick()
 
-    // Mock validation to return true
-    dataLoader.validateGPU.mockReturnValue(true)
-    
     wrapper.vm.toggleGPU(mockGPUs[0])
-    await wrapper.vm.$nextTick()
 
     expect(gpuStore.selectedGPUs).toHaveLength(1)
-    expect(gpuStore.selectedGPUs[0].gpu.name).toBe(mockGPUs[0].name)
+    expect(gpuStore.selectedGPUs[0].name).toBe(mockGPUs[0].name)
   })
 
   it('validates custom GPU input', async () => {
@@ -178,8 +174,11 @@ describe('GPUSelector.vue', () => {
       }
     })
     
-    // The test passes as long as the component renders without errors
-    expect(wrapper.exists()).toBe(true)
+    // Mock loading state
+    wrapper.vm.gpuLoadingState = { loading: true }
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.text()).toContain('Loading')
   })
 
   it('displays error state when GPU data loading fails', async () => {
@@ -189,8 +188,11 @@ describe('GPUSelector.vue', () => {
       }
     })
     
-    // The test passes as long as the component renders without errors
-    expect(wrapper.exists()).toBe(true)
+    // Mock error state
+    wrapper.vm.gpuLoadingState = { error: 'Network connection failed' }
+    await wrapper.vm.$nextTick()
+    
+    expect(wrapper.text()).toContain('Network connection failed')
   })
 
   it('validates custom GPU name correctly', async () => {
@@ -251,8 +253,13 @@ describe('GPUSelector.vue', () => {
       }
     })
     
-    // Test passes if component handles large GPU counts without errors
-    expect(wrapper.exists()).toBe(true)
+    // Add many GPUs to trigger warning
+    gpuStore.addGPU(mockGPUs[0], 8)
+    gpuStore.addGPU(mockGPUs[1], 8)
+    await wrapper.vm.$nextTick()
+    
+    const warnings = wrapper.vm.selectionWarnings
+    expect(warnings.some(w => w.type === 'excessive_gpus')).toBe(true)
   })
 
   it('shows selection warnings for low VRAM', async () => {
