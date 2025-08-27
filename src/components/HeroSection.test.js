@@ -669,8 +669,10 @@ describe('HeroSection', () => {
 
       const container = wrapper.find('.max-w-4xl')
       expect(container.classes()).toContain('mx-auto')
-      expect(container.classes()).toContain('px-2')
-      expect(container.classes()).toContain('sm:px-0')
+      // Container has max-w-4xl but padding is on parent .py-12.sm:py-16.px-6.sm:px-8
+      const parentContainer = wrapper.find('.py-12')
+      expect(parentContainer.classes()).toContain('px-6')
+      expect(parentContainer.classes()).toContain('sm:px-8')
     })
 
     it('has responsive text sizing', async () => {
@@ -683,9 +685,9 @@ describe('HeroSection', () => {
       await wrapper.vm.$nextTick()
 
       const title = wrapper.find('h2')
-      expect(title.classes()).toContain('text-3xl')
-      expect(title.classes()).toContain('sm:text-4xl')
-      expect(title.classes()).toContain('lg:text-5xl')
+      expect(title.classes()).toContain('text-4xl')
+      expect(title.classes()).toContain('sm:text-5xl')
+      expect(title.classes()).toContain('lg:text-6xl')
 
       const description = wrapper.find('p')
       expect(description.classes()).toContain('text-lg')

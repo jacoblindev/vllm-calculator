@@ -24,15 +24,31 @@
       </button>
     </div>
 
-    <div v-else-if="!hasConfiguration" class="text-center py-8 sm:py-12 text-gray-500">
-      <p class="text-base sm:text-lg">Select GPUs and models to see configuration recommendations</p>
+    <div v-else-if="!hasConfiguration" class="text-center py-6 sm:py-8 lg:py-12 text-gray-500">
+      <p class="text-sm sm:text-base lg:text-lg">Select GPUs and models to see configuration recommendations</p>
     </div>
 
-    <div v-else class="space-y-4 sm:space-y-6">
+    <div v-else class="space-y-3 sm:space-y-4 lg:space-y-6">
       <!-- Configuration Tabs -->
       <div class="border-b border-gray-200">
+        <!-- Mobile Tabs - Dropdown -->
+        <div class="sm:hidden">
+          <select 
+            v-model="activeTab" 
+            class="w-full border-gray-300 rounded-lg text-sm font-medium focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option
+              v-for="config in configurations"
+              :key="config.type"
+              :value="config.type"
+            >
+              {{ getTabTitle(config.type) }}
+            </option>
+          </select>
+        </div>
+        
         <!-- Desktop Tabs -->
-        <nav class="hidden sm:flex -mb-px space-x-8">
+        <nav class="hidden sm:flex -mb-px space-x-4 lg:space-x-8">
           <button
             v-for="config in configurations"
             :key="config.type"
@@ -47,33 +63,17 @@
             {{ config.title }}
           </button>
         </nav>
-
-        <!-- Mobile Dropdown -->
-        <div class="sm:hidden">
-          <select
-            v-model="activeTab"
-            class="w-full p-3 border border-gray-300 rounded-md bg-white text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option
-              v-for="config in configurations"
-              :key="config.type"
-              :value="config.type"
-            >
-              {{ config.title }}
-            </option>
-          </select>
-        </div>
       </div>
 
       <!-- Active Configuration Display -->
       <div v-for="config in configurations" :key="config.type" v-show="activeTab === config.type">
-        <div class="mb-4 sm:mb-6">
-          <h3 class="text-lg sm:text-xl font-semibold text-gray-900 mb-2">{{ config.title }}</h3>
-          <p class="text-sm sm:text-base text-gray-600">{{ config.description }}</p>
+        <div class="mb-3 sm:mb-4 lg:mb-6">
+          <h3 class="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">{{ config.title }}</h3>
+          <p class="text-xs sm:text-sm lg:text-base text-gray-600">{{ config.description }}</p>
         </div>
 
         <!-- Parameters Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 mb-3 sm:mb-4 lg:mb-6">
           <div v-for="param in config.parameters" :key="param.name" class="border rounded-lg p-3 sm:p-4">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 space-y-1 sm:space-y-0">
               <h4 class="font-medium text-gray-900 text-sm sm:text-base">{{ param.name }}</h4>
@@ -149,6 +149,15 @@ const totalModelSize = computed(() => modelStore.totalModelSize)
 const configurations = computed(() => configStore.configurations)
 
 // Methods
+function getTabTitle(type) {
+  const titles = {
+    'throughput': 'Maximum Throughput',
+    'latency': 'Minimum Latency', 
+    'balanced': 'Balanced Performance'
+  }
+  return titles[type] || type
+}
+
 function generateCommandForConfig(config) {
   if (!hasConfiguration.value) return ''
 

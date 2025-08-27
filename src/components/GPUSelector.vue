@@ -1,15 +1,15 @@
 <template>
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-8">
-    <div class="mb-8">
-      <h2 class="text-3xl font-semibold text-gray-900 mb-2">GPU Selection</h2>
-      <p class="text-gray-600 text-lg">Choose your hardware configuration for optimal vLLM performance</p>
+    <div class="component-spacing">
+      <h2 class="heading-secondary content-spacing">GPU Selection</h2>
+      <p class="text-body-large">Choose your hardware configuration for optimal vLLM performance</p>
     </div>
 
     <!-- Predefined GPU Selection -->
-    <div class="mb-10">
-      <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Available GPUs</h3>
-        <p class="text-gray-500">Select from our curated list of high-performance GPUs</p>
+    <div class="section-spacing">
+      <div class="component-spacing">
+        <h3 class="heading-tertiary content-spacing">Available GPUs</h3>
+        <p class="text-body">Select from our curated list of high-performance GPUs</p>
       </div>
       
       <!-- Loading State -->
@@ -45,29 +45,35 @@
       </div>
 
       <!-- GPU Grid -->
-      <div v-else-if="availableGPUs.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div v-else-if="availableGPUs.length > 0" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
         <div
           v-for="gpu in availableGPUs"
           :key="gpu.name"
-          class="group relative border border-gray-200 rounded-xl p-6 cursor-pointer transition-all duration-200 hover:border-blue-300 hover:shadow-md"
+          class="micro-card group relative border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 cursor-pointer touch-manipulation"
           :class="
             isGPUSelected(gpu)
               ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500 ring-opacity-20'
               : 'hover:bg-gray-50'
           "
           @click="toggleGPU(gpu)"
+          @keydown.enter="toggleGPU(gpu)"
+          @keydown.space.prevent="toggleGPU(gpu)"
+          role="button"
+          tabindex="0"
+          :aria-pressed="isGPUSelected(gpu)"
+          :aria-label="`${isGPUSelected(gpu) ? 'Deselect' : 'Select'} ${gpu.name} with ${gpu.vram_gb}GB VRAM`"
         >
-          <div class="flex justify-between items-start mb-4">
-            <div class="flex-1">
-              <h4 class="font-semibold text-gray-900 text-lg mb-1">{{ gpu.name }}</h4>
-              <p class="text-gray-600 flex items-center">
-                <svg class="w-4 h-4 mr-1.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="flex justify-between items-start mb-3 sm:mb-4">
+            <div class="flex-1 min-w-0">
+              <h4 class="font-semibold text-gray-900 text-base sm:text-lg mb-1 truncate">{{ gpu.name }}</h4>
+              <p class="text-gray-600 flex items-center text-sm">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                 </svg>
-                {{ gpu.vram_gb }}GB VRAM
+                <span class="truncate">{{ gpu.vram_gb }}GB VRAM</span>
               </p>
             </div>
-            <div v-if="isGPUSelected(gpu)" class="flex items-center bg-white rounded-lg border border-gray-300 overflow-hidden">
+            <div v-if="isGPUSelected(gpu)" class="flex items-center bg-white rounded-lg border border-gray-300 overflow-hidden ml-2 flex-shrink-0">
               <input
                 type="number"
                 :value="getGPUQuantity(gpu)"
@@ -75,36 +81,38 @@
                 @click.stop
                 min="1"
                 max="8"
-                class="w-14 text-center py-2 border-0 focus:ring-0 focus:outline-none text-sm font-medium"
+                class="w-12 sm:w-14 text-center py-1.5 sm:py-2 border-0 focus:ring-0 focus:outline-none text-xs sm:text-sm font-medium"
+                :aria-label="`Quantity of ${gpu.name} GPUs`"
+                :title="`Set quantity for ${gpu.name}`"
               />
-              <div class="px-2 py-2 bg-gray-50 text-xs font-medium text-gray-600 border-l">
+              <div class="px-1.5 sm:px-2 py-1.5 sm:py-2 bg-gray-50 text-xs font-medium text-gray-600 border-l">
                 qty
               </div>
             </div>
           </div>
           
           <!-- Selection indicator -->
-          <div v-if="isGPUSelected(gpu)" class="absolute top-4 right-4">
-            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <div v-if="isGPUSelected(gpu)" class="absolute top-3 right-3 sm:top-4 sm:right-4">
+            <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 rounded-full"></div>
           </div>
         </div>
       </div>
 
       <!-- No GPUs Available -->
-      <div v-else class="text-center py-12 border-2 border-dashed border-gray-300 rounded-xl">
-        <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div v-else class="text-center py-8 sm:py-12 border-2 border-dashed border-gray-300 rounded-lg sm:rounded-xl">
+        <svg class="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
         </svg>
-        <p class="text-gray-500 font-medium">No GPU data available</p>
-        <p class="text-gray-400 text-sm mt-1">You can add custom GPUs below</p>
+        <p class="text-gray-500 font-medium text-sm sm:text-base">No GPU data available</p>
+        <p class="text-gray-400 text-xs sm:text-sm mt-1">You can add custom GPUs below</p>
       </div>
     </div>
 
     <!-- Custom GPU Section -->
     <div class="border-t border-gray-200 pt-10">
-      <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Custom GPU</h3>
-        <p class="text-gray-500">Add a custom GPU with specific VRAM configuration</p>
+      <div class="component-spacing">
+        <h3 class="heading-tertiary content-spacing">Custom GPU</h3>
+        <p class="text-body">Add a custom GPU with specific VRAM configuration</p>
       </div>
       
       <!-- Custom GPU Error Display -->
@@ -119,8 +127,8 @@
 
       <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
         <div class="md:col-span-5">
-          <label for="custom-gpu-name" class="block text-sm font-semibold text-gray-900 mb-3">
-            GPU Name
+          <label for="custom-gpu-name" class="block text-body-small text-emphasis content-spacing">
+            GPU Name *
           </label>
           <input
             id="custom-gpu-name"
@@ -128,7 +136,7 @@
             type="text"
             placeholder="e.g., Custom RTX 5090"
             :class="[
-              'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+              'input-enhanced w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2',
               customGPUNameError 
                 ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
                 : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'
@@ -144,8 +152,8 @@
         </div>
         
         <div class="md:col-span-4">
-          <label for="custom-gpu-vram" class="block text-sm font-semibold text-gray-900 mb-3">
-            VRAM (GB)
+          <label for="custom-gpu-vram" class="block text-body-small text-emphasis content-spacing">
+            VRAM (GB) *
           </label>
           <div class="relative">
             <input
@@ -156,7 +164,7 @@
               min="1"
               max="200"
               :class="[
-                'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                'input-enhanced w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2',
                 customGPUVramError 
                   ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
                   : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'

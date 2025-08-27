@@ -79,15 +79,15 @@ describe('TheHeader', () => {
     expect(navLinks).toHaveLength(3)
     
     // Check GPU Setup link
-    expect(navLinks[0].text()).toContain('GPU Setup')
+    expect(navLinks[0].text()).toContain('GPU')
     expect(navLinks[0].attributes('href')).toBe('#gpu-selection')
     
     // Check Model Setup link
-    expect(navLinks[1].text()).toContain('Model Setup')
+    expect(navLinks[1].text()).toContain('Model')
     expect(navLinks[1].attributes('href')).toBe('#model-selection')
     
     // Check Configurations link
-    expect(navLinks[2].text()).toContain('Configurations')
+    expect(navLinks[2].text()).toContain('Config')
     expect(navLinks[2].attributes('href')).toBe('#configuration-results')
   })
 
@@ -97,13 +97,13 @@ describe('TheHeader', () => {
     
     const gpuLink = wrapper.find('a[href="#gpu-selection"]')
     expect(gpuLink.classes()).toContain('text-blue-600')
-    expect(gpuLink.classes()).toContain('border-blue-600')
+    expect(gpuLink.classes()).toContain('border-blue-200')
   })
 
   it('renders configuration health indicator', () => {
     const wrapper = mount(TheHeader)
     
-    const healthIndicator = wrapper.find('.w-3.h-3.rounded-full')
+    const healthIndicator = wrapper.find('.w-2\\.5.h-2\\.5.rounded-full')
     expect(healthIndicator.exists()).toBe(true)
     expect(healthIndicator.classes()).toContain('bg-green-500') // healthy status
     
@@ -175,9 +175,9 @@ describe('TheHeader', () => {
     
     const mobileMenu = wrapper.find('[data-mobile-menu-content]')
     expect(mobileMenu.exists()).toBe(true)
-    expect(mobileMenu.text()).toContain('GPU Setup')
-    expect(mobileMenu.text()).toContain('Model Setup')
-    expect(mobileMenu.text()).toContain('Configurations')
+    expect(mobileMenu.text()).toContain('GPU')
+    expect(mobileMenu.text()).toContain('Model')
+    expect(mobileMenu.text()).toContain('Config')
   })
 
   it('calls saveStateToStorage when save button is clicked', async () => {

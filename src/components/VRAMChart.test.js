@@ -99,7 +99,7 @@ describe('VRAMChart.vue', () => {
         }
       })
       
-      expect(wrapper.find('.bg-white.rounded-xl.shadow-sm').exists()).toBe(true)
+      expect(wrapper.find('.bg-white.rounded-lg.shadow-sm').exists()).toBe(true)
     })
 
     it('should show chart content when no configuration exists', async () => {

@@ -1,27 +1,27 @@
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+  <div class="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
     <!-- Chart Header Section -->
-    <div class="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-100">
-      <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start space-y-4 lg:space-y-0">
-        <div class="flex-1">
-          <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{{ title || 'VRAM Usage Breakdown' }}</h2>
-          <p class="text-sm sm:text-base text-gray-600">
+    <div class="px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-6 border-b border-gray-100">
+      <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start space-y-3 sm:space-y-4 lg:space-y-0">
+        <div class="flex-1 min-w-0">
+          <h2 class="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1 sm:mb-2 truncate">{{ title || 'VRAM Usage Breakdown' }}</h2>
+          <p class="text-xs sm:text-sm lg:text-base text-gray-600 leading-relaxed">
             Memory allocation across different components for each optimization strategy
           </p>
         </div>
         <!-- VRAM Summary Info -->
         <div 
           v-if="getTotalVRAM() > 0"
-          class="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 text-sm w-full lg:w-auto lg:min-w-[200px]"
+          class="bg-gray-50 border border-gray-200 rounded-lg p-2.5 sm:p-3 lg:p-4 text-xs sm:text-sm w-full lg:w-auto lg:min-w-[200px] flex-shrink-0"
         >
-          <div class="font-semibold text-gray-900 mb-2 flex items-center">
-            <svg class="w-4 h-4 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+          <div class="font-semibold text-gray-900 mb-1.5 sm:mb-2 flex items-center">
+            <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
             </svg>
-            GPU Configuration
+            <span class="truncate">GPU Configuration</span>
           </div>
           <div class="space-y-1 text-gray-700">
-            <div class="flex justify-between">
+            <div class="flex justify-between items-center">
               <span class="text-gray-600">Total VRAM:</span>
               <span class="font-semibold">{{ getTotalVRAM() }} GB</span>
             </div>

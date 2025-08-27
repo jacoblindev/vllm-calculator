@@ -1,16 +1,16 @@
 <template>
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-8">
-    <div class="mb-10">
-      <div class="flex items-start justify-between mb-6">
+    <div class="section-spacing">
+      <div class="flex items-start justify-between component-spacing">
         <div class="flex-1">
-          <h2 class="text-3xl font-semibold text-gray-900 mb-3">Model Selection</h2>
-          <p class="text-gray-600 text-lg leading-relaxed">Choose language models with appropriate quantization settings for optimal performance and memory usage</p>
+          <h2 class="heading-secondary content-spacing">Model Selection</h2>
+          <p class="text-body-large leading-relaxed">Choose language models with appropriate quantization settings for optimal performance and memory usage</p>
         </div>
         <div class="flex-shrink-0 ml-6">
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
             <div class="text-center">
-              <div class="text-2xl font-bold text-blue-900">{{ selectedModels.length }}</div>
-              <div class="text-sm text-blue-700 font-medium">Selected</div>
+              <div class="heading-tertiary text-blue-900">{{ selectedModels.length }}</div>
+              <div class="text-caption text-blue-700 text-emphasis">Selected</div>
             </div>
           </div>
         </div>
@@ -35,7 +35,7 @@
     <!-- Predefined Model Selection -->
     <div class="mb-10">
       <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Available Models</h3>
+        <h3 class="heading-tertiary content-spacing">Available Models</h3>
         <p class="text-gray-500">Select from our curated list of high-performance language models</p>
       </div>
 
@@ -48,7 +48,7 @@
             <select 
               id="quantization-filter"
               v-model="quantizationFilter"
-              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              class="select-enhanced px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Types</option>
               <option value="fp16">FP16</option>
@@ -64,14 +64,14 @@
             <button
               @click="selectAllFiltered"
               :disabled="filteredModels.length === 0 || areAllFilteredSelected"
-              class="px-3 py-2 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
+              class="btn-primary px-3 py-2 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg"
             >
               Select All{{ quantizationFilter ? ` (${quantizationFilter.toUpperCase()})` : '' }}
             </button>
             <button
               @click="clearAllFiltered"
               :disabled="selectedModels.length === 0"
-              class="px-3 py-2 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg transition-colors"
+              class="btn-secondary px-3 py-2 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 disabled:bg-gray-100 disabled:text-gray-400 rounded-lg"
             >
               Clear All
             </button>
@@ -160,43 +160,49 @@
       </div>
 
       <!-- Model Grid -->
-      <div v-else-if="filteredModels.length > 0" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div v-else-if="filteredModels.length > 0" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
         <div
           v-for="model in filteredModels"
           :key="model.name"
-          class="group relative border border-gray-200 rounded-xl p-6 cursor-pointer transition-all duration-200 hover:border-blue-300 hover:shadow-md"
+          class="micro-card group relative border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 cursor-pointer touch-manipulation"
           :class="
             isModelSelected(model)
               ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500 ring-opacity-20'
               : 'hover:bg-gray-50'
           "
           @click="toggleModel(model)"
+          @keydown.enter="toggleModel(model)"
+          @keydown.space.prevent="toggleModel(model)"
+          role="button"
+          tabindex="0"
+          :aria-pressed="isModelSelected(model)"
+          :aria-label="`${isModelSelected(model) ? 'Deselect' : 'Select'} ${model.name} model with ${model.quantization} quantization`"
         >
-          <div class="mb-4">
-            <div class="flex items-start justify-between mb-3">
-              <h4 class="font-semibold text-gray-900 text-lg leading-tight">{{ model.name }}</h4>
-              <div v-if="isModelSelected(model)" class="flex-shrink-0 ml-2">
-                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+          <div class="mb-3 sm:mb-4">
+            <div class="flex items-start justify-between mb-2 sm:mb-3">
+              <h4 class="font-semibold text-gray-900 text-base sm:text-lg leading-tight flex-1 min-w-0 pr-2">{{ model.name }}</h4>
+              <div v-if="isModelSelected(model)" class="flex-shrink-0">
+                <div class="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-blue-500 rounded-full"></div>
               </div>
             </div>
             
-            <div class="space-y-3">
+            <div class="space-y-2 sm:space-y-3">
               <!-- Hugging Face ID -->
               <div class="flex items-center text-sm text-gray-600">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 4a1 1 0 011-1h12a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1V8z" clip-rule="evenodd"></path>
                 </svg>
-                <span class="font-mono text-xs truncate">{{ model.huggingface_id }}</span>
+                <span class="font-mono text-xs sm:text-sm truncate">{{ model.huggingface_id }}</span>
               </div>
               
               <!-- Enhanced Quantization Information -->
-              <div class="bg-gray-50 rounded-lg p-3 space-y-2">
+              <div class="bg-gray-50 rounded-lg p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-medium text-gray-700">Quantization:</span>
-                  <div class="flex items-center space-x-2">
+                  <span class="text-xs sm:text-sm font-medium text-gray-700">Quantization:</span>
+                  <div class="flex items-center space-x-1.5 sm:space-x-2">
                     <span 
                       :class="[
-                        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
                         getQuantizationColor(model.quantization)
                       ]"
                       :title="getQuantizationDescription(model.quantization)"
@@ -222,7 +228,7 @@
                     </span>
                     <div class="w-16 bg-gray-200 rounded-full h-2">
                       <div 
-                        class="h-2 rounded-full transition-all duration-300"
+                        class="progress-bar h-2 rounded-full"
                         :class="getMemoryBarColor(model.memory_factor)"
                         :style="{ width: `${model.memory_factor * 100}%` }"
                       ></div>
@@ -352,7 +358,7 @@
                 type="text"
                 placeholder="e.g., microsoft/DialoGPT-medium"
                 :class="[
-                  'w-full px-4 py-3 pr-12 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                  'input-enhanced w-full px-4 py-3 pr-12 border rounded-xl font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2',
                   hfError 
                     ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
                     : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400 bg-white'
@@ -413,7 +419,7 @@
             <select
               id="hf-quantization"
               v-model="hfQuantization"
-              class="w-full px-4 py-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-all duration-200 bg-white"
+              class="select-enhanced w-full px-4 py-3 border border-gray-300 rounded-xl font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 bg-white"
             >
               <option value="auto">🔍 Auto-detect (Recommended)</option>
               <option value="fp16">FP16 (Full Precision)</option>
@@ -427,7 +433,7 @@
               @click="fetchHuggingFaceModel"
               :disabled="!hfModelId.trim() || isLoadingHF"
               :class="[
-                'w-full py-3 px-6 rounded-xl font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm',
+                'btn-primary w-full py-3 px-6 rounded-xl font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-sm',
                 !hfModelId.trim() || isLoadingHF
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
                   : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 focus:ring-blue-500 hover:shadow-md active:shadow-lg transform hover:-translate-y-0.5'
@@ -530,7 +536,7 @@
               <span class="font-semibold text-gray-900">{{ Math.round(fetchedModel.memory_factor * 100) }}%</span>
               <div class="ml-2 w-16 bg-gray-200 rounded-full h-2">
                 <div 
-                  class="h-2 rounded-full"
+                  class="progress-bar h-2 rounded-full"
                   :class="getMemoryBarColor(fetchedModel.memory_factor)"
                   :style="{ width: `${fetchedModel.memory_factor * 100}%` }"
                 ></div>
@@ -605,7 +611,7 @@
                     <span class="font-semibold text-blue-900">Quantization</span>
                   </div>
                   <p class="text-gray-700 mb-2">Check for keywords like "AWQ", "GPTQ", "4-bit", "8-bit" in the model name or tags.</p>
-                  <button @click="showQuantizationGuide = !showQuantizationGuide" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
+                  <button @click="showQuantizationGuide = !showQuantizationGuide" class="btn-ghost inline-flex items-center text-blue-600 hover:text-blue-800 font-medium">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
@@ -631,7 +637,7 @@
         <div v-if="showQuantizationGuide" class="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6">
           <div class="flex items-start justify-between mb-4">
             <h4 class="text-lg font-semibold text-amber-900">Quantization Selection Guide</h4>
-            <button @click="showQuantizationGuide = false" class="text-amber-600 hover:text-amber-800">
+            <button @click="showQuantizationGuide = false" class="btn-ghost text-amber-600 hover:text-amber-800">>
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
               </svg>
@@ -1034,7 +1040,7 @@
     <!-- Selected Models Summary -->
     <div v-if="selectedModels.length > 0" class="border-t border-gray-200 pt-10">
       <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Selected Models</h3>
+        <h3 class="heading-tertiary content-spacing">Selected Models</h3>
         <p class="text-gray-500">Review your model selection and quantization settings</p>
       </div>
       
