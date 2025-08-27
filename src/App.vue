@@ -101,25 +101,6 @@ const clearStoredState = () => {
   }
 }
 
-// Enhanced state change handlers
-const handleGPUSelectionChange = (newGPUs) => {
-  if (!isStateRestoring.value) {
-    gpuStore.updateSelectedGPUs(newGPUs)
-    nextTick(() => {
-      saveStateToStorage()
-    })
-  }
-}
-
-const handleModelSelectionChange = (newModels) => {
-  if (!isStateRestoring.value) {
-    modelStore.updateSelectedModels(newModels)
-    nextTick(() => {
-      saveStateToStorage()
-    })
-  }
-}
-
 // Enhanced application lifecycle with state management
 onMounted(() => {
   // Load saved state first
@@ -158,14 +139,7 @@ onMounted(() => {
   }
 })
 
-// State change watchers for automatic persistence
-watch(selectedGPUs, (newGPUs) => {
-  handleGPUSelectionChange(newGPUs)
-}, { deep: true })
-
-watch(selectedModels, (newModels) => {
-  handleModelSelectionChange(newModels)
-}, { deep: true })
+// Pinia stores now handle state persistence automatically
 
 // Window beforeunload handler for cleanup
 if (typeof window !== 'undefined') {
@@ -748,10 +722,7 @@ const chartOptions = ref({
             </div>
           </div>
           
-          <GPUSelector 
-            :selected-g-p-us="selectedGPUs"
-            @update:selectedGPUs="handleGPUSelectionChange"
-          />
+          <GPUSelector />
         </section>
 
         <!-- Step 2: Model Selection -->
@@ -762,10 +733,7 @@ const chartOptions = ref({
             </div>
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Choose Your Model</h3>
           </div>
-          <ModelSelector 
-            :selected-models="selectedModels"
-            @update:selectedModels="handleModelSelectionChange"
-          />
+          <ModelSelector />
         </section>
 
         <!-- Configuration Results -->

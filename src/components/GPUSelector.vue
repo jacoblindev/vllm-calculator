@@ -288,15 +288,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { loadGPUData, validateGPU, createCustomGPU } from '../lib/dataLoader.js'
 import { useLoadingWithRetry, useDataLoadingState } from '../composables/useLoadingState.js'
+import { useGpuStore } from '../stores/gpuStore.js'
 
-// Props and emits
-const emit = defineEmits(['update:selectedGPUs'])
-const props = defineProps({
-  selectedGPUs: {
-    type: Array,
-    default: () => [],
-  },
-})
+// Initialize GPU store
+const gpuStore = useGpuStore()
 
 // Loading state management
 const { gpu: gpuLoadingState } = useDataLoadingState()
@@ -312,11 +307,13 @@ const {
 
 // Reactive data
 const availableGPUs = ref([])
-const selectedGPUs = ref(props.selectedGPUs)
 const customGPU = ref({
   name: '',
   vram_gb: null,
 })
+
+// Access GPU store state directly
+const selectedGPUs = computed(() => gpuStore.selectedGPUs)
 
 // Error states
 const customGPUError = ref('')
@@ -483,30 +480,24 @@ const addGPU = (gpu, quantity = 1) => {
   // Check if GPU already exists
   const existingSelection = selectedGPUs.value.find(s => s.gpu.name === gpu.name)
   if (existingSelection) {
-    // Update quantity instead of adding duplicate
-    existingSelection.quantity = Math.min(existingSelection.quantity + quantity, 8)
+    // Update quantity using store action
+    gpuStore.updateGPUQuantity(gpu.name, Math.min(existingSelection.quantity + quantity, 8))
   } else {
-    selectedGPUs.value.push({
-      gpu: { ...gpu },
-      quantity: quantity,
-    })
+    // Add new GPU using store action
+    gpuStore.addGPU(gpu, quantity)
   }
 
   // Clear any previous errors
   customGPUError.value = ''
-  emit('update:selectedGPUs', selectedGPUs.value)
 }
 
 const removeGPU = gpu => {
-  selectedGPUs.value = selectedGPUs.value.filter(selection => selection.gpu.name !== gpu.name)
-  emit('update:selectedGPUs', selectedGPUs.value)
+  gpuStore.removeGPU(gpu.name)
 }
 
 const updateGPUQuantity = (gpu, newQuantity) => {
-  const selection = selectedGPUs.value.find(s => s.gpu.name === gpu.name)
-  if (selection && newQuantity >= 1 && newQuantity <= 8) {
-    selection.quantity = parseInt(newQuantity)
-    emit('update:selectedGPUs', selectedGPUs.value)
+  if (newQuantity >= 1 && newQuantity <= 8) {
+    gpuStore.updateGPUQuantity(gpu.name, parseInt(newQuantity))
   }
 }
 
