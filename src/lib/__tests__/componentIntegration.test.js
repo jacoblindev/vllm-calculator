@@ -2,13 +2,14 @@
  * Component Integration Tests: UI Flow Testing
  * 
  * These tests verify the integration between Vue components
- * in the critical user flow:
+ * in the critical user flow with the new Pinia store architecture:
  * 
  * GPUSelector → ModelSelector → ConfigurationOutput → VRAMChart
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import GPUSelector from '../../components/GPUSelector.vue'
 import ModelSelector from '../../components/ModelSelector.vue'
 import ConfigurationOutput from '../../components/ConfigurationOutput.vue'
@@ -56,9 +57,14 @@ const mockModels = [
 
 describe('Component Integration Tests: UI Flow Testing', () => {
   let dataLoader, calculationEngine
+  let pinia
 
   beforeEach(async () => {
     vi.clearAllMocks()
+    
+    // Create fresh Pinia instance for each test
+    pinia = createPinia()
+    setActivePinia(pinia)
     
     // Import and setup mocks
     dataLoader = await import('../../lib/dataLoader.js')
@@ -105,13 +111,22 @@ describe('Component Integration Tests: UI Flow Testing', () => {
     })
   })
 
+  const mountComponentWithStores = (Component, props = {}) => {
+    return mount(Component, {
+      props,
+      global: {
+        plugins: [pinia]
+      }
+    })
+  }
+
   describe('Flow 1: GPU Selection Integration', () => {
-    it('should handle GPU selection and emit updates correctly', async () => {
-      const wrapper = mount(GPUSelector, {
-        props: {
-          selectedGPUs: []
-        }
-      })
+    it('should handle GPU selection and update store correctly', async () => {
+      const wrapper = mountComponentWithStores(GPUSelector)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const gpuStore = useGpuStore()
 
       // Wait for component to load GPUs
       await wrapper.vm.$nextTick()
@@ -122,49 +137,57 @@ describe('Component Integration Tests: UI Flow Testing', () => {
       wrapper.vm.toggleGPU(mockGPUs[0])
       await wrapper.vm.$nextTick()
 
-      // Verify emission
-      expect(wrapper.emitted('update:selectedGPUs')).toBeTruthy()
-      const emittedValue = wrapper.emitted('update:selectedGPUs')[0][0]
-      expect(emittedValue).toHaveLength(1)
-      expect(emittedValue[0].gpu.name).toBe('NVIDIA A100')
-      expect(emittedValue[0].quantity).toBe(1)
+      // Verify store was updated directly
+      expect(gpuStore.selectedGPUs).toHaveLength(1)
+      expect(gpuStore.selectedGPUs[0].gpu.name).toBe('NVIDIA A100')
+      expect(gpuStore.selectedGPUs[0].quantity).toBe(1)
     })
 
     it('should calculate totals correctly with multiple GPU selections', async () => {
+      const wrapper = mountComponentWithStores(GPUSelector)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const gpuStore = useGpuStore()
+
       const selectedGPUs = [
         { gpu: mockGPUs[0], quantity: 2 }, // 2x A100 (160GB total)
         { gpu: mockGPUs[2], quantity: 1 }  // 1x RTX 4090 (24GB)
       ]
 
-      const wrapper = mount(GPUSelector, {
-        props: { selectedGPUs }
-      })
+      gpuStore.updateSelectedGPUs(selectedGPUs)
+      await wrapper.vm.$nextTick()
 
-      expect(wrapper.vm.totalVRAM).toBe(184) // (80*2) + 24
-      expect(wrapper.vm.totalGPUs).toBe(3)   // 2 + 1
+      expect(gpuStore.totalVRAM).toBe(184) // (80*2) + 24
+      expect(gpuStore.totalGPUCount).toBe(3)   // 2 + 1
     })
 
     it('should provide appropriate warnings for GPU selections', async () => {
+      const wrapper = mountComponentWithStores(GPUSelector)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const gpuStore = useGpuStore()
+
       const lowVRAMSelection = [
         { gpu: { name: 'Low VRAM GPU', vram_gb: 8 }, quantity: 1 }
       ]
 
-      const wrapper = mount(GPUSelector, {
-        props: { selectedGPUs: lowVRAMSelection }
-      })
+      gpuStore.updateSelectedGPUs(lowVRAMSelection)
+      await wrapper.vm.$nextTick()
 
-      const warnings = wrapper.vm.selectionWarnings
+      const warnings = gpuStore.selectionWarnings
       expect(warnings.some(w => w.type === 'low_vram')).toBe(true)
     })
   })
 
   describe('Flow 2: Model Selection Integration', () => {
-    it('should handle model selection and emit updates correctly', async () => {
-      const wrapper = mount(ModelSelector, {
-        props: {
-          selectedModels: []
-        }
-      })
+    it('should handle model selection and update store correctly', async () => {
+      const wrapper = mountComponentWithStores(ModelSelector)
+
+      // Import and access Pinia stores
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const modelStore = useModelStore()
 
       // Wait for component to load models
       await wrapper.vm.$nextTick()
@@ -175,95 +198,120 @@ describe('Component Integration Tests: UI Flow Testing', () => {
       wrapper.vm.toggleModel(mockModels[0])
       await wrapper.vm.$nextTick()
 
-      // Verify emission
-      expect(wrapper.emitted('update:selectedModels')).toBeTruthy()
-      const emittedValue = wrapper.emitted('update:selectedModels')[0][0]
-      expect(emittedValue).toHaveLength(1)
-      expect(emittedValue[0].name).toBe('meta-llama/Llama-2-7b-hf')
+      // Verify store was updated directly
+      expect(modelStore.selectedModels).toHaveLength(1)
+      expect(modelStore.selectedModels[0].name).toBe('meta-llama/Llama-2-7b-hf')
     })
 
     it('should calculate total model size correctly', async () => {
+      const wrapper = mountComponentWithStores(ModelSelector)
+
+      // Import and access Pinia stores
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const modelStore = useModelStore()
+
       const selectedModels = [
         mockModels[0], // 13.5GB
         mockModels[1]  // 26.0GB
       ]
 
-      const wrapper = mount(ModelSelector, {
-        props: { selectedModels }
-      })
+      modelStore.updateSelectedModels(selectedModels)
+      await wrapper.vm.$nextTick()
 
-      expect(wrapper.vm.totalModelSize).toBe(39.5) // 13.5 + 26.0
+      expect(modelStore.totalModelSize).toBe(39.5) // 13.5 + 26.0
     })
   })
 
   describe('Flow 3: Configuration Output Integration', () => {
     it('should generate configurations when GPUs and models are selected', async () => {
+      const wrapper = mountComponentWithStores(ConfigurationOutput)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+      const configStore = useConfigStore()
+
       const selectedGPUs = [{ gpu: mockGPUs[0], quantity: 1 }]
       const selectedModels = [mockModels[0]]
 
-      const wrapper = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs,
-          selectedModels
-        }
-      })
+      gpuStore.updateSelectedGPUs(selectedGPUs)
+      modelStore.updateSelectedModels(selectedModels)
+      await wrapper.vm.$nextTick()
 
-      expect(wrapper.vm.hasConfiguration).toBe(true)
-      expect(wrapper.vm.configurations).toHaveLength(3) // throughput, latency, balanced
+      expect(configStore.hasValidConfiguration).toBe(true)
+      expect(configStore.configurations).toHaveLength(3) // throughput, latency, balanced
 
       // Verify configuration types
-      const configTypes = wrapper.vm.configurations.map(c => c.type)
+      const configTypes = configStore.configurations.map(c => c.type)
       expect(configTypes).toContain('throughput')
       expect(configTypes).toContain('latency')
       expect(configTypes).toContain('balanced')
     })
 
     it('should show placeholder when no valid configuration exists', async () => {
-      const wrapper = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs: [],
-          selectedModels: []
-        }
-      })
+      const wrapper = mountComponentWithStores(ConfigurationOutput)
 
-      expect(wrapper.vm.hasConfiguration).toBe(false)
+      // Import and access Pinia stores
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      const configStore = useConfigStore()
+
+      // No selections made
+      expect(configStore.hasValidConfiguration).toBe(false)
       expect(wrapper.text()).toContain('Select GPUs and models to see configuration recommendations')
     })
 
     it('should calculate resource totals correctly', async () => {
+      const wrapper = mountComponentWithStores(ConfigurationOutput)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+
       const selectedGPUs = [
         { gpu: mockGPUs[0], quantity: 2 } // 2x A100
       ]
       const selectedModels = [mockModels[0]] // Llama-2-7B
 
-      const wrapper = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs,
-          selectedModels
-        }
-      })
+      gpuStore.updateSelectedGPUs(selectedGPUs)
+      modelStore.updateSelectedModels(selectedModels)
+      await wrapper.vm.$nextTick()
 
-      expect(wrapper.vm.totalVRAM).toBe(160)    // 80 * 2
-      expect(wrapper.vm.totalModelSize).toBe(13.5) // Single model
+      expect(gpuStore.totalVRAM).toBe(160)    // 80 * 2
+      expect(modelStore.totalModelSize).toBe(13.5) // Single model
     })
 
     it('should include tensor parallel settings for multi-GPU configurations', async () => {
+      const wrapper = mountComponentWithStores(ConfigurationOutput)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+      const configStore = useConfigStore()
+
       const multiGPUSelection = [
         { gpu: mockGPUs[0], quantity: 4 } // 4x A100
       ]
       const selectedModels = [mockModels[0]]
 
-      const wrapper = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs: multiGPUSelection,
-          selectedModels
-        }
-      })
+      gpuStore.updateSelectedGPUs(multiGPUSelection)
+      modelStore.updateSelectedModels(selectedModels)
+      await wrapper.vm.$nextTick()
 
-      expect(wrapper.vm.configurations).toHaveLength(3)
+      expect(configStore.configurations).toHaveLength(3)
       
       // All configurations should include tensor parallelism
-      wrapper.vm.configurations.forEach(config => {
+      configStore.configurations.forEach(config => {
         expect(config.command).toContain('--tensor-parallel-size 4')
       })
     })
@@ -271,6 +319,20 @@ describe('Component Integration Tests: UI Flow Testing', () => {
 
   describe('Flow 4: VRAM Chart Integration', () => {
     it('should display VRAM breakdown when valid configuration is provided', async () => {
+      const wrapper = mountComponentWithStores(VRAMChart, {
+        showBreakdown: true,
+        title: 'Test VRAM Chart'
+      })
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+      const configStore = useConfigStore()
+
       const gpuSpecs = { name: 'NVIDIA A100', vram_gb: 80 }
       const configuration = {
         type: 'throughput',
@@ -280,20 +342,26 @@ describe('Component Integration Tests: UI Flow Testing', () => {
         }
       }
 
-      const wrapper = mount(VRAMChart, {
-        props: {
-          gpuSpecs,
-          configuration,
-          modelSize: 13.5
-        }
-      })
+      gpuStore.updateSelectedGPUs([{ gpu: gpuSpecs, quantity: 1 }])
+      modelStore.updateSelectedModels([{ ...mockModels[0], size: 13.5 }])
+      await wrapper.vm.$nextTick()
 
       // Component should calculate and display breakdown
-      expect(wrapper.vm.vramBreakdown).toBeDefined()
-      expect(wrapper.vm.vramBreakdown.breakdown).toBeDefined()
+      const breakdown = configStore.vramBreakdown
+      expect(breakdown).toBeDefined()
+      expect(breakdown.breakdown).toBeDefined()
     })
 
     it('should handle multiple GPU configurations', async () => {
+      const wrapper = mountComponentWithStores(VRAMChart)
+
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+
       const multiGPUSpecs = [
         { name: 'NVIDIA A100', vram_gb: 80, quantity: 2 }
       ]
@@ -305,67 +373,55 @@ describe('Component Integration Tests: UI Flow Testing', () => {
         }
       }
 
-      const wrapper = mount(VRAMChart, {
-        props: {
-          gpuSpecs: multiGPUSpecs,
-          configuration,
-          modelSize: 26.0
-        }
-      })
+      gpuStore.updateSelectedGPUs(multiGPUSpecs)
+      modelStore.updateSelectedModels([{ ...mockModels[1], size: 26.0 }])
+      await wrapper.vm.$nextTick()
 
       // Should handle multi-GPU setup
-      expect(wrapper.vm.totalVRAM).toBe(160) // 80 * 2
+      expect(gpuStore.totalVRAM).toBe(160) // 80 * 2
     })
   })
 
   describe('Flow 5: End-to-End Component Integration', () => {
     it('should maintain data consistency across component chain', async () => {
       // Step 1: GPU Selection
-      const gpuSelector = mount(GPUSelector, {
-        props: { selectedGPUs: [] }
-      })
+      const gpuSelector = mountComponentWithStores(GPUSelector)
+      
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+      const configStore = useConfigStore()
       
       gpuSelector.vm.availableGPUs = mockGPUs
       gpuSelector.vm.toggleGPU(mockGPUs[0])
       await gpuSelector.vm.$nextTick()
       
-      const selectedGPUs = gpuSelector.emitted('update:selectedGPUs')[0][0]
-      
       // Step 2: Model Selection
-      const modelSelector = mount(ModelSelector, {
-        props: { selectedModels: [] }
-      })
+      const modelSelector = mountComponentWithStores(ModelSelector)
       
       modelSelector.vm.availableModels = mockModels
       modelSelector.vm.toggleModel(mockModels[0])
       await modelSelector.vm.$nextTick()
       
-      const selectedModels = modelSelector.emitted('update:selectedModels')[0][0]
-      
       // Step 3: Configuration Output
-      const configOutput = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs,
-          selectedModels
-        }
-      })
+      const configOutput = mountComponentWithStores(ConfigurationOutput)
+      await configOutput.vm.$nextTick()
       
-      // Verify data flows correctly
-      expect(configOutput.vm.totalVRAM).toBe(80)
-      expect(configOutput.vm.totalModelSize).toBe(13.5)
-      expect(configOutput.vm.hasConfiguration).toBe(true)
-      expect(configOutput.vm.configurations).toHaveLength(3)
+      // Verify data flows correctly through stores
+      expect(gpuStore.totalVRAM).toBe(80)
+      expect(modelStore.totalModelSize).toBe(13.5)
+      expect(configStore.hasValidConfiguration).toBe(true)
+      expect(configStore.configurations).toHaveLength(3)
       
       // Step 4: VRAM Chart
-      const vramChart = mount(VRAMChart, {
-        props: {
-          gpuSpecs: selectedGPUs[0].gpu,
-          configuration: configOutput.vm.configurations[0],
-          modelSize: selectedModels[0].size
-        }
-      })
+      const vramChart = mountComponentWithStores(VRAMChart)
+      await vramChart.vm.$nextTick()
       
-      expect(vramChart.vm.vramBreakdown).toBeDefined()
+      expect(configStore.vramBreakdown).toBeDefined()
     })
 
     it('should handle error states gracefully across components', async () => {
@@ -373,13 +429,8 @@ describe('Component Integration Tests: UI Flow Testing', () => {
       dataLoader.loadGPUData.mockRejectedValue(new Error('Network error'))
       dataLoader.loadModelData.mockRejectedValue(new Error('API error'))
       
-      const gpuSelector = mount(GPUSelector, {
-        props: { selectedGPUs: [] }
-      })
-      
-      const modelSelector = mount(ModelSelector, {
-        props: { selectedModels: [] }
-      })
+      const gpuSelector = mountComponentWithStores(GPUSelector)
+      const modelSelector = mountComponentWithStores(ModelSelector)
       
       // Wait for error states
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -389,14 +440,13 @@ describe('Component Integration Tests: UI Flow Testing', () => {
       expect(modelSelector.vm.loadError).toBeTruthy()
       
       // Configuration output should show placeholder
-      const configOutput = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs: [],
-          selectedModels: []
-        }
-      })
+      const configOutput = mountComponentWithStores(ConfigurationOutput)
       
-      expect(configOutput.vm.hasConfiguration).toBe(false)
+      // Import and access Pinia stores
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      const configStore = useConfigStore()
+      
+      expect(configStore.hasValidConfiguration).toBe(false)
     })
 
     it('should validate memory constraints end-to-end', async () => {
@@ -410,20 +460,28 @@ describe('Component Integration Tests: UI Flow Testing', () => {
         recommendations: ['Consider using quantization or a larger GPU']
       })
       
-      const configOutput = mount(ConfigurationOutput, {
-        props: {
-          selectedGPUs: smallGPU,
-          selectedModels: largeModel
-        }
-      })
+      // Import and access Pinia stores
+      const { useGpuStore } = await import('../../stores/gpuStore.js')
+      const { useModelStore } = await import('../../stores/modelStore.js')
+      const { useConfigStore } = await import('../../stores/configStore.js')
+      
+      const gpuStore = useGpuStore()
+      const modelStore = useModelStore()
+      const configStore = useConfigStore()
+      
+      const configOutput = mountComponentWithStores(ConfigurationOutput)
+      
+      gpuStore.updateSelectedGPUs(smallGPU)
+      modelStore.updateSelectedModels(largeModel)
+      await configOutput.vm.$nextTick()
       
       // Should still generate configurations but with warnings
-      expect(configOutput.vm.totalVRAM).toBe(12)
-      expect(configOutput.vm.totalModelSize).toBe(50)
+      expect(gpuStore.totalVRAM).toBe(12)
+      expect(modelStore.totalModelSize).toBe(50)
       
       // Configurations may be generated with aggressive settings
-      if (configOutput.vm.configurations.length > 0) {
-        const config = configOutput.vm.configurations[0]
+      if (configStore.configurations.length > 0) {
+        const config = configStore.configurations[0]
         expect(config.parameters).toBeDefined()
         // Should suggest high memory utilization
         expect(parseFloat(config.parameters['gpu-memory-utilization'])).toBeGreaterThan(0.9)
