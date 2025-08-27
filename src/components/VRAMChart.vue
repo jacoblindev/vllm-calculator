@@ -116,6 +116,9 @@ import annotationPlugin from 'chartjs-plugin-annotation'
 import { Bar } from 'vue-chartjs'
 import { calculateVRAMBreakdown } from '../lib/memory/vramBreakdown.js'
 import { useLoadingWithRetry } from '../composables/useLoadingState.js'
+import { useConfigStore } from '../stores/configStore.js'
+import { useGpuStore } from '../stores/gpuStore.js'
+import { useModelStore } from '../stores/modelStore.js'
 
 // Register Chart.js components and plugins
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, annotationPlugin)
@@ -126,18 +129,6 @@ const props = defineProps({
     type: String,
     default: 'VRAM Usage Breakdown',
   },
-  selectedGPUs: {
-    type: Array,
-    default: () => [],
-  },
-  selectedModels: {
-    type: Array,
-    default: () => [],
-  },
-  configurations: {
-    type: Array,
-    default: () => [],
-  },
   showBreakdown: {
     type: Boolean,
     default: true,
@@ -147,6 +138,11 @@ const props = defineProps({
     default: null,
   },
 })
+
+// Pinia stores
+const configStore = useConfigStore()
+const gpuStore = useGpuStore()
+const modelStore = useModelStore()
 
 // Reactive state for dynamic updates
 const isUpdating = ref(false)
@@ -178,10 +174,12 @@ const refreshChart = async () => {
 }
 
 // Helper function to get total VRAM from selected GPUs
-const getTotalVRAM = () => {
-  if (!props.selectedGPUs.length) return 0
-  return props.selectedGPUs.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
-}
+const getTotalVRAM = () => gpuStore.totalVRAM
+
+// Computed properties from Pinia stores
+const selectedGPUs = computed(() => gpuStore.selectedGPUs)
+const selectedModels = computed(() => modelStore.selectedModels)
+const configurations = computed(() => configStore.configurations)
 
 // Memory component colors aligned with application design system
 const memoryColors = {
@@ -196,7 +194,7 @@ const memoryColors = {
 
 // Generate VRAM breakdown data for configurations
 const generateVRAMBreakdownData = () => {
-  if (!props.selectedGPUs.length || !props.selectedModels.length || !props.configurations.length) {
+  if (!selectedGPUs.value.length || !selectedModels.value.length || !configurations.value.length) {
     return {
       labels: ['No Configuration'],
       datasets: [{
@@ -207,14 +205,14 @@ const generateVRAMBreakdownData = () => {
     }
   }
 
-  const labels = props.configurations.map(config => config.title || config.type)
+  const labels = configurations.value.map(config => config.title || config.type)
   const datasets = []
 
   // Calculate total VRAM from selected GPUs
-  const totalVRAM = props.selectedGPUs.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
+  const totalVRAM = gpuStore.totalVRAM
   
   // Use the first model for breakdown calculation (can be enhanced for multi-model)
-  const primaryModel = props.selectedModels[0]
+  const primaryModel = selectedModels.value[0]
   
   if (!primaryModel) {
     return {
@@ -228,7 +226,7 @@ const generateVRAMBreakdownData = () => {
   }
 
   // Calculate breakdown for each configuration
-  const breakdowns = props.configurations.map(config => {
+  const breakdowns = configurations.value.map(config => {
     try {
       // Extract parameters from configuration
       const seqLenParam = config.parameters?.find(p => p.name === '--max-model-len')
@@ -321,7 +319,7 @@ const throttledUpdate = async () => {
 
 // Watch for changes in props that should trigger chart updates
 watch(
-  [() => props.selectedGPUs, () => props.selectedModels, () => props.configurations],
+  [selectedGPUs, selectedModels, configurations],
   () => {
     throttledUpdate()
   },

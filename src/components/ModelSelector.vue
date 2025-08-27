@@ -1189,15 +1189,10 @@ import { ref, computed, onMounted } from 'vue'
 import { loadModelData, validateModel } from '../lib/dataLoader.js'
 import { fetchModelInfo, detectQuantizationType, getQuantizationFactor } from '../lib/huggingfaceApi.js'
 import { useLoadingWithRetry, useDataLoadingState } from '../composables/useLoadingState.js'
+import { useModelStore } from '../stores/modelStore.js'
 
-// Props and emits
-const emit = defineEmits(['update:selectedModels'])
-const props = defineProps({
-  selectedModels: {
-    type: Array,
-    default: () => [],
-  },
-})
+// Initialize Model store
+const modelStore = useModelStore()
 
 // Loading state management
 const { model: modelLoadingState, huggingface: hfLoadingState } = useDataLoadingState()
@@ -1213,7 +1208,9 @@ const {
 
 // Reactive data
 const availableModels = ref([])
-const selectedModels = ref(props.selectedModels)
+
+// Access model store state directly
+const selectedModels = computed(() => modelStore.selectedModels)
 
 // Enhanced multi-model selection features
 const quantizationFilter = ref('')
@@ -1549,13 +1546,12 @@ const addModel = (model) => {
     return
   }
   
-  selectedModels.value.push({ ...model })
-  emit('update:selectedModels', selectedModels.value)
+  // Add model using store action
+  modelStore.addModel(model)
 }
 
 const removeModel = (model) => {
-  selectedModels.value = selectedModels.value.filter(selected => selected.name !== model.name)
-  emit('update:selectedModels', selectedModels.value)
+  modelStore.removeModel(model.name)
 }
 
 const addFetchedModel = () => {
@@ -1694,10 +1690,12 @@ const selectAllFiltered = () => {
 
 const clearAllFiltered = () => {
   const filteredModelNames = filteredModels.value.map(model => model.name)
-  selectedModels.value = selectedModels.value.filter(selected => 
-    !filteredModelNames.includes(selected.name)
-  )
-  emit('update:selectedModels', selectedModels.value)
+  // Remove each filtered model using store action
+  filteredModelNames.forEach(modelName => {
+    if (selectedModels.value.some(selected => selected.name === modelName)) {
+      modelStore.removeModel(modelName)
+    }
+  })
 }
 
 // Lifecycle

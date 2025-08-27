@@ -1,5 +1,6 @@
 import { expect, vi } from 'vitest'
 import { config } from '@vue/test-utils'
+import { createPinia } from 'pinia'
 
 // Global test configuration
 global.expect = expect
@@ -27,7 +28,8 @@ vi.mock('vue-chartjs', () => ({
   },
 }))
 
-// Configure Vue Test Utils
+// Configure Vue Test Utils with global Pinia
+config.global.plugins = [createPinia()]
 config.global.stubs = {
   teleport: true,
 }

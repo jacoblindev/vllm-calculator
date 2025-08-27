@@ -97,15 +97,15 @@
   * [x] 2.4 Add integration tests for critical user flows (GPU/model selection → config output).
   * [x] 2.5 Update test documentation and coverage reporting.
 
-* [ ] 3.0 Implement Pinia and Refactor Components for State Management
-  * [ ] 3.1 Install Pinia and configure it in `src/main.js`.
-  * [ ] 3.2 Create Pinia stores (e.g., `useGpuStore`, `useModelStore`, `useConfigStore`) to manage global state.
-  * [ ] 3.3 Move state logic (e.g., `selectedGPUs`, `selectedModels`) and computed properties (e.g., `configurations`, `vramBreakdown`) from `App.vue` into the appropriate Pinia stores.
-  * [ ] 3.4 Refactor `GPUSelector.vue` and `ModelSelector.vue` to use Pinia actions for state changes.
-  * [ ] 3.5 Refactor `ConfigurationOutput.vue` and `VRAMChart.vue` to read data directly from Pinia getters.
-  * [ ] 3.6 Remove old state management logic and prop drilling from all refactored components.
-  * [ ] 3.7 Add unit tests for Pinia stores and update component tests.
-  * [ ] 3.8 Implement state persistence for Pinia stores to replace the old `localStorage` logic (e.g., using `pinia-plugin-persistedstate`).
+* [x] 3.0 Implement Pinia and Refactor Components for State Management
+  * [x] 3.1 Install Pinia and configure it in `src/main.js`.
+  * [x] 3.2 Create Pinia stores (e.g., `useGpuStore`, `useModelStore`, `useConfigStore`) to manage global state.
+  * [x] 3.3 Move state logic (e.g., `selectedGPUs`, `selectedModels`) and computed properties (e.g., `configurations`, `vramBreakdown`) from `App.vue` into the appropriate Pinia stores.
+  * [x] 3.4 Refactor `GPUSelector.vue` and `ModelSelector.vue` to use Pinia actions for state changes.
+  * [x] 3.5 Refactor `ConfigurationOutput.vue` and `VRAMChart.vue` to read data directly from Pinia getters.
+  * [x] 3.6 Remove old state management logic and prop drilling from all refactored components.
+  * [x] 3.7 Add unit tests for Pinia stores and update component tests.
+  * [x] 3.8 Implement state persistence for Pinia stores to replace the old `localStorage` logic (e.g., using `pinia-plugin-persistedstate`).
 
 * [ ] 4.0 Decompose App.vue into Smaller, Focused Components
   * [ ] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
