@@ -1,18 +1,18 @@
 <template>
   <div class="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
     <!-- Chart Header Section -->
-    <div class="px-8 py-6 border-b border-gray-100">
-      <div class="flex justify-between items-start">
-        <div>
-          <h2 class="text-2xl font-bold text-gray-900 mb-2">{{ title || 'VRAM Usage Breakdown' }}</h2>
-          <p class="text-gray-600">
+    <div class="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-100">
+      <div class="flex flex-col lg:flex-row lg:justify-between lg:items-start space-y-4 lg:space-y-0">
+        <div class="flex-1">
+          <h2 class="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{{ title || 'VRAM Usage Breakdown' }}</h2>
+          <p class="text-sm sm:text-base text-gray-600">
             Memory allocation across different components for each optimization strategy
           </p>
         </div>
         <!-- VRAM Summary Info -->
         <div 
           v-if="getTotalVRAM() > 0"
-          class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm min-w-[200px]"
+          class="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4 text-sm w-full lg:w-auto lg:min-w-[200px]"
         >
           <div class="font-semibold text-gray-900 mb-2 flex items-center">
             <svg class="w-4 h-4 mr-2 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
@@ -37,10 +37,31 @@
     </div>
 
     <!-- Chart Content Area -->
-    <div class="relative p-8">
+    <div class="relative p-4 sm:p-8">
+      <!-- Error State -->
+      <div 
+        v-if="chartError" 
+        class="absolute inset-0 bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-20 rounded-lg"
+      >
+        <div class="bg-white rounded-lg shadow-lg border border-red-200 p-6 text-center max-w-md">
+          <div class="text-red-600 mb-4">
+            <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.98-.833-2.75 0L3.064 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <p class="text-red-600 mb-4 font-medium">{{ chartError }}</p>
+          <button
+            @click="refreshChart"
+            class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors duration-200"
+          >
+            Refresh Chart
+          </button>
+        </div>
+      </div>
+
       <!-- Loading Overlay -->
       <div 
-        v-if="isUpdating" 
+        v-else-if="isUpdating" 
         class="absolute inset-0 bg-white bg-opacity-90 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg"
       >
         <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-6 flex items-center space-x-3">
@@ -93,7 +114,11 @@ import {
 } from 'chart.js'
 import annotationPlugin from 'chartjs-plugin-annotation'
 import { Bar } from 'vue-chartjs'
-import { calculateVRAMBreakdown } from '../lib/calculationEngine.js'
+import { calculateVRAMBreakdown } from '../lib/memory/vramBreakdown.js'
+import { useLoadingWithRetry } from '../composables/useLoadingState.js'
+import { useConfigStore } from '../stores/configStore.js'
+import { useGpuStore } from '../stores/gpuStore.js'
+import { useModelStore } from '../stores/modelStore.js'
 
 // Register Chart.js components and plugins
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale, annotationPlugin)
@@ -103,18 +128,6 @@ const props = defineProps({
   title: {
     type: String,
     default: 'VRAM Usage Breakdown',
-  },
-  selectedGPUs: {
-    type: Array,
-    default: () => [],
-  },
-  selectedModels: {
-    type: Array,
-    default: () => [],
-  },
-  configurations: {
-    type: Array,
-    default: () => [],
   },
   showBreakdown: {
     type: Boolean,
@@ -126,16 +139,47 @@ const props = defineProps({
   },
 })
 
+// Pinia stores
+const configStore = useConfigStore()
+const gpuStore = useGpuStore()
+const modelStore = useModelStore()
+
 // Reactive state for dynamic updates
 const isUpdating = ref(false)
 const updateKey = ref(0)
 const lastUpdateTime = ref(Date.now())
+const chartError = ref('')
+
+// Loading state management
+const { executeWithRetry } = useLoadingWithRetry()
+
+// Methods
+const refreshChart = async () => {
+  chartError.value = ''
+  isUpdating.value = true
+  
+  await executeWithRetry(async () => {
+    updateKey.value++
+    lastUpdateTime.value = Date.now()
+    await nextTick()
+  }, {
+    onError: (error) => {
+      chartError.value = 'Failed to update chart. Please check your data and try again.'
+      console.error('Chart refresh error:', error)
+    },
+    onFinally: () => {
+      isUpdating.value = false
+    }
+  })
+}
 
 // Helper function to get total VRAM from selected GPUs
-const getTotalVRAM = () => {
-  if (!props.selectedGPUs.length) return 0
-  return props.selectedGPUs.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
-}
+const getTotalVRAM = () => gpuStore.totalVRAM
+
+// Computed properties from Pinia stores
+const selectedGPUs = computed(() => gpuStore.selectedGPUs)
+const selectedModels = computed(() => modelStore.selectedModels)
+const configurations = computed(() => configStore.configurations)
 
 // Memory component colors aligned with application design system
 const memoryColors = {
@@ -150,7 +194,7 @@ const memoryColors = {
 
 // Generate VRAM breakdown data for configurations
 const generateVRAMBreakdownData = () => {
-  if (!props.selectedGPUs.length || !props.selectedModels.length || !props.configurations.length) {
+  if (!selectedGPUs.value.length || !selectedModels.value.length || !configurations.value.length) {
     return {
       labels: ['No Configuration'],
       datasets: [{
@@ -161,14 +205,14 @@ const generateVRAMBreakdownData = () => {
     }
   }
 
-  const labels = props.configurations.map(config => config.title || config.type)
+  const labels = configurations.value.map(config => config.title || config.type)
   const datasets = []
 
   // Calculate total VRAM from selected GPUs
-  const totalVRAM = props.selectedGPUs.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
+  const totalVRAM = gpuStore.totalVRAM
   
   // Use the first model for breakdown calculation (can be enhanced for multi-model)
-  const primaryModel = props.selectedModels[0]
+  const primaryModel = selectedModels.value[0]
   
   if (!primaryModel) {
     return {
@@ -182,7 +226,7 @@ const generateVRAMBreakdownData = () => {
   }
 
   // Calculate breakdown for each configuration
-  const breakdowns = props.configurations.map(config => {
+  const breakdowns = configurations.value.map(config => {
     try {
       // Extract parameters from configuration
       const seqLenParam = config.parameters?.find(p => p.name === '--max-model-len')
@@ -252,24 +296,30 @@ const generateVRAMBreakdownData = () => {
 }
 
 // Throttled update function to prevent excessive recalculations
-const throttledUpdate = () => {
+const throttledUpdate = async () => {
   const now = Date.now()
   if (now - lastUpdateTime.value < 100) { // Throttle updates to max 10/second
     return
   }
   
+  chartError.value = ''
   isUpdating.value = true
-  lastUpdateTime.value = now
-  updateKey.value++
   
-  nextTick(() => {
+  try {
+    await nextTick()
+    lastUpdateTime.value = now
+    updateKey.value++
+  } catch (error) {
+    chartError.value = 'Failed to update chart visualization'
+    console.error('Chart update error:', error)
+  } finally {
     isUpdating.value = false
-  })
+  }
 }
 
 // Watch for changes in props that should trigger chart updates
 watch(
-  [() => props.selectedGPUs, () => props.selectedModels, () => props.configurations],
+  [selectedGPUs, selectedModels, configurations],
   () => {
     throttledUpdate()
   },

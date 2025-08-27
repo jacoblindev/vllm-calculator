@@ -287,32 +287,54 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { loadGPUData, validateGPU, createCustomGPU } from '../lib/dataLoader.js'
+import { useLoadingWithRetry, useDataLoadingState } from '../composables/useLoadingState.js'
+import { useGpuStore } from '../stores/gpuStore.js'
 
-// Props and emits
-const emit = defineEmits(['update:selectedGPUs'])
-const props = defineProps({
-  selectedGPUs: {
-    type: Array,
-    default: () => [],
-  },
+// Initialize GPU store
+const gpuStore = useGpuStore()
+
+// Loading state management
+const { gpu: gpuLoadingState } = useDataLoadingState()
+const {
+  executeWithRetry,
+  retryCount,
+  lastError
+} = useLoadingWithRetry('gpu-selector', {
+  maxRetries: 3,
+  initialDelay: 1000,
+  backoffMultiplier: 2
 })
 
 // Reactive data
 const availableGPUs = ref([])
-const selectedGPUs = ref(props.selectedGPUs)
 const customGPU = ref({
   name: '',
   vram_gb: null,
 })
 
-// Loading and error states
-const isLoading = ref(false)
-const loadError = ref('')
+// Access GPU store state directly
+const selectedGPUs = computed(() => gpuStore.selectedGPUs)
+
+// Error states
 const customGPUError = ref('')
 const customGPUNameError = ref('')
 const customGPUVramError = ref('')
 
 // Computed properties
+const isLoading = computed(() => gpuLoadingState.isLoading.value)
+const loadError = computed(() => {
+  if (lastError.value) {
+    if (lastError.value.message.includes('fetch') || lastError.value.message.includes('network')) {
+      return 'Network connection failed. Please check your internet connection and try again.'
+    } else if (lastError.value.message.includes('timeout')) {
+      return 'Request timed out. The server might be busy. Please try again in a moment.'
+    } else {
+      return lastError.value.message || 'Failed to load GPU data. Please try again.'
+    }
+  }
+  return ''
+})
+
 const isCustomGPUValid = computed(() => {
   return customGPU.value.name.trim().length > 0 && customGPU.value.vram_gb > 0
 })
@@ -366,16 +388,14 @@ const totalGPUs = computed(() => {
 
 // Methods
 const loadGPUs = async () => {
-  isLoading.value = true
-  loadError.value = ''
-  
   try {
-    availableGPUs.value = await loadGPUData()
+    availableGPUs.value = await executeWithRetry(
+      () => loadGPUData(),
+      `Loading GPU data${retryCount.value > 0 ? ` (Attempt ${retryCount.value + 1})` : ''}...`
+    )
   } catch (error) {
-    console.error('Failed to load GPU data:', error)
-    loadError.value = 'Unable to load GPU data. Please check your internet connection and try again.'
-  } finally {
-    isLoading.value = false
+    console.error('Failed to load GPU data after retries:', error)
+    // Error is handled by the computed loadError property
   }
 }
 
@@ -460,30 +480,24 @@ const addGPU = (gpu, quantity = 1) => {
   // Check if GPU already exists
   const existingSelection = selectedGPUs.value.find(s => s.gpu.name === gpu.name)
   if (existingSelection) {
-    // Update quantity instead of adding duplicate
-    existingSelection.quantity = Math.min(existingSelection.quantity + quantity, 8)
+    // Update quantity using store action
+    gpuStore.updateGPUQuantity(gpu.name, Math.min(existingSelection.quantity + quantity, 8))
   } else {
-    selectedGPUs.value.push({
-      gpu: { ...gpu },
-      quantity: quantity,
-    })
+    // Add new GPU using store action
+    gpuStore.addGPU(gpu, quantity)
   }
 
   // Clear any previous errors
   customGPUError.value = ''
-  emit('update:selectedGPUs', selectedGPUs.value)
 }
 
 const removeGPU = gpu => {
-  selectedGPUs.value = selectedGPUs.value.filter(selection => selection.gpu.name !== gpu.name)
-  emit('update:selectedGPUs', selectedGPUs.value)
+  gpuStore.removeGPU(gpu.name)
 }
 
 const updateGPUQuantity = (gpu, newQuantity) => {
-  const selection = selectedGPUs.value.find(s => s.gpu.name === gpu.name)
-  if (selection && newQuantity >= 1 && newQuantity <= 8) {
-    selection.quantity = parseInt(newQuantity)
-    emit('update:selectedGPUs', selectedGPUs.value)
+  if (newQuantity >= 1 && newQuantity <= 8) {
+    gpuStore.updateGPUQuantity(gpu.name, parseInt(newQuantity))
   }
 }
 

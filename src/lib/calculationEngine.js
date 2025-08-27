@@ -1,3627 +1,493 @@
 /**
- * vLLM Memory Calculation Engine
+ * vLLM Memory Calculation Engine - Lightweight Orchestrator
  * 
- * This module implements accurate memory calculations for vLLM based on:
- * - Model weights memory
- * - KV cache memory 
- * - Activation memory
- * - System overhead
- * - Quantization effects
+ * This module serves as the main orchestrator for vLLM memory calculations and optimizations.
+ * It coordinates between specialized modules to provide high-level calculation APIs.
+ * 
+ * Key responsibilities:
+ * - Orchestrate memory calculations across different components
+ * - Coordinate optimization strategies (throughput, latency, balanced)
+ * - Provide unified calculation APIs for the application
+ * - Handle configuration generation and validation
  * 
  * References:
  * - vLLM documentation: https://docs.vllm.ai/en/latest/
  * - Memory optimization paper: https://arxiv.org/abs/2309.06180
  */
 
-/**
- * Quantization formats supported by vLLM and their characteristics
- */
-const QUANTIZATION_FORMATS = {
-  // Standard precision formats
-  fp32: {
-    bitsPerParam: 32,
-    bytesPerParam: 4,
-    memoryEfficiency: 1.0,
-    qualityLoss: 0.0,
-    description: 'Full precision floating point',
-  },
-  fp16: {
-    bitsPerParam: 16,
-    bytesPerParam: 2,
-    memoryEfficiency: 0.5,
-    qualityLoss: 0.01,
-    description: 'Half precision floating point',
-  },
-  bf16: {
-    bitsPerParam: 16,
-    bytesPerParam: 2,
-    memoryEfficiency: 0.5,
-    qualityLoss: 0.005,
-    description: 'Brain floating point 16',
-  },
-  
-  // Integer quantization
-  int8: {
-    bitsPerParam: 8,
-    bytesPerParam: 1,
-    memoryEfficiency: 0.25,
-    qualityLoss: 0.02,
-    description: 'Dynamic 8-bit integer quantization',
-  },
-  int4: {
-    bitsPerParam: 4,
-    bytesPerParam: 0.5,
-    memoryEfficiency: 0.125,
-    qualityLoss: 0.05,
-    description: 'Static 4-bit integer quantization',
-  },
-  
-  // Advanced quantization schemes
-  awq: {
-    bitsPerParam: 4,
-    bytesPerParam: 0.5,
-    memoryEfficiency: 0.125,
-    qualityLoss: 0.03,
-    description: 'Activation-aware Weight Quantization (4-bit)',
-    overhead: 0.02, // Small overhead for activation statistics
-  },
-  gptq: {
-    bitsPerParam: 4,
-    bytesPerParam: 0.5,
-    memoryEfficiency: 0.125,
-    qualityLoss: 0.04,
-    description: 'GPTQ post-training quantization (4-bit)',
-    overhead: 0.01, // Minimal overhead
-  },
-  ggml: {
-    bitsPerParam: 4,
-    bytesPerParam: 0.5,
-    memoryEfficiency: 0.125,
-    qualityLoss: 0.06,
-    description: 'GGML quantization format',
-    overhead: 0.015,
-  },
-  
-  // Mixed precision formats
-  'awq-gemm': {
-    bitsPerParam: 4,
-    bytesPerParam: 0.5,
-    memoryEfficiency: 0.125,
-    qualityLoss: 0.025,
-    description: 'AWQ with optimized GEMM kernels',
-    overhead: 0.03,
-  },
-  'gptq-exllama': {
-    bitsPerParam: 4,
-    bytesPerParam: 0.5,
-    memoryEfficiency: 0.125,
-    qualityLoss: 0.035,
-    description: 'GPTQ with ExLlama acceleration',
-    overhead: 0.025,
-  },
-}
+// ================================
+// IMPORTS - Specialized Modules
+// ================================
 
-// ============================================================================
-// VALIDATION FRAMEWORK
-// ============================================================================
+// Memory calculation modules
+import {
+  calculateVRAMBreakdown,
+  calculateModelWeightsMemoryFromSize,
+  calculateOptimalSwapSpace,
+  calculateMemoryFragmentation,
+  calculateReservedMemory,
+  calculateMemoryEfficiency,
+  getEfficiencyRating,
+  analyzeMemoryPressure,
+  analyzeQuantizationBenefit,
+  generateMemoryOptimizationRecommendations,
+  calculateOptimalBatchSizeForVRAM,
+  calculateMaxConcurrentSequences
+} from './memory/vramBreakdown.js'
 
-/**
- * Custom error classes for validation failures
- */
-class ValidationError extends Error {
-  constructor(message, field = null, value = null) {
-    super(message)
-    this.name = 'ValidationError'
-    this.field = field
-    this.value = value
-  }
-}
+import {
+  calculateKVCacheMemory,
+  calculateKVCacheBreakdown,
+  estimateOptimalKVCacheBlockSize,
+  calculateKVCacheScaling,
+  validateKVCacheConfig
+} from './memory/kvCache.js'
 
-class ConfigurationError extends Error {
-  constructor(message, config = null) {
-    super(message)
-    this.name = 'ConfigurationError'
-    this.config = config
-  }
-}
+import {
+  calculateActivationMemory,
+  calculateActivationBreakdown,
+  calculateActivationScaling,
+  calculatePeakActivationMemory,
+  optimizeActivationMemory
+} from './memory/activations.js'
 
-class MemoryError extends Error {
-  constructor(message, required = null, available = null) {
-    super(message)
-    this.name = 'MemoryError'
-    this.required = required
-    this.available = available
-  }
-}
+import {
+  calculateSystemOverhead,
+  calculateSystemOverheadBreakdown,
+  compareSystemOverheadByGPU,
+  optimizeSystemOverhead
+} from './memory/systemOverhead.js'
 
-/**
- * Basic type validation utilities
- */
-const Validators = {
-  /**
-   * Validate that value is a number within optional range
-   */
-  number(value, min = -Infinity, max = Infinity, fieldName = 'value') {
-    if (typeof value !== 'number' || isNaN(value)) {
-      throw new ValidationError(`${fieldName} must be a valid number`, fieldName, value)
-    }
-    if (value < min) {
-      throw new ValidationError(`${fieldName} must be at least ${min}`, fieldName, value)
-    }
-    if (value > max) {
-      throw new ValidationError(`${fieldName} must be at most ${max}`, fieldName, value)
-    }
-    return value
-  },
+// Quantization module
+import {
+  calculateQuantizationFactor,
+  getSupportedQuantizationFormats,
+  compareQuantizationFormats,
+  estimateQuantizationQualityImpact,
+  generateQuantizationRecommendation,
+  calculateModelWeightsMemory
+} from './quantization.js'
 
-  /**
-   * Validate that value is a positive number
-   */
-  positiveNumber(value, fieldName = 'value') {
-    return this.number(value, 0.000001, Infinity, fieldName)
-  },
+// Validation module
+import {
+  ValidationError,
+  ConfigurationError,
+  MemoryError,
+  Validators,
+  VLLMValidators
+} from './validation.js'
 
-  /**
-   * Validate that value is a positive integer
-   */
-  positiveInteger(value, fieldName = 'value') {
-    if (!Number.isInteger(value) || value <= 0) {
-      throw new ValidationError(`${fieldName} must be a positive integer`, fieldName, value)
-    }
-    return value
-  },
+// Optimization modules
+import {
+  THROUGHPUT_OPTIMIZATION_CONFIGS,
+  calculateOptimalBatchSize,
+  calculateMemoryAllocationStrategy,
+  estimateThroughputMetrics,
+  calculateThroughputOptimizedConfig
+} from './optimization/throughputOptimization.js'
 
-  /**
-   * Validate that value is one of the allowed values
-   */
-  enum(value, allowedValues, fieldName = 'value') {
-    if (!allowedValues.includes(value)) {
-      throw new ValidationError(
-        `${fieldName} must be one of: ${allowedValues.join(', ')}`, 
-        fieldName, 
-        value
-      )
-    }
-    return value
-  },
+import {
+  LATENCY_OPTIMIZATION_CONFIGS,
+  calculateLatencyOptimalBatchSize,
+  calculateLatencyMemoryStrategy,
+  estimateLatencyMetrics,
+  calculateLatencyOptimizedConfig,
+  optimizeForLatency,
+  calculateVRAMUsage,
+  canRunOnGPU
+} from './optimization/latencyOptimization.js'
 
-  /**
-   * Validate that value is a non-empty string
-   */
-  string(value, fieldName = 'value') {
-    if (typeof value !== 'string' || value.trim() === '') {
-      throw new ValidationError(`${fieldName} must be a non-empty string`, fieldName, value)
-    }
-    return value.trim()
-  },
+import {
+  BALANCED_OPTIMIZATION_CONFIGS,
+  calculateBalancedBatchSize,
+  calculateBalancedMemoryStrategy,
+  estimateBalancedMetrics,
+  calculateBalancedOptimizedConfig,
+  optimizeForBalance,
+  getBalancedConsiderations
+} from './optimization/balancedOptimization.js'
 
-  /**
-   * Validate that value is an object with required fields
-   */
-  object(value, requiredFields = [], fieldName = 'value') {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      throw new ValidationError(`${fieldName} must be an object`, fieldName, value)
-    }
-    
-    for (const field of requiredFields) {
-      if (!(field in value)) {
-        throw new ValidationError(
-          `${fieldName} must have required field: ${field}`, 
-          fieldName, 
-          value
-        )
-      }
-    }
-    return value
-  }
-}
+// Workload management modules
+import {
+  optimizeForWorkload,
+  generateWorkloadConfiguration,
+  WORKLOAD_TYPES,
+  PERFORMANCE_PRIORITIES
+} from './workload/workloadOptimizer.js'
 
-/**
- * Domain-specific validation functions
- */
-const VLLMValidators = {
-  /**
-   * Validate quantization format
-   */
-  quantizationFormat(format) {
-    if (!format) {
-      throw new ValidationError('Quantization format is required', 'quantization', format)
-    }
-    
-    const normalizedFormat = format.toLowerCase()
-    if (!QUANTIZATION_FORMATS[normalizedFormat]) {
-      const supportedFormats = Object.keys(QUANTIZATION_FORMATS).join(', ')
-      throw new ValidationError(
-        `Unsupported quantization format: ${format}. Supported formats: ${supportedFormats}`,
-        'quantization',
-        format
-      )
-    }
-    return normalizedFormat
-  },
+import {
+  generateVLLMCommand,
+  generateConfiguration,
+  validateConfiguration
+} from './workload/commandGenerator.js'
 
-  /**
-   * Validate model specifications
-   */
-  modelSpecs(modelSpecs) {
-    Validators.object(modelSpecs, [], 'modelSpecs')
-    
-    // Validate either modelSizeGB or numParams is provided
-    if (!modelSpecs.modelSizeGB && !modelSpecs.numParams) {
-      throw new ValidationError(
-        'Either modelSizeGB or numParams must be provided',
-        'modelSpecs',
-        modelSpecs
-      )
-    }
-
-    if (modelSpecs.modelSizeGB) {
-      Validators.positiveNumber(modelSpecs.modelSizeGB, 'modelSpecs.modelSizeGB')
-      // Realistic model size validation (1MB to 1TB)
-      if (modelSpecs.modelSizeGB > 1000) {
-        throw new ValidationError(
-          'Model size exceeds realistic maximum (1TB)',
-          'modelSpecs.modelSizeGB',
-          modelSpecs.modelSizeGB
-        )
-      }
-    }
-
-    if (modelSpecs.numParams) {
-      Validators.positiveNumber(modelSpecs.numParams, 'modelSpecs.numParams')
-      // Realistic parameter count validation (1M to 10T parameters - raw count)
-      if (modelSpecs.numParams > 10000000000000) { // 10T parameters
-        throw new ValidationError(
-          'Parameter count exceeds realistic maximum (10T parameters)',
-          'modelSpecs.numParams',
-          modelSpecs.numParams
-        )
-      }
-    }
-
-    if (modelSpecs.layers !== undefined) {
-      Validators.positiveInteger(modelSpecs.layers, 'modelSpecs.layers')
-      if (modelSpecs.layers > 1000) {
-        throw new ValidationError(
-          'Layer count exceeds realistic maximum (1000)',
-          'modelSpecs.layers',
-          modelSpecs.layers
-        )
-      }
-    }
-
-    if (modelSpecs.hiddenSize !== undefined) {
-      Validators.positiveInteger(modelSpecs.hiddenSize, 'modelSpecs.hiddenSize')
-      if (modelSpecs.hiddenSize > 100000) {
-        throw new ValidationError(
-          'Hidden size exceeds realistic maximum (100,000)',
-          'modelSpecs.hiddenSize',
-          modelSpecs.hiddenSize
-        )
-      }
-    }
-
-    if (modelSpecs.numHeads !== undefined) {
-      Validators.positiveInteger(modelSpecs.numHeads, 'modelSpecs.numHeads')
-      if (modelSpecs.numHeads > 1000) {
-        throw new ValidationError(
-          'Number of attention heads exceeds realistic maximum (1000)',
-          'modelSpecs.numHeads',
-          modelSpecs.numHeads
-        )
-      }
-    }
-
-    return modelSpecs
-  },
-
-  /**
-   * Validate GPU specifications
-   */
-  gpuSpecs(gpuSpecs) {
-    Validators.object(gpuSpecs, [], 'gpuSpecs')
-
-    if (gpuSpecs.totalVRAMGB) {
-      Validators.positiveNumber(gpuSpecs.totalVRAMGB, 'gpuSpecs.totalVRAMGB')
-      // Realistic VRAM validation (1GB to 1TB)
-      if (gpuSpecs.totalVRAMGB > 1000) {
-        throw new ValidationError(
-          'Total VRAM exceeds realistic maximum (1TB)',
-          'gpuSpecs.totalVRAMGB',
-          gpuSpecs.totalVRAMGB
-        )
-      }
-    }
-
-    if (gpuSpecs.memoryBandwidthGBps) {
-      Validators.positiveNumber(gpuSpecs.memoryBandwidthGBps, 'gpuSpecs.memoryBandwidthGBps')
-      // Realistic memory bandwidth validation (10 GB/s to 10TB/s)
-      if (gpuSpecs.memoryBandwidthGBps > 10000) {
-        throw new ValidationError(
-          'Memory bandwidth exceeds realistic maximum (10TB/s)',
-          'gpuSpecs.memoryBandwidthGBps',
-          gpuSpecs.memoryBandwidthGBps
-        )
-      }
-    }
-
-    return gpuSpecs
-  },
-
-  /**
-   * Validate sequence length parameters
-   */
-  sequenceLength(seqLen, fieldName = 'sequenceLength') {
-    Validators.positiveInteger(seqLen, fieldName)
-    if (seqLen > 1000000) {
-      throw new ValidationError(
-        `${fieldName} exceeds realistic maximum (1M tokens)`,
-        fieldName,
-        seqLen
-      )
-    }
-    return seqLen
-  },
-
-  /**
-   * Validate batch size parameters
-   */
-  batchSize(batchSize, fieldName = 'batchSize') {
-    Validators.positiveInteger(batchSize, fieldName)
-    if (batchSize > 10000) {
-      throw new ValidationError(
-        `${fieldName} exceeds realistic maximum (10,000)`,
-        fieldName,
-        batchSize
-      )
-    }
-    return batchSize
-  },
-
-  /**
-   * Validate memory requirements vs availability
-   */
-  memoryRequirements(requiredMemoryGB, availableMemoryGB) {
-    Validators.positiveNumber(requiredMemoryGB, 'requiredMemoryGB')
-    Validators.positiveNumber(availableMemoryGB, 'availableMemoryGB')
-    
-    if (requiredMemoryGB > availableMemoryGB) {
-      throw new MemoryError(
-        `Insufficient memory: requires ${requiredMemoryGB.toFixed(2)}GB but only ${availableMemoryGB.toFixed(2)}GB available`,
-        requiredMemoryGB,
-        availableMemoryGB
-      )
-    }
-    
-    return true
-  }
-}
-
-// Export validation utilities for testing
-export { ValidationError, ConfigurationError, MemoryError, Validators, VLLMValidators }
-
-// ============================================================================
-// QUANTIZATION CALCULATIONS
-// ============================================================================
-
-/**
- * Calculate quantization factor for a given format
- * @param {string} format - Quantization format (e.g., 'fp16', 'awq', 'gptq')
- * @param {object} options - Additional options
- * @param {boolean} options.includeOverhead - Whether to include format-specific overhead
- * @returns {object} Quantization information including memory factor and quality impact
- */
-export function calculateQuantizationFactor(format, options = {}) {
-  // Validate inputs
-  const normalizedFormat = VLLMValidators.quantizationFormat(format)
-  Validators.object(options, [], 'options')
-  
-  const { includeOverhead = true } = options
-  
-  const quantInfo = QUANTIZATION_FORMATS[normalizedFormat]
-  
-  let memoryFactor = quantInfo.memoryEfficiency
-  
-  // Add overhead if applicable and requested
-  if (includeOverhead && quantInfo.overhead) {
-    memoryFactor += quantInfo.overhead
-  }
-  
-  return {
-    format: normalizedFormat,
-    bitsPerParam: quantInfo.bitsPerParam,
-    bytesPerParam: quantInfo.bytesPerParam,
-    memoryFactor: Math.round(memoryFactor * 1000) / 1000, // Round to 3 decimal places
-    qualityLoss: quantInfo.qualityLoss,
-    description: quantInfo.description,
-    overhead: quantInfo.overhead || 0,
-  }
-}
-
-/**
- * Get all supported quantization formats
- * @returns {Array} Array of supported format names
- */
-export function getSupportedQuantizationFormats() {
-  return Object.keys(QUANTIZATION_FORMATS)
-}
-
-/**
- * Compare quantization formats
- * @param {Array<string>} formats - Array of format names to compare
- * @returns {Array} Array of quantization info objects sorted by memory efficiency
- */
-export function compareQuantizationFormats(formats) {
-  const comparisons = formats.map(format => calculateQuantizationFactor(format))
-  
-  // Sort by memory efficiency (lower memory usage first)
-  return comparisons.sort((a, b) => a.memoryFactor - b.memoryFactor)
-}
-
-/**
- * Estimate quality degradation for quantization
- * @param {string} format - Quantization format
- * @param {number} modelSize - Model size in billions of parameters
- * @returns {object} Quality impact estimation
- */
-export function estimateQuantizationQualityImpact(format, modelSize) {
-  const quantInfo = calculateQuantizationFactor(format)
-  
-  // Larger models generally handle quantization better
-  const sizeAdjustment = Math.max(0.5, Math.min(1.0, modelSize / 7)) // Normalize around 7B
-  const adjustedQualityLoss = quantInfo.qualityLoss * (2 - sizeAdjustment)
-  
-  let impactLevel = 'minimal'
-  if (adjustedQualityLoss > 0.05) impactLevel = 'high'
-  else if (adjustedQualityLoss > 0.02) impactLevel = 'moderate'
-  else if (adjustedQualityLoss > 0.01) impactLevel = 'low'
-  
-  return {
-    format: quantInfo.format,
-    qualityLoss: Math.round(adjustedQualityLoss * 1000) / 1000,
-    impactLevel,
-    memorySavings: Math.round((1 - quantInfo.memoryFactor) * 100),
-    recommendation: generateQuantizationRecommendationText(quantInfo, modelSize),
-  }
-}
-
-/**
- * Generate quantization recommendation text based on format and model size
- * @param {object} quantInfo - Quantization information
- * @param {number} modelSize - Model size in billions of parameters
- * @returns {string} Recommendation text
- */
-function generateQuantizationRecommendationText(quantInfo, modelSize) {
-  const memorySavings = (1 - quantInfo.memoryFactor) * 100
-  
-  if (quantInfo.format === 'fp32') {
-    return 'Use only for research or when maximum precision is required'
-  }
-  
-  if (quantInfo.format === 'fp16' || quantInfo.format === 'bf16') {
-    return 'Recommended for most production deployments with good balance of speed and quality'
-  }
-  
-  if (quantInfo.format.includes('awq')) {
-    return `Excellent for ${modelSize >= 7 ? 'large' : 'smaller'} models, ~${memorySavings.toFixed(0)}% memory savings with minimal quality loss`
-  }
-  
-  if (quantInfo.format.includes('gptq')) {
-    return `Good for memory-constrained environments, ${memorySavings.toFixed(0)}% memory reduction`
-  }
-  
-  if (quantInfo.format === 'int8') {
-    return 'Use when memory is very limited, may impact quality on smaller models'
-  }
-  
-  if (quantInfo.format === 'int4') {
-    return 'Extreme memory savings but significant quality trade-offs for most models'
-  }
-  
-  return `${memorySavings.toFixed(0)}% memory savings - evaluate quality trade-offs for your use case`
-}
-
-/**
- * Generate quantization recommendation based on available VRAM and model size
- * @param {number} vramGB - Available VRAM in GB
- * @param {number} modelParams - Model size in billions of parameters
- * @param {object} options - Additional options
- * @returns {object} Recommendation including format, feasibility, and reasoning
- */
-export function generateQuantizationRecommendation(vramGB, modelParams, options = {}) {
-  const { batchSize = 1, maxSeqLen = 2048, includeKVCache = true } = options
-  
-  // Try different quantization formats in order of preference
-  const formatPriority = ['fp16', 'awq', 'gptq', 'int8', 'int4']
-  
-  for (const format of formatPriority) {
-    try {
-      // Calculate total memory usage with this quantization
-      const modelWeights = calculateModelWeightsMemory(modelParams, format)
-      let totalMemory = modelWeights.totalMemory
-      
-      if (includeKVCache) {
-        // Add estimated KV cache and activations
-        const estimatedArch = estimateModelArchitecture(modelParams)
-        const kvCache = calculateKVCacheMemory(batchSize, maxSeqLen, estimatedArch.layers, estimatedArch.hiddenSize, estimatedArch.numHeads, format)
-        const activations = calculateActivationMemory(batchSize, maxSeqLen, estimatedArch.hiddenSize, estimatedArch.layers)
-        const systemOverhead = calculateSystemOverhead(modelWeights.totalMemory, batchSize)
-        
-        totalMemory += kvCache + activations + systemOverhead
-      }
-      
-      if (totalMemory <= vramGB * 0.9) { // 90% utilization max
-        const memoryUtilization = Math.round((totalMemory / vramGB) * 100)
-        
-        let reason = ''
-        if (format === 'fp16') {
-          reason = `Sufficient VRAM available (${memoryUtilization}% utilization). Recommended for best quality.`
-        } else {
-          reason = `Limited VRAM requires quantization (${memoryUtilization}% utilization). ${format.toUpperCase()} provides good balance.`
-        }
-        
-        return {
-          recommendedFormat: format,
-          canFit: true,
-          memoryUsageGB: Math.round(totalMemory * 1000) / 1000,
-          memoryUtilizationPercent: memoryUtilization,
-          reason: reason,
-          qualityImpact: QUANTIZATION_FORMATS[format]?.qualityLoss || 0,
-        }
-      }
-    } catch {
-      // Skip this format if calculation fails
-      continue
-    }
-  }
-  
-  // If no format fits, return recommendation with lowest memory usage
-  const minFormat = formatPriority[formatPriority.length - 1]
-  const modelWeights = calculateModelWeightsMemory(modelParams, minFormat)
-  
-  return {
-    recommendedFormat: minFormat,
-    canFit: false,
-    memoryUsageGB: Math.round(modelWeights.totalMemory * 1000) / 1000,
-    memoryUtilizationPercent: Math.round((modelWeights.totalMemory / vramGB) * 100),
-    reason: `Model too large for available VRAM even with maximum quantization. Consider model parallelism or larger GPU.`,
-    qualityImpact: QUANTIZATION_FORMATS[minFormat]?.qualityLoss || 0,
-  }
-}
-
-/**
- * Calculate model weights memory usage with quantization support
- * @param {number} numParams - Number of parameters in billions (e.g., 7 for 7B)
- * @param {string} quantization - Quantization format ('fp16', 'awq', 'gptq', etc.)
- * @param {object} options - Additional options
- * @param {boolean} options.includeOverhead - Include quantization overhead
- * @returns {object} Model weights memory info including total GB and breakdown
- */
-export function calculateModelWeightsMemory(numParams, quantization = 'fp16', options = {}) {
-  // Validate inputs
-  Validators.positiveNumber(numParams, 'numParams')
-  const normalizedQuantization = VLLMValidators.quantizationFormat(quantization)
-  Validators.object(options, [], 'options')
-
-  const quantInfo = calculateQuantizationFactor(normalizedQuantization, options)
-  
-  // Base memory for weights
-  const baseMemoryGB = numParams * quantInfo.bytesPerParam
-  
-  // Additional overhead for quantization metadata (scales, zeros, etc.)
-  const overheadGB = quantInfo.overhead ? numParams * quantInfo.overhead : 0
-  
-  const totalMemoryGB = baseMemoryGB + overheadGB
-
-  return {
-    baseMemory: Math.round(baseMemoryGB * 1000) / 1000,
-    overhead: Math.round(overheadGB * 1000) / 1000,
-    totalMemory: Math.round(totalMemoryGB * 1000) / 1000,
-    quantization: quantInfo,
-    memorySavingsPercent: Math.round((1 - quantInfo.memoryFactor) * 100),
-  }
-}
-
-/**
- * Legacy function for backward compatibility
- * @deprecated Use calculateModelWeightsMemory with quantization parameter instead
- */
-export function calculateModelWeightsMemoryLegacy(numParams, precision = 'fp16') {
-  if (numParams <= 0) {
-    throw new Error('Number of parameters must be positive')
-  }
-
-  const bytesPerParam = {
-    fp32: 4,
-    fp16: 2,
-    bf16: 2,
-    int8: 1,
-    int4: 0.5,
-    int3: 0.375,
-    int2: 0.25,
-  }
-
-  const bytes = bytesPerParam[precision]
-  if (!bytes) {
-    throw new Error(`Unsupported precision: ${precision}`)
-  }
-
-  // Convert from billions of parameters to GB
-  return numParams * bytes
-}
-
-/**
- * Calculate KV cache memory usage for vLLM
- * @param {number} batchSize - Number of concurrent sequences
- * @param {number} maxSeqLen - Maximum sequence length
- * @param {number} numLayers - Number of transformer layers
- * @param {number} hiddenSize - Hidden dimension size
- * @param {number} numHeads - Number of attention heads
- * @param {string} kvPrecision - KV cache precision ('fp16', 'fp32', 'int8')
- * @returns {number} KV cache memory in GB
- */
-export function calculateKVCacheMemory(
-  batchSize,
-  maxSeqLen,
-  numLayers,
-  hiddenSize,
-  numHeads,
-  kvPrecision = 'fp16'
-) {
-  if (batchSize <= 0 || maxSeqLen <= 0 || numLayers <= 0 || hiddenSize <= 0 || numHeads <= 0) {
-    throw new Error('All parameters must be positive')
-  }
-
-  const bytesPerElement = {
-    fp32: 4,
-    fp16: 2,
-    bf16: 2,
-    int8: 1,
-  }
-
-  const bytes = bytesPerElement[kvPrecision]
-  if (!bytes) {
-    throw new Error(`Unsupported KV precision: ${kvPrecision}`)
-  }
-
-  // KV cache: 2 (K and V) × batch_size × seq_len × num_layers × hidden_size × bytes_per_element
-  const kvCacheBytes = 2 * batchSize * maxSeqLen * numLayers * hiddenSize * bytes
-  
-  // Convert bytes to GB
-  return kvCacheBytes / (1024 ** 3)
-}
-
-/**
- * Calculate activation memory for intermediate computations
- * @param {number} batchSize - Number of concurrent sequences
- * @param {number} seqLen - Sequence length being processed
- * @param {number} hiddenSize - Hidden dimension size
- * @param {number} numLayers - Number of transformer layers
- * @param {string} precision - Activation precision
- * @returns {number} Activation memory in GB
- */
-export function calculateActivationMemory(
-  batchSize,
-  seqLen,
-  hiddenSize,
-  numLayers,
-  precision = 'fp16'
-) {
-  if (batchSize <= 0 || seqLen <= 0 || hiddenSize <= 0 || numLayers <= 0) {
-    throw new Error('All parameters must be positive')
-  }
-
-  const bytesPerElement = {
-    fp32: 4,
-    fp16: 2,
-    bf16: 2,
-  }
-
-  const bytes = bytesPerElement[precision] || 2
-
-  // Approximate activation memory for forward pass
-  // This includes attention weights, MLP activations, etc.
-  // For vLLM with efficient memory management, activations are much smaller
-  const activationBytes = batchSize * seqLen * hiddenSize * numLayers * bytes * 0.5 // Conservative multiplier for vLLM
-  
-  return activationBytes / (1024 ** 3)
-}
-
-/**
- * Calculate system overhead for vLLM runtime
- * @param {number} modelMemoryGB - Model memory usage in GB
- * @param {number} batchSize - Batch size
- * @returns {number} System overhead in GB
- */
-export function calculateSystemOverhead(modelMemoryGB, batchSize = 1) {
-  // Base system overhead for vLLM runtime
-  const baseOverheadGB = 0.5
-  
-  // Additional overhead scales with model size and batch size
-  const modelOverhead = modelMemoryGB * 0.05 // 5% of model size
-  const batchOverhead = (batchSize - 1) * 0.1 // Additional overhead per batch item
-  
-  return baseOverheadGB + modelOverhead + batchOverhead
-}
+import {
+  estimateModelArchitecture,
+  calculateVLLMMemoryUsage
+} from './workload/modelArchitecture.js'
 
 // ================================
-// THROUGHPUT OPTIMIZATION FUNCTIONS
+// ORCHESTRATION FUNCTIONS
 // ================================
 
 /**
- * Optimal batch size configuration for throughput
- * Based on vLLM documentation for max_num_seqs and max_num_batched_tokens
- */
-const THROUGHPUT_OPTIMIZATION_CONFIGS = {
-  // Default values for different scenarios
-  cpu: {
-    maxNumSeqsOffline: 256, // Default for offline inference
-    maxNumSeqsOnline: 128, // Default for online serving
-    maxNumBatchedTokensOffline: 4096, // Default for offline inference
-    maxNumBatchedTokensOnline: 2048, // Default for online serving
-  },
-  gpu: {
-    // For optimal throughput, especially with smaller models on large GPUs
-    maxNumBatchedTokensOptimal: 8192, // Recommended for throughput
-    maxNumSeqsOptimal: 256, // Higher seq count for better batching
-  },
-  
-  // Memory utilization for throughput (higher than default)
-  gpuMemoryUtilization: {
-    conservative: 0.85,
-    balanced: 0.90,
-    aggressive: 0.95,
-  },
-  
-  // Block sizes for KV cache
-  blockSizes: [16, 32], // Typical values
-  
-  // Chunked prefill thresholds
-  chunkedPrefillThreshold: 8192, // Enable for sequences longer than this
-}
-
-/**
- * Calculate optimal batch size for maximum throughput
+ * Calculate comprehensive memory breakdown for a vLLM configuration
  * @param {object} config - Configuration parameters
- * @param {number} config.availableMemoryGB - Available GPU memory in GB
- * @param {number} config.modelMemoryGB - Model memory usage in GB
- * @param {number} config.maxSequenceLength - Maximum sequence length
- * @param {number} config.averageSequenceLength - Average expected sequence length
- * @param {object} config.architecture - Model architecture info
- * @returns {object} Optimal batch configuration
+ * @returns {object} Complete memory analysis
  */
-export function calculateOptimalBatchSize(config) {
+export function calculateComprehensiveMemoryBreakdown(config) {
   const {
-    availableMemoryGB,
-    modelMemoryGB,
+    modelSizeGB,
     maxSequenceLength = 2048,
-    averageSequenceLength = 512,
-    architecture,
-  } = config
-
-  if (availableMemoryGB <= modelMemoryGB) {
-    throw new Error('Available memory must be greater than model memory')
-  }
-
-  const remainingMemoryGB = availableMemoryGB - modelMemoryGB
-  
-  // Calculate KV cache memory per sequence
-  const kvCachePerSeqGB = calculateKVCacheMemory(
-    1, // single sequence
-    maxSequenceLength,
-    architecture.layers,
-    architecture.hiddenSize,
-    architecture.numHeads,
-    'fp16' // Assume FP16 for throughput optimization
-  )
-  
-  // Calculate activation memory per token (approximate)
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers)
-  
-  // Estimate maximum number of sequences that can fit
-  const maxNumSeqs = Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
-  
-  // Calculate optimal max_num_batched_tokens
-  // For throughput, we want to process as many tokens as possible in parallel
-  const optimalBatchedTokens = Math.min(
-    maxNumSeqs * averageSequenceLength,
-    THROUGHPUT_OPTIMIZATION_CONFIGS.gpu.maxNumBatchedTokensOptimal,
-    remainingMemoryGB * 1024 * 1024 * 1024 / (4 * architecture.hiddenSize) // Rough estimation based on computation
-  )
-  
-  return {
-    maxNumSeqs: Math.min(maxNumSeqs, THROUGHPUT_OPTIMIZATION_CONFIGS.gpu.maxNumSeqsOptimal),
-    maxNumBatchedTokens: Math.floor(optimalBatchedTokens),
-    kvCacheMemoryGB: kvCachePerSeqGB * maxNumSeqs,
-    activationMemoryGB: activationPerTokenGB * optimalBatchedTokens,
-    memoryUtilization: ((modelMemoryGB + kvCachePerSeqGB * maxNumSeqs) / availableMemoryGB),
-    reasoning: {
-      availableForBatching: remainingMemoryGB,
-      kvCachePerSeq: kvCachePerSeqGB,
-      maxSequencesEstimate: maxNumSeqs,
-      targetBatchedTokens: optimalBatchedTokens,
-    }
-  }
-}
-
-/**
- * Calculate optimal memory allocation strategy for throughput
- * @param {object} config - Configuration parameters
- * @param {number} config.totalVRAMGB - Total GPU VRAM
- * @param {number} config.modelSizeGB - Model size
- * @param {number} config.targetBatchSize - Desired batch size
- * @param {string} config.workloadType - 'serving' | 'batch' | 'mixed'
- * @returns {object} Memory allocation strategy
- */
-export function calculateMemoryAllocationStrategy(config) {
-  const {
-    totalVRAMGB,
-    modelSizeGB,
-    workloadType = 'serving'
-  } = config
-
-  if (totalVRAMGB <= modelSizeGB) {
-    throw new Error('Total VRAM must be greater than model size')
-  }
-
-  // Choose GPU memory utilization based on workload
-  let gpuMemoryUtilization
-  let swapSpaceGB
-  
-  switch (workloadType) {
-    case 'batch':
-      // Batch processing can use more aggressive memory settings
-      gpuMemoryUtilization = THROUGHPUT_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.aggressive
-      swapSpaceGB = Math.min(16, totalVRAMGB * 0.5) // Up to 16GB or 50% of VRAM
-      break
-    case 'serving':
-      // Serving needs some headroom for request spikes
-      gpuMemoryUtilization = THROUGHPUT_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.balanced
-      swapSpaceGB = Math.min(8, totalVRAMGB * 0.25) // Up to 8GB or 25% of VRAM
-      break
-    default: // mixed
-      gpuMemoryUtilization = THROUGHPUT_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.conservative
-      swapSpaceGB = Math.min(4, totalVRAMGB * 0.15) // Up to 4GB or 15% of VRAM
-  }
-
-  const allocatedVRAMGB = totalVRAMGB * gpuMemoryUtilization
-  const kvCacheAllocationGB = allocatedVRAMGB - modelSizeGB
-  const reservedMemoryGB = totalVRAMGB - allocatedVRAMGB
-
-  return {
-    gpuMemoryUtilization,
-    swapSpaceGB,
-    allocatedVRAMGB,
-    kvCacheAllocationGB,
-    reservedMemoryGB,
-    recommendedBlockSize: kvCacheAllocationGB > 8 ? 32 : 16, // Larger blocks for more memory
-    enableChunkedPrefill: kvCacheAllocationGB > 4, // Enable if we have enough memory
-    workloadOptimization: workloadType,
-    memoryBreakdown: {
-      model: modelSizeGB,
-      kvCache: kvCacheAllocationGB,
-      reserved: reservedMemoryGB,
-      swap: swapSpaceGB,
-    }
-  }
-}
-
-/**
- * Estimate throughput metrics for a given configuration
- * @param {object} config - vLLM configuration
- * @param {object} hardwareSpecs - GPU specifications
- * @returns {object} Estimated performance metrics
- */
-export function estimateThroughputMetrics(config, hardwareSpecs) {
-  const {
-    maxNumSeqs,
-    maxNumBatchedTokens,
-    modelSizeGB,
-    quantization = 'fp16',
-    maxSequenceLength = 2048,
-  } = config
-
-  const {
-    gpuMemoryBandwidthGBps = 900, // Default for A100
-    tensorCores = true,
-  } = hardwareSpecs
-
-  // Estimate tokens per second based on memory bandwidth and model size
-  // This is a simplified model - real performance depends on many factors
-  
-  // Memory bandwidth utilization factor
-  const quantizationInfo = calculateQuantizationFactor(quantization)
-  const memoryBandwidthUtilization = 0.7 // Typical 70% utilization
-  
-  // Effective memory bandwidth for model weights
-  const effectiveMemoryBandwidth = gpuMemoryBandwidthGBps * memoryBandwidthUtilization
-  
-  // Estimate decode tokens per second (memory-bound for large models)
-  const decodeTokensPerSec = (effectiveMemoryBandwidth / modelSizeGB) * maxNumSeqs
-  
-  // Estimate prefill performance (compute-bound)
-  // Simplified calculation based on model size and sequence length
-  const prefillTokensPerSec = tensorCores ? 
-    Math.min(maxNumBatchedTokens * 100, effectiveMemoryBandwidth * 50) : // With tensor cores
-    Math.min(maxNumBatchedTokens * 50, effectiveMemoryBandwidth * 25)   // Without tensor cores
-  
-  // Request throughput depends on sequence length distribution
-  const avgOutputLength = 100 // Assume average 100 output tokens
-  const requestsPerSec = decodeTokensPerSec / avgOutputLength
-  
-  return {
-    tokensPerSecond: Math.floor(decodeTokensPerSec),
-    requestsPerSecond: Math.floor(requestsPerSec),
-    latencyEstimate: {
-      timeToFirstToken: Math.ceil(1000 / prefillTokensPerSec * maxSequenceLength),
-      interTokenLatency: Math.ceil(1000 / decodeTokensPerSec),
-      p50: Math.ceil(1000 / decodeTokensPerSec * 50), // 50th percentile latency
-      p95: Math.ceil(1000 / decodeTokensPerSec * 95), // 95th percentile latency
-    },
-    utilizationEfficiency: memoryBandwidthUtilization,
-    bottlenecks: [
-      ...(effectiveMemoryBandwidth / gpuMemoryBandwidthGBps < 0.8 ? ['memory_bandwidth'] : []),
-      ...(!tensorCores || maxNumBatchedTokens > 8192 ? ['compute_capacity'] : []),
-      ...(maxNumSeqs < 64 ? ['batch_size'] : []),
-    ],
-    estimatedDecodeTokensPerSec: Math.floor(decodeTokensPerSec),
-    estimatedPrefillTokensPerSec: Math.floor(prefillTokensPerSec),
-    estimatedRequestsPerSec: Math.floor(requestsPerSec),
-    estimatedLatencyMs: {
-      timeToFirstToken: Math.ceil(1000 / prefillTokensPerSec * maxSequenceLength),
-      interTokenLatency: Math.ceil(1000 / decodeTokensPerSec),
-    },
-    memoryBandwidthUtilization: memoryBandwidthUtilization,
-    quantizationImpact: {
-      format: quantization,
-      speedupFactor: quantizationInfo.format === 'fp16' ? 1.0 : 
-                    quantizationInfo.format === 'int8' ? 1.2 :
-                    quantizationInfo.format === 'int4' ? 1.5 : 1.0,
-      qualityTradeoff: quantizationInfo.qualityLoss,
-    }
-  }
-}
-
-/**
- * Main function to calculate throughput-optimized vLLM configuration
- * @param {object} params - Parameters object containing gpuSpecs, modelSpecs, and workloadSpecs OR a flat config object
- * @returns {object} Optimized vLLM configuration for throughput
- */
-export function calculateThroughputOptimizedConfig(params) {
-  // Handle both destructured and flat parameter styles
-  let gpuSpecs, modelSpecs, workloadSpecs
-  
-  if (params.gpuSpecs && params.modelSpecs) {
-    // Structured style: prefer the structured specs if provided
-    gpuSpecs = {
-      // Merge any flat properties with structured specs, preferring structured
-      totalVRAMGB: params.gpuSpecs.totalVRAMGB || params.gpu?.memory || params.totalVRAMGB || 80,
-      memoryBandwidthGBps: params.gpuSpecs.memoryBandwidthGBps || params.memoryBandwidthGBps || 900,
-      computeCapability: params.gpuSpecs.computeCapability || params.computeCapability || 8.0,
-      tensorCores: params.gpuSpecs.tensorCores !== undefined ? params.gpuSpecs.tensorCores : (params.tensorCores !== false),
-      multiGPU: params.gpuSpecs.multiGPU || params.multiGPU || false,
-      gpuCount: params.gpuSpecs.gpuCount || params.gpu?.count || params.gpuCount || 1,
-    }
-    modelSpecs = params.modelSpecs
-    workloadSpecs = params.workloadSpecs || {}
-  } else {
-    // Flat style: extract from mixed object
-    gpuSpecs = params.gpuSpecs || {
-      totalVRAMGB: params.gpu?.memory || params.totalVRAMGB || 80,
-      memoryBandwidthGBps: params.memoryBandwidthGBps || 900,
-      computeCapability: params.computeCapability || 8.0,
-      tensorCores: params.tensorCores !== false,
-      multiGPU: params.multiGPU || false,
-      gpuCount: params.gpu?.count || params.gpuCount || 1,
-    }
-    
-    modelSpecs = params.modelSpecs || {
-      modelSizeGB: params.modelSizeGB || 13.5, // Default for 7B model
-      numParams: params.numParams || 7,
-      quantization: params.quantization || 'fp16',
-      architecture: params.architecture,
-      modelPath: params.model,
-    }
-    
-    workloadSpecs = params.workloadSpecs || {
-      expectedConcurrentUsers: params.workload?.concurrentRequests || params.expectedConcurrentUsers || 100,
-      averageSequenceLength: params.workload?.averageTokensPerRequest || params.averageSequenceLength || 512,
-      maxSequenceLength: params.workload?.maxSeqLen || params.maxSequenceLength || 2048,
-      workloadType: params.workloadType || 'serving',
-    }
-  }
-
-  const {
-    totalVRAMGB,
-    memoryBandwidthGBps = 900,
-    computeCapability = 8.0,
-    tensorCores = true,
-    multiGPU = false,
-    gpuCount = 1,
-  } = gpuSpecs
-
-  const {
-    modelSizeGB,
-    numParams,
-    quantization = 'fp16',
-    architecture,
-  } = modelSpecs
-
-  const {
-    expectedConcurrentUsers = 100,
-    averageSequenceLength = 512,
-    maxSequenceLength = 2048,
-    workloadType = 'serving', // 'serving' | 'batch' | 'mixed'
-  } = workloadSpecs
-
-  // Calculate model memory if not provided
-  let finalModelSizeGB = modelSizeGB
-  if (!finalModelSizeGB && numParams) {
-    const modelMemoryInfo = calculateModelWeightsMemory(numParams, quantization)
-    finalModelSizeGB = modelMemoryInfo.totalMemory
-  }
-
-  if (!finalModelSizeGB) {
-    throw new Error('Either modelSizeGB or numParams must be provided')
-  }
-
-  // Get model architecture if not provided
-  let finalArchitecture = architecture
-  if (!finalArchitecture) {
-    // Check if modelSpecs has architecture properties directly
-    if (modelSpecs.layers && modelSpecs.hiddenSize && modelSpecs.numHeads) {
-      finalArchitecture = {
-        layers: modelSpecs.layers,
-        hiddenSize: modelSpecs.hiddenSize,
-        numHeads: modelSpecs.numHeads,
-      }
-    } else {
-      // Estimate from parameters
-      finalArchitecture = estimateModelArchitecture(numParams || finalModelSizeGB / 2)
-    }
-  }
-
-  // Calculate memory allocation strategy
-  const memoryStrategy = calculateMemoryAllocationStrategy({
-    totalVRAMGB,
-    modelSizeGB: finalModelSizeGB,
-    targetBatchSize: expectedConcurrentUsers,
-    workloadType,
-  })
-
-  // Calculate optimal batch sizes
-  const batchConfig = calculateOptimalBatchSize({
-    availableMemoryGB: memoryStrategy.allocatedVRAMGB,
-    modelMemoryGB: finalModelSizeGB,
-    maxSequenceLength,
-    averageSequenceLength,
-    architecture: finalArchitecture,
-  })
-
-  // Estimate performance
-  const performanceEstimates = estimateThroughputMetrics(
-    {
-      maxNumSeqs: batchConfig.maxNumSeqs,
-      maxNumBatchedTokens: batchConfig.maxNumBatchedTokens,
-      modelSizeGB: finalModelSizeGB,
-      quantization,
-      maxSequenceLength,
-    },
-    { memoryBandwidthGBps, computeCapability, tensorCores }
-  )
-
-  // Generate vLLM command line arguments
-  const vllmArgs = {
-    // Core model and serving
-    model: modelSpecs.modelPath || 'MODEL_PATH',
-    host: '0.0.0.0',
-    port: 8000,
-    
-    // Memory and batch optimization
-    'gpu-memory-utilization': memoryStrategy.gpuMemoryUtilization,
-    'max-num-seqs': batchConfig.maxNumSeqs,
-    'max-num-batched-tokens': batchConfig.maxNumBatchedTokens,
-    'max-model-len': maxSequenceLength,
-    'block-size': memoryStrategy.recommendedBlockSize,
-    
-    // Swap and offloading
-    ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    
-    // Chunked prefill for long sequences
-    ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength > THROUGHPUT_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
-      'enable-chunked-prefill': true
-    }),
-    
-    // Quantization
-    ...(quantization !== 'fp16' && { quantization }),
-    
-    // Multi-GPU setup
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
-    
-    // Performance optimizations
-    'disable-log-stats': workloadType === 'batch', // Reduce logging overhead for batch processing
-  }
-
-  return {
-    // Expected top-level properties for tests
-    batchConfiguration: batchConfig,
-    memoryConfiguration: memoryStrategy,
-    performanceEstimate: performanceEstimates,
-    vllmParameters: vllmArgs,
-    vllmCommand: generateVLLMCommand(vllmArgs),
-    
-    // Optimization summary with expected properties
-    optimizationSummary: {
-      primaryOptimizations: [
-        `Batch size optimized to ${batchConfig.maxNumSeqs} concurrent sequences`,
-        `Memory utilization set to ${Math.round(memoryStrategy.gpuMemoryUtilization * 100)}%`,
-        `Quantization: ${quantization}`,
-        workloadType === 'batch' ? 'Optimized for high-throughput batch processing' :
-        workloadType === 'serving' ? 'Balanced optimization for serving workload' :
-        'Mixed workload optimization'
-      ],
-      tradeoffs: [
-        'Higher batch sizes increase throughput but may increase latency',
-        quantization !== 'fp16' ? 'Quantization improves speed but may reduce quality' : 'Using fp16 for best quality',
-        `Memory utilization at ${Math.round(memoryStrategy.gpuMemoryUtilization * 100)}% reduces OOM risk but may limit peak performance`
-      ],
-      expectedImprovements: {
-        throughputIncrease: `${Math.round((batchConfig.maxNumSeqs / 32) * 100)}%`,
-        memoryEfficiency: `${Math.round(memoryStrategy.gpuMemoryUtilization * 100)}%`,
-        concurrentRequests: batchConfig.maxNumSeqs
-      }
-    },
-    
-    // Configuration parameters
-    configuration: vllmArgs,
-    
-    // Memory allocation details
-    memoryAllocation: memoryStrategy,
-    
-    // Batch size optimization
-    batchOptimization: batchConfig,
-    
-    // Performance estimates
-    performanceEstimates,
-    
-    // Command generation
-    command: generateVLLMCommand(vllmArgs),
-  }
-}
-
-/**
- * Generate vLLM command string from configuration arguments
- * @param {object} args - vLLM arguments object
- * @returns {string} Complete vLLM command
- */
-/**
- * Generate vLLM command string from configuration parameters
- * @param {object} args - vLLM arguments
- * @returns {string} Command string
- */
-export function generateVLLMCommand(args) {
-  let command = 'python -m vllm.entrypoints.openai.api_server'
-  
-  for (const [key, value] of Object.entries(args)) {
-    // Convert camelCase to kebab-case
-    const kebabKey = key.replace(/([A-Z])/g, '-$1').toLowerCase()
-    
-    if (value === true) {
-      command += ` --${kebabKey}`
-    } else if (value !== false && value !== undefined) {
-      command += ` --${kebabKey} ${value}`
-    }
-  }
-  
-  return command
-}
-
-/**
- * Optimize configuration for specific workload patterns
- * @param {object} workloadProfile - Workload characteristics
- * @returns {object} Workload-specific optimizations
- */
-export function optimizeForWorkload(workloadProfile) {
-  const {
-    workloadType = 'serving', // 'chat', 'completion', 'batch', 'code-generation'
-    averageInputLength = 512,
-    averageOutputLength = 100,
-    peakConcurrency = 100,
-    latencyRequirement = 'balanced', // 'low' | 'balanced' | 'high'
-    throughputPriority = 'high', // 'low' | 'medium' | 'high'
-  } = workloadProfile
-
-  const optimizations = {
-    recommendedQuantization: 'fp16',
-    memoryStrategy: 'balanced',
-    batchingStrategy: {},
-    specialSettings: {},
-  }
-
-  // Calculate sequence lengths based on input/output
-  const totalSeqLen = averageInputLength + averageOutputLength
-  const maxSeqLen = Math.min(totalSeqLen * 2, 8192) // Allow for 2x variance
-
-  // Calculate batch size based on concurrency
-  const baseBatchSize = Math.min(peakConcurrency, 256)
-
-  // Workload-specific optimizations
-  switch (workloadType) {
-    case 'chat':
-      optimizations.recommendedQuantization = 'fp16' // Quality important for chat
-      optimizations.batchingStrategy = {
-        maxSeqLen: Math.max(maxSeqLen, 4096), // Longer contexts for chat
-        maxNumSeqs: Math.min(baseBatchSize, 128),
-        enableChunkedPrefill: true,
-        prioritizeBatching: true,
-      }
-      optimizations.specialSettings = {
-        'enable-prefix-caching': true, // Good for repetitive chat patterns
-      }
-      break
-
-    case 'completion':
-      optimizations.recommendedQuantization = throughputPriority === 'high' ? 'awq' : 'fp16'
-      optimizations.batchingStrategy = {
-        maxSeqLen: maxSeqLen,
-        maxNumSeqs: baseBatchSize,
-        maxBatchedTokens: baseBatchSize * totalSeqLen, // Higher for completion tasks
-      }
-      break
-
-    case 'code-generation':
-      optimizations.recommendedQuantization = 'fp16' // Precision important for code
-      optimizations.batchingStrategy = {
-        maxSeqLen: Math.max(maxSeqLen, 8192), // Code can be long
-        maxNumSeqs: Math.min(baseBatchSize, 64), // Lower concurrency for quality
-        enableChunkedPrefill: true,
-      }
-      optimizations.specialSettings = {
-        'enable-prefix-caching': true, // Code often has common prefixes
-      }
-      break
-
-    case 'batch':
-      optimizations.recommendedQuantization = 'awq' // Memory efficiency for batch
-      optimizations.memoryStrategy = 'aggressive'
-      optimizations.batchingStrategy = {
-        maxSeqLen: maxSeqLen,
-        maxNumSeqs: Math.max(baseBatchSize, 512), // Higher batch sizes
-        maxBatchedTokens: 16384,
-      }
-      optimizations.specialSettings = {
-        'disable-log-stats': true, // Reduce overhead
-      }
-      break
-
-    default: // serving
-      optimizations.recommendedQuantization = 'fp16'
-      optimizations.memoryStrategy = 'balanced'
-      optimizations.batchingStrategy = {
-        maxSeqLen: maxSeqLen,
-        maxNumSeqs: baseBatchSize,
-      }
-  }
-
-  // Latency adjustments
-  if (latencyRequirement === 'low') {
-    optimizations.batchingStrategy.maxNumSeqs = Math.min(
-      optimizations.batchingStrategy.maxNumSeqs || 128, 
-      64 // Lower batch for lower latency
-    )
-    optimizations.specialSettings['enforce-eager'] = false // Keep CUDA graphs
-  }
-
-  // Throughput adjustments
-  if (throughputPriority === 'high') {
-    optimizations.batchingStrategy.maxNumSeqs = Math.max(
-      optimizations.batchingStrategy.maxNumSeqs || 128,
-      256 // Higher batch for throughput
-    )
-    optimizations.memoryStrategy = 'aggressive'
-  }
-
-  return {
-    workloadType,
-    inputProfile: {
-      averageInputLength,
-      averageOutputLength,
-      peakConcurrency,
-      totalSequenceLength: totalSeqLen,
-    },
-    optimizations,
-    recommendations: {
-      quantization: optimizations.recommendedQuantization,
-      memoryUtilization: optimizations.memoryStrategy === 'aggressive' ? 0.95 :
-                        optimizations.memoryStrategy === 'conservative' ? 0.85 : 0.90,
-      batchConfiguration: optimizations.batchingStrategy,
-      specialFeatures: optimizations.specialSettings,
-    },
-    reasoning: {
-      workloadConsiderations: getWorkloadConsiderations(workloadType),
-      latencyImpact: latencyRequirement,
-      throughputPriority,
-    }
-  }
-}
-
-/**
- * Get workload-specific considerations
- * @param {string} workloadType - Type of workload
- * @returns {string[]} List of considerations
- */
-function getWorkloadConsiderations(workloadType) {
-  const considerations = {
-    chat: [
-      'Long conversation contexts require larger max_model_len',
-      'Prefix caching beneficial for conversation continuity',
-      'Quality important - avoid aggressive quantization',
-    ],
-    completion: [
-      'Batch processing can be optimized for higher throughput',
-      'Variable output lengths - adjust batching accordingly',
-      'Memory efficiency important for cost effectiveness',
-    ],
-    'code-generation': [
-      'Long sequences common - enable chunked prefill',
-      'Precision critical for code correctness',
-      'Common code patterns benefit from prefix caching',
-    ],
-    batch: [
-      'Maximize GPU utilization with large batches',
-      'Latency less critical than throughput',
-      'Memory efficiency enables larger batch sizes',
-    ],
-    serving: [
-      'Balance between latency and throughput',
-      'Handle variable request patterns',
-      'Reserve memory for request spikes',
-    ]
-  }
-  
-  return considerations[workloadType] || considerations.serving
-}
-
-/**
- * Estimate model architecture parameters from parameter count
- * @param {number} numParams - Number of parameters in billions
- * @returns {object} Estimated architecture parameters
- */
-export function estimateModelArchitecture(numParams) {
-  // Common transformer architectures - these are approximations
-  const architectures = {
-    0.5: { layers: 12, hiddenSize: 768, numHeads: 12 },    // Small model
-    1: { layers: 16, hiddenSize: 1024, numHeads: 16 },     // 1B model
-    3: { layers: 24, hiddenSize: 1536, numHeads: 24 },     // 3B model  
-    7: { layers: 32, hiddenSize: 4096, numHeads: 32 },     // 7B model (Llama-2 7B)
-    13: { layers: 40, hiddenSize: 5120, numHeads: 40 },    // 13B model (Llama-2 13B)
-    30: { layers: 60, hiddenSize: 6656, numHeads: 52 },    // 30B model
-    65: { layers: 80, hiddenSize: 8192, numHeads: 64 },    // 65B model (Llama-2 70B)
-    175: { layers: 96, hiddenSize: 12288, numHeads: 96 },  // 175B model (GPT-3)
-  }
-
-  // Find closest architecture
-  const sizes = Object.keys(architectures).map(Number).sort((a, b) => a - b)
-  let closestSize = sizes[0]
-  
-  for (const size of sizes) {
-    if (Math.abs(size - numParams) < Math.abs(closestSize - numParams)) {
-      closestSize = size
-    }
-  }
-
-  return architectures[closestSize]
-}
-
-/**
- * Calculate total vLLM memory usage
- * @param {object} config - Configuration object
- * @param {number} config.modelSizeGB - Model size in GB (weights only)
- * @param {number} config.numParams - Number of parameters in billions
- * @param {string} config.modelPrecision - Model precision ('fp16', 'fp32', etc.)
- * @param {string} config.kvCachePrecision - KV cache precision
- * @param {number} config.batchSize - Number of concurrent sequences
- * @param {number} config.maxSeqLen - Maximum sequence length
- * @param {number} config.seqLen - Current sequence length for activations
- * @param {object} config.architecture - Model architecture (optional, will be estimated if not provided)
- * @returns {object} Detailed memory breakdown
- */
-export function calculateVLLMMemoryUsage(config) {
-  const {
-    modelSizeGB,
-    numParams,
-    modelPrecision = 'fp16',
-    kvCachePrecision = 'fp16',
     batchSize = 1,
-    maxSeqLen = 2048,
-    seqLen = 512,
-    architecture
-  } = config
-
-  if (!modelSizeGB && !numParams) {
-    throw new Error('Either modelSizeGB or numParams must be provided')
-  }
-
-  // Use provided architecture or estimate from parameters
-  const arch = architecture || estimateModelArchitecture(numParams || (modelSizeGB / 2)) // Rough estimate: 2GB per billion params for fp16
-
-  // Calculate individual components
-  const modelWeightsResult = modelSizeGB 
-    ? { totalMemory: modelSizeGB, baseMemory: modelSizeGB, overhead: 0 }
-    : calculateModelWeightsMemory(numParams, modelPrecision)
-  
-  const modelWeights = modelWeightsResult.totalMemory || modelWeightsResult
-  
-  const kvCache = calculateKVCacheMemory(
-    batchSize,
-    maxSeqLen,
-    arch.layers,
-    arch.hiddenSize,
-    arch.numHeads,
-    kvCachePrecision
-  )
-  const activations = calculateActivationMemory(
-    batchSize,
-    seqLen,
-    arch.hiddenSize,
-    arch.layers,
-    modelPrecision
-  )
-
-  // System overhead (includes fragmentation, cuda context, etc.)
-  const systemOverhead = Math.max(1.0, (modelWeights + kvCache + activations) * 0.1)
-
-  // Total memory
-  const totalMemory = modelWeights + kvCache + activations + systemOverhead
-
-  return {
-    modelWeights: Math.round(modelWeights * 1000) / 1000,
-    kvCache: Math.round(kvCache * 1000) / 1000,
-    activations: Math.round(activations * 1000) / 1000,
-    systemOverhead: Math.round(systemOverhead * 1000) / 1000,
-    totalMemory: Math.round(totalMemory * 1000) / 1000,
-    quantization: modelWeightsResult.quantization || null,
-    breakdown: {
-      modelWeightsPercent: Math.round((modelWeights / totalMemory) * 100),
-      kvCachePercent: Math.round((kvCache / totalMemory) * 100),
-      activationsPercent: Math.round((activations / totalMemory) * 100),
-      systemOverheadPercent: Math.round((systemOverhead / totalMemory) * 100),
-    }
-  }
-}
-
-// ===============================
-// LATENCY OPTIMIZATION FUNCTIONS  
-// ===============================
-
-/**
- * Optimal configuration values for latency optimization
- * Based on vLLM best practices for minimizing response time
- */
-const LATENCY_OPTIMIZATION_CONFIGS = {
-  // Batch sizes for low latency (smaller batches)
-  gpu: {
-    maxNumSeqsOptimal: 32, // Lower concurrent sequences for faster processing
-    maxNumBatchedTokensOptimal: 2048, // Smaller batched tokens to reduce prefill time
-    maxNumSeqsMinimal: 8, // For ultra-low latency scenarios
-    maxNumBatchedTokensMinimal: 512, // Minimal batching for lowest latency
-  },
-  
-  // Memory utilization for latency (more conservative to avoid swapping)
-  gpuMemoryUtilization: {
-    conservative: 0.75, // Lower to avoid memory pressure
-    balanced: 0.80,
-    aggressive: 0.85, // Still conservative compared to throughput
-  },
-  
-  // Chunked prefill settings for latency
-  chunkedPrefillSize: 512, // Smaller chunks for lower TTFT
-  disableChunkedPrefillThreshold: 4096, // Disable for shorter sequences
-  
-  // KV cache block sizes (smaller for better memory locality)
-  kvCacheBlockSizes: [8, 16], // Smaller blocks for better cache efficiency
-  
-  // Speculation settings for latency
-  speculation: {
-    enableSpeculativeDecoding: true,
-    speculationLength: 4, // Conservative speculation length
-    draftModelRatio: 0.25, // Ratio of draft model size to main model
-  },
-}
-
-/**
- * Calculate optimal batch size for minimum latency
- * @param {object} config - Configuration parameters
- * @param {number} config.availableMemoryGB - Available GPU memory in GB
- * @param {number} config.modelMemoryGB - Model memory usage in GB
- * @param {number} config.maxSequenceLength - Maximum sequence length
- * @param {number} config.averageSequenceLength - Average expected sequence length
- * @param {object} config.architecture - Model architecture info
- * @param {string} config.latencyTarget - 'ultra-low' | 'low' | 'balanced'
- * @returns {object} Optimal batch configuration for latency
- */
-export function calculateLatencyOptimalBatchSize(config) {
-  const {
-    availableMemoryGB,
-    modelMemoryGB,
-    maxSequenceLength = 2048,
-    averageSequenceLength = 512,
     architecture,
-    latencyTarget = 'low', // 'ultra-low' | 'low' | 'balanced'
-  } = config
-
-  if (availableMemoryGB <= modelMemoryGB) {
-    throw new Error('Available memory must be greater than model memory')
-  }
-
-  const remainingMemoryGB = availableMemoryGB - modelMemoryGB
-  
-  // Calculate KV cache memory per sequence (using smaller precision for latency)
-  const kvCachePerSeqGB = calculateKVCacheMemory(
-    1, // single sequence
-    maxSequenceLength,
-    architecture.layers,
-    architecture.hiddenSize,
-    architecture.numHeads,
-    'fp16' // Keep FP16 for balance of speed and quality
-  )
-  
-  // Calculate activation memory per token
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers)
-  
-  // For latency optimization, prioritize smaller batches
-  let maxNumSeqs, maxNumBatchedTokens
-  
-  switch (latencyTarget) {
-    case 'ultra-low':
-      // Minimal batching for absolute lowest latency
-      maxNumSeqs = Math.min(
-        LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumSeqsMinimal,
-        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
-      )
-      maxNumBatchedTokens = LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumBatchedTokensMinimal
-      break
-      
-    case 'balanced':
-      // Balance between latency and some throughput
-      maxNumSeqs = Math.min(
-        64, // Moderate batch size
-        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
-      )
-      maxNumBatchedTokens = 4096
-      break
-      
-    default: // 'low'
-      // Low latency with reasonable throughput
-      maxNumSeqs = Math.min(
-        LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumSeqsOptimal,
-        Math.floor(remainingMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
-      )
-      maxNumBatchedTokens = LATENCY_OPTIMIZATION_CONFIGS.gpu.maxNumBatchedTokensOptimal
-  }
-  
-  // Ensure minimum viable values
-  maxNumSeqs = Math.max(1, maxNumSeqs)
-  maxNumBatchedTokens = Math.max(256, maxNumBatchedTokens)
-  
-  // Calculate memory usage breakdown
-  const kvCacheMemoryGB = maxNumSeqs * kvCachePerSeqGB
-  const activationMemoryGB = maxNumSeqs * activationPerTokenGB * averageSequenceLength
-  const totalUsedMemoryGB = modelMemoryGB + kvCacheMemoryGB + activationMemoryGB
-  const memoryUtilization = totalUsedMemoryGB / availableMemoryGB
-  
-  return {
-    maxNumSeqs,
-    maxNumBatchedTokens,
-    kvCacheMemoryGB,
-    activationMemoryGB,
-    memoryUtilization,
-    latencyTarget,
-    reasoning: {
-      availableForBatching: remainingMemoryGB,
-      kvCachePerSeq: kvCachePerSeqGB,
-      maxSequencesEstimate: Math.floor(remainingMemoryGB / kvCachePerSeqGB),
-      targetBatchedTokens: maxNumBatchedTokens,
-      optimizationFocus: 'minimize_latency',
-    }
-  }
-}
-
-/**
- * Calculate memory allocation strategy optimized for latency
- * @param {object} config - Configuration object
- * @param {number} config.totalVRAMGB - Total VRAM available
- * @param {number} config.modelSizeGB - Model size in GB
- * @param {number} config.targetBatchSize - Expected concurrent requests
- * @param {string} config.workloadType - Type of workload
- * @param {string} config.latencyPriority - 'ultra-high' | 'high' | 'medium'
- * @returns {object} Memory allocation strategy for latency
- */
-export function calculateLatencyMemoryStrategy(config) {
-  const {
-    totalVRAMGB,
-    modelSizeGB,
-    workloadType = 'serving',
-    latencyPriority = 'high',
-  } = config
-
-  if (totalVRAMGB <= modelSizeGB) {
-    throw new Error('Total VRAM must be greater than model size')
-  }
-
-  // Use more conservative memory utilization for latency
-  let gpuMemoryUtilization
-  switch (latencyPriority) {
-    case 'ultra-high':
-      gpuMemoryUtilization = LATENCY_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.conservative
-      break
-    case 'medium':
-      gpuMemoryUtilization = LATENCY_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.aggressive
-      break
-    default: // 'high'
-      gpuMemoryUtilization = LATENCY_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.balanced
-  }
-
-  const allocatedVRAMGB = totalVRAMGB * gpuMemoryUtilization
-  const availableForKVCacheGB = allocatedVRAMGB - modelSizeGB
-  
-  // Reserve more memory for system overhead to avoid memory pressure
-  const systemReservedGB = totalVRAMGB * (1 - gpuMemoryUtilization)
-  
-  // Calculate KV cache allocation (more conservative)
-  const kvCacheAllocationGB = availableForKVCacheGB * 0.7 // Reserve 30% for activations
-  
-  // Minimal swap space for latency workloads
-  const swapSpaceGB = Math.min(2, totalVRAMGB * 0.05) // 5% or 2GB max
-  
-  // Smaller block sizes for better cache locality
-  const recommendedBlockSize = latencyPriority === 'ultra-high' ? 8 : 16
-  
-  // Disable chunked prefill for shorter sequences to reduce TTFT
-  const enableChunkedPrefill = false // Disable for latency optimization
-  
-  return {
-    gpuMemoryUtilization,
-    swapSpaceGB,
-    allocatedVRAMGB,
-    kvCacheAllocationGB,
-    reservedMemoryGB: systemReservedGB,
-    recommendedBlockSize,
-    enableChunkedPrefill,
-    workloadOptimization: workloadType,
-    latencyOptimizations: {
-      aggressiveCaching: latencyPriority === 'ultra-high',
-      preemptiveEviction: false, // Avoid eviction overhead
-      prioritizeFirstToken: true,
-    },
-    memoryBreakdown: {
-      model: modelSizeGB,
-      kvCache: kvCacheAllocationGB,
-      reserved: systemReservedGB,
-      swap: swapSpaceGB,
-    }
-  }
-}
-
-/**
- * Estimate latency metrics for a given configuration
- * @param {object} config - vLLM configuration
- * @param {object} hardwareSpecs - GPU specifications
- * @param {string} optimizationLevel - 'ultra-low' | 'low' | 'balanced'
- * @returns {object} Estimated latency metrics
- */
-export function estimateLatencyMetrics(config, hardwareSpecs, optimizationLevel = 'low') {
-  const {
-    maxNumSeqs,
-    modelSizeGB,
     quantization = 'fp16',
-    maxSequenceLength = 2048,
+    gpuMemoryGB,
+    optimizationStrategy = 'balanced'
   } = config
 
-  const {
-    gpuMemoryBandwidthGBps = 900, // Default for A100
-    tensorCores = true,
-  } = hardwareSpecs
-
-  // Memory bandwidth utilization (lower for latency to avoid contention)
-  const memoryBandwidthUtilization = optimizationLevel === 'ultra-low' ? 0.5 : 0.6
-  const effectiveMemoryBandwidth = gpuMemoryBandwidthGBps * memoryBandwidthUtilization
-  
-  // Calculate Time to First Token (TTFT) - critical for latency
-  // Prefill is compute-bound, depends on sequence length and model size
-  const prefillComputeIntensity = tensorCores ? 1.5 : 1.0 // Tensor cores help with prefill
-  const timeToFirstTokenMs = Math.max(
-    50, // Minimum realistic TTFT
-    (maxSequenceLength * modelSizeGB) / (effectiveMemoryBandwidth * prefillComputeIntensity * 100)
-  )
-  
-  // Calculate Inter-Token Latency (ITL) - memory-bound for decode
-  const quantizationInfo = calculateQuantizationFactor(quantization)
-  const memoryEfficiency = quantizationInfo.memoryEfficiency || 0.5
-  const baseInterTokenLatency = (modelSizeGB * memoryEfficiency) / effectiveMemoryBandwidth
-  
-  // Batch size penalty for latency (more sequences = higher latency)
-  const batchLatencyPenalty = 1 + (maxNumSeqs - 1) * 0.1 // 10% penalty per additional sequence
-  const interTokenLatencyMs = baseInterTokenLatency * batchLatencyPenalty
-  
-  // Calculate end-to-end latency estimates
-  const avgOutputLength = 100 // Assume 100 output tokens
-  const totalLatencyMs = timeToFirstTokenMs + (interTokenLatencyMs * avgOutputLength)
-  
-  // Latency percentiles (account for variance)
-  const latencyVariance = optimizationLevel === 'ultra-low' ? 1.2 : 1.5
-  
-  return {
-    timeToFirstToken: Math.ceil(timeToFirstTokenMs),
-    interTokenLatency: Math.ceil(interTokenLatencyMs),
-    totalLatency: Math.ceil(totalLatencyMs),
-    latencyPercentiles: {
-      p50: Math.ceil(totalLatencyMs),
-      p95: Math.ceil(totalLatencyMs * latencyVariance),
-      p99: Math.ceil(totalLatencyMs * latencyVariance * 1.3),
-    },
-    throughputTradeoff: {
-      estimatedRequestsPerSec: Math.floor(1000 / totalLatencyMs * maxNumSeqs),
-      concurrentCapacity: maxNumSeqs,
-      utilizationEfficiency: memoryBandwidthUtilization,
-    },
-    optimizationLevel,
-    bottlenecks: [
-      ...(timeToFirstTokenMs > 200 ? ['prefill_compute'] : []),
-      ...(interTokenLatencyMs > 50 ? ['memory_bandwidth'] : []),
-      ...(maxNumSeqs > 32 ? ['batch_size'] : []),
-    ],
-    recommendations: {
-      reduceSequenceLength: timeToFirstTokenMs > 500,
-      enableSpeculation: interTokenLatencyMs > 100,
-      reduceBatchSize: maxNumSeqs > 16 && optimizationLevel === 'ultra-low',
-    }
-  }
-}
-
-/**
- * Main function to calculate latency-optimized vLLM configuration
- * @param {object} params - Parameters object containing gpuSpecs, modelSpecs, and workloadSpecs
- * @returns {object} Optimized vLLM configuration for latency
- */
-export function calculateLatencyOptimizedConfig(params) {
-  // Handle both destructured and flat parameter styles
-  let gpuSpecs, modelSpecs, workloadSpecs
-  
-  if (params.gpuSpecs && params.modelSpecs) {
-    // Structured style: prefer the structured specs if provided
-    gpuSpecs = {
-      totalVRAMGB: params.gpuSpecs.totalVRAMGB || params.gpu?.memory || params.totalVRAMGB || 80,
-      memoryBandwidthGBps: params.gpuSpecs.memoryBandwidthGBps || params.memoryBandwidthGBps || 900,
-      computeCapability: params.gpuSpecs.computeCapability || params.computeCapability || 8.0,
-      tensorCores: params.gpuSpecs.tensorCores !== undefined ? params.gpuSpecs.tensorCores : (params.tensorCores !== false),
-      multiGPU: params.gpuSpecs.multiGPU || params.multiGPU || false,
-      gpuCount: params.gpuSpecs.gpuCount || params.gpu?.count || params.gpuCount || 1,
-    }
-    modelSpecs = params.modelSpecs
-    workloadSpecs = params.workloadSpecs || {}
-  } else {
-    // Flat style: extract from mixed object
-    gpuSpecs = {
-      totalVRAMGB: params.gpu?.memory || params.totalVRAMGB || 80,
-      memoryBandwidthGBps: params.memoryBandwidthGBps || 900,
-      computeCapability: params.computeCapability || 8.0,
-      tensorCores: params.tensorCores !== false,
-      multiGPU: params.multiGPU || false,
-      gpuCount: params.gpu?.count || params.gpuCount || 1,
-    }
-    
-    modelSpecs = params.modelSpecs || {
-      modelSizeGB: params.modelSizeGB || (params.modelSpecs && params.modelSpecs.modelSizeGB) || 13.5,
-      numParams: params.numParams || (params.modelSpecs && params.modelSpecs.numParams) || 7,
-      quantization: params.quantization || 'fp16',
-      architecture: params.architecture,
-      modelPath: params.model,
-    }
-    
-    workloadSpecs = params.workloadSpecs || {
-      expectedConcurrentUsers: params.workload?.concurrentRequests || params.expectedConcurrentUsers || 16, // Lower for latency
-      averageSequenceLength: params.workload?.averageTokensPerRequest || params.averageSequenceLength || 512,
-      maxSequenceLength: params.workload?.maxSeqLen || params.maxSequenceLength || 2048,
-      workloadType: params.workloadType || 'serving',
-      latencyTarget: params.latencyTarget || 'low',
-    }
+  // Basic validation
+  if (!modelSizeGB || !architecture || !gpuMemoryGB) {
+    throw new ValidationError('modelSizeGB, architecture, and gpuMemoryGB are required')
   }
 
-  const {
-    totalVRAMGB,
-    memoryBandwidthGBps = 900,
-    computeCapability = 8.0,
-    tensorCores = true,
-    multiGPU = false,
-    gpuCount = 1,
-  } = gpuSpecs
+  // Calculate individual memory components
+  const modelWeights = calculateModelWeightsMemory(modelSizeGB, quantization)
+  const kvCache = calculateKVCacheMemory(batchSize, maxSequenceLength, architecture.layers, architecture.hiddenSize, architecture.numHeads, quantization)
+  const activations = calculateActivationMemory(batchSize, maxSequenceLength, architecture.layers, architecture.hiddenSize, quantization)
+  const systemOverhead = calculateSystemOverhead(gpuMemoryGB, batchSize, maxSequenceLength)
 
-  const {
-    modelSizeGB,
-    numParams,
-    quantization = 'fp16',
-    architecture,
-  } = modelSpecs
-
-  const {
-    expectedConcurrentUsers = 16, // Lower default for latency
-    averageSequenceLength = 512,
-    maxSequenceLength = 2048,
-    workloadType = 'serving',
-    latencyTarget = 'low',
-  } = workloadSpecs
-
-  // Calculate model memory if not provided
-  let finalModelSizeGB = modelSizeGB
-  if (!finalModelSizeGB && numParams) {
-    const modelMemoryInfo = calculateModelWeightsMemory(numParams, quantization)
-    finalModelSizeGB = modelMemoryInfo.totalMemory
-  }
-
-  if (!finalModelSizeGB) {
-    throw new Error('Either modelSizeGB or numParams must be provided')
-  }
-
-  // Get model architecture if not provided
-  let finalArchitecture = architecture
-  if (!finalArchitecture) {
-    // Check if modelSpecs has architecture properties directly
-    if (modelSpecs.layers && modelSpecs.hiddenSize && modelSpecs.numHeads) {
-      finalArchitecture = {
-        layers: modelSpecs.layers,
-        hiddenSize: modelSpecs.hiddenSize,
-        numHeads: modelSpecs.numHeads,
-      }
-    } else {
-      // Estimate from parameters
-      finalArchitecture = estimateModelArchitecture(numParams || finalModelSizeGB / 2)
-    }
-  }
-
-  // Calculate memory allocation strategy for latency
-  const memoryStrategy = calculateLatencyMemoryStrategy({
-    totalVRAMGB,
-    modelSizeGB: finalModelSizeGB,
-    targetBatchSize: expectedConcurrentUsers,
-    workloadType,
-    latencyPriority: latencyTarget === 'ultra-low' ? 'ultra-high' : 'high',
+  // Calculate VRAM breakdown
+  const vramBreakdown = calculateVRAMBreakdown({
+    modelWeights: modelWeights.totalMemory,
+    kvCache: kvCache.totalMemory,
+    activations: activations.totalMemory,
+    systemOverhead: systemOverhead.totalMemory,
+    availableMemoryGB: gpuMemoryGB
   })
 
-  // Calculate optimal batch sizes for latency
-  const batchConfig = calculateLatencyOptimalBatchSize({
-    availableMemoryGB: memoryStrategy.allocatedVRAMGB,
-    modelMemoryGB: finalModelSizeGB,
-    maxSequenceLength,
-    averageSequenceLength,
-    architecture: finalArchitecture,
-    latencyTarget,
-  })
-
-  // Estimate latency performance
-  const latencyEstimates = estimateLatencyMetrics(
-    {
-      maxNumSeqs: batchConfig.maxNumSeqs,
-      maxNumBatchedTokens: batchConfig.maxNumBatchedTokens,
-      modelSizeGB: finalModelSizeGB,
-      quantization,
-      maxSequenceLength,
-    },
-    { memoryBandwidthGBps, computeCapability, tensorCores },
-    latencyTarget
-  )
-
-  // Generate vLLM command line arguments optimized for latency
-  const vllmArgs = {
-    // Core model and serving
-    model: modelSpecs.modelPath || 'MODEL_PATH',
-    host: '0.0.0.0',
-    port: 8000,
-    
-    // Memory and batch optimization for latency
-    'gpu-memory-utilization': memoryStrategy.gpuMemoryUtilization,
-    'max-num-seqs': batchConfig.maxNumSeqs,
-    'max-num-batched-tokens': batchConfig.maxNumBatchedTokens,
-    'max-model-len': maxSequenceLength,
-    'block-size': memoryStrategy.recommendedBlockSize,
-    
-    // Latency-specific optimizations
-    'disable-log-stats': true, // Reduce logging overhead
-    'enforce-eager': false, // Keep CUDA graphs for performance
-    
-    // Swap space (minimal for latency)
-    ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    
-    // Quantization
-    ...(quantization !== 'fp16' && { quantization }),
-    
-    // Multi-GPU setup
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
-    
-    // Disable chunked prefill for shorter sequences (reduces TTFT)
-    ...(maxSequenceLength <= LATENCY_OPTIMIZATION_CONFIGS.disableChunkedPrefillThreshold && {
-      'disable-chunked-prefill': true
-    }),
-  }
+  // Analyze memory efficiency and pressure
+  const memoryEfficiency = calculateMemoryEfficiency(vramBreakdown)
+  const memoryPressure = analyzeMemoryPressure(vramBreakdown, gpuMemoryGB)
+  const quantizationBenefit = analyzeQuantizationBenefit(modelSizeGB, quantization)
 
   return {
-    // Expected top-level properties
-    batchConfiguration: batchConfig,
-    memoryConfiguration: memoryStrategy,
-    latencyEstimate: latencyEstimates,
-    vllmParameters: vllmArgs,
-    vllmCommand: generateVLLMCommand(vllmArgs),
-    
-    // Optimization summary with latency focus
-    optimizationSummary: {
-      primaryOptimizations: [
-        `Batch size reduced to ${batchConfig.maxNumSeqs} for lower latency`,
-        `Memory utilization set to ${Math.round(memoryStrategy.gpuMemoryUtilization * 100)}% to avoid pressure`,
-        `Block size optimized to ${memoryStrategy.recommendedBlockSize} for cache locality`,
-        `Quantization: ${quantization} for speed-quality balance`,
-        latencyTarget === 'ultra-low' ? 'Ultra-low latency configuration' :
-        latencyTarget === 'balanced' ? 'Balanced latency-throughput configuration' :
-        'Low latency optimized configuration'
-      ],
-      tradeoffs: [
-        'Lower batch sizes reduce throughput but minimize latency',
-        'Conservative memory usage prevents swapping but may underutilize GPU',
-        'Smaller block sizes improve cache locality but may reduce memory efficiency',
-        `Estimated TTFT: ${latencyEstimates.timeToFirstToken}ms, ITL: ${latencyEstimates.interTokenLatency}ms`
-      ],
-      expectedImprovements: {
-        latencyReduction: `${Math.round((1 - batchConfig.maxNumSeqs / 128) * 100)}%`,
-        timeToFirstToken: `${latencyEstimates.timeToFirstToken}ms`,
-        interTokenLatency: `${latencyEstimates.interTokenLatency}ms`,
-        concurrentCapacity: batchConfig.maxNumSeqs
-      }
+    components: {
+      modelWeights,
+      kvCache,
+      activations,
+      systemOverhead
     },
-    
-    // Additional latency-specific metrics
-    latencyMetrics: latencyEstimates,
-    
-    // Configuration parameters
-    configuration: vllmArgs,
-    
-    // Memory allocation details
-    memoryAllocation: memoryStrategy,
-    
-    // Batch size optimization
-    batchOptimization: batchConfig,
-    
-    // Command generation
-    command: generateVLLMCommand(vllmArgs),
-  }
-}
-
-/**
- * Optimize configuration specifically for low-latency workload patterns
- * @param {object} workloadProfile - Workload characteristics with latency focus
- * @returns {object} Latency-specific optimizations
- */
-export function optimizeForLatency(workloadProfile) {
-  const {
-    workloadType = 'serving', // 'interactive', 'realtime', 'streaming', 'api'
-    averageInputLength = 256, // Shorter inputs typical for latency-sensitive workloads
-    averageOutputLength = 50, // Shorter outputs for faster responses
-    peakConcurrency = 16, // Lower concurrency for latency
-    latencyRequirement = 'low', // 'ultra-low' | 'low' | 'balanced'
-    responseTimeTarget = 200, // Target response time in ms
-  } = workloadProfile
-
-  const optimizations = {
-    recommendedQuantization: 'fp16', // Balance of speed and quality
-    memoryStrategy: 'conservative',
-    batchingStrategy: {},
-    latencySettings: {},
-    specialSettings: {},
-  }
-
-  // Calculate sequence lengths
-  const totalSeqLen = averageInputLength + averageOutputLength
-  const maxSeqLen = Math.min(totalSeqLen * 1.5, 2048) // Less variance for latency workloads
-  
-  // Determine batch size based on latency requirements
-  let maxBatchSize
-  switch (latencyRequirement) {
-    case 'ultra-low':
-      maxBatchSize = Math.min(8, peakConcurrency)
-      optimizations.memoryStrategy = 'ultra-conservative'
-      optimizations.recommendedQuantization = 'fp16' // Avoid quantization overhead
-      break
-    case 'balanced':
-      maxBatchSize = Math.min(32, peakConcurrency)
-      optimizations.memoryStrategy = 'balanced'
-      break
-    default: // 'low'
-      maxBatchSize = Math.min(16, peakConcurrency)
-      optimizations.memoryStrategy = 'conservative'
-  }
-
-  // Latency-specific batching strategy
-  optimizations.batchingStrategy = {
-    maxSeqLen: maxSeqLen,
-    maxNumSeqs: maxBatchSize,
-    maxNumBatchedTokens: Math.min(maxBatchSize * totalSeqLen, 2048),
-    enableChunkedPrefill: maxSeqLen > 1024, // Only for longer sequences
-    prioritizeLatency: true,
-  }
-
-  // Latency-specific settings
-  optimizations.latencySettings = {
-    blockSize: latencyRequirement === 'ultra-low' ? 8 : 16,
-    gpuMemoryUtilization: latencyRequirement === 'ultra-low' ? 0.75 : 0.80,
-    disableLogStats: true,
-    enforceEager: false, // Keep CUDA graphs
-    preemptiveScheduling: latencyRequirement === 'ultra-low',
-  }
-
-  // Workload-specific optimizations
-  switch (workloadType) {
-    case 'interactive':
-      optimizations.specialSettings = {
-        'disable-log-stats': true,
-        'enforce-eager': false,
-        'enable-prefix-caching': false, // Disable to reduce complexity
-      }
-      optimizations.latencySettings.prioritizeFirstToken = true
-      break
-
-    case 'realtime':
-      optimizations.specialSettings = {
-        'disable-log-stats': true,
-        'disable-chunked-prefill': true, // Disable for minimal TTFT
-        'enforce-eager': false,
-      }
-      optimizations.recommendedQuantization = 'fp16' // Avoid quant overhead
-      break
-
-    case 'streaming':
-      optimizations.specialSettings = {
-        'disable-log-stats': true,
-        'stream-interval': 1, // Stream tokens immediately
-      }
-      optimizations.latencySettings.streamOptimized = true
-      break
-
-    case 'api':
-      optimizations.specialSettings = {
-        'disable-log-stats': true,
-        'response-role': 'assistant',
-      }
-      optimizations.latencySettings.apiOptimized = true
-      break
-
-    default: // serving
-      optimizations.specialSettings = {
-        'disable-log-stats': true,
-      }
-  }
-
-  return {
-    workloadType,
-    latencyTarget: latencyRequirement,
-    inputProfile: {
-      averageInputLength,
-      averageOutputLength,
-      peakConcurrency,
-      totalSequenceLength: totalSeqLen,
-      responseTimeTarget,
-    },
-    optimizations,
-    recommendations: {
-      quantization: optimizations.recommendedQuantization,
-      memoryUtilization: optimizations.latencySettings.gpuMemoryUtilization,
-      batchConfiguration: optimizations.batchingStrategy,
-      latencyFeatures: optimizations.latencySettings,
-      specialFeatures: optimizations.specialSettings,
-    },
-    reasoning: {
-      latencyConsiderations: getLatencyConsiderations(workloadType),
-      latencyRequirement,
-      expectedLatencyImprovement: `${Math.round((128 - maxBatchSize) / 128 * 100)}%`,
-    }
-  }
-}
-
-/**
- * Get latency-specific considerations for different workload types
- * @param {string} workloadType - Type of workload
- * @returns {string[]} List of latency considerations
- */
-function getLatencyConsiderations(workloadType) {
-  const considerations = {
-    interactive: [
-      'Minimize Time to First Token (TTFT) for responsive interactions',
-      'Small batch sizes to reduce queuing delays',
-      'Conservative memory usage to avoid GC pauses',
-    ],
-    realtime: [
-      'Ultra-low latency required for real-time applications',
-      'Disable complex optimizations that add latency variance',
-      'Predictable response times more important than peak throughput',
-    ],
-    streaming: [
-      'Optimize for smooth token streaming',
-      'Minimize inter-token latency for fluid output',
-      'Stream tokens immediately as they are generated',
-    ],
-    api: [
-      'Balance latency with reasonable throughput for API endpoints',
-      'Consistent response times for better user experience',
-      'Efficient resource utilization for cost effectiveness',
-    ],
-    serving: [
-      'General low-latency serving optimization',
-      'Balance between response time and concurrent capacity',
-      'Avoid memory pressure that could cause latency spikes',
-    ]
-  }
-  
-  return considerations[workloadType] || considerations.serving
-}
-
-// Legacy functions for backward compatibility
-/**
- * Calculate VRAM usage for a model with given parameters (legacy)
- * @deprecated Use calculateVLLMMemoryUsage instead
- */
-export function calculateVRAMUsage(
-  modelSizeGB,
-  quantizationFactor = 1,
-  batchSize = 1,
-  sequenceLength = 2048,
-  overheadFactor = 1.2
-) {
-  if (modelSizeGB <= 0) {
-    throw new Error('Model size must be positive')
-  }
-
-  const baseMemory = modelSizeGB * quantizationFactor
-  const activationMemory = batchSize * sequenceLength * 0.001 // Simplified calculation
-  const totalMemory = (baseMemory + activationMemory) * overheadFactor
-
-  return Math.round(totalMemory * 100) / 100 // Round to 2 decimal places
-}
-
-/**
- * Check if a GPU has enough VRAM for a given configuration
- * @param {number} gpuVRAM - GPU VRAM in GB
- * @param {number} requiredVRAM - Required VRAM in GB
- * @returns {boolean} Whether GPU has enough VRAM
- */
-export function canRunOnGPU(gpuVRAM, requiredVRAM) {
-  return gpuVRAM >= requiredVRAM
-}
-
-// ===============================
-// BALANCED OPTIMIZATION FUNCTIONS  
-// ===============================
-
-/**
- * Balanced configuration values that provide compromise between throughput and latency
- * Based on vLLM best practices for general-purpose serving
- */
-const BALANCED_OPTIMIZATION_CONFIGS = {
-  // Moderate batch sizes for balanced performance
-  gpu: {
-    maxNumSeqsOptimal: 128, // Between throughput (256) and latency (32)
-    maxNumBatchedTokensOptimal: 4096, // Between throughput (8192) and latency (2048)
-    maxNumSeqsMinimal: 32, // For cost-optimized scenarios
-    maxNumSeqsMaximal: 192, // For performance-focused balanced configs
-  },
-  
-  // Balanced memory utilization
-  gpuMemoryUtilization: {
-    conservative: 0.80, // Between latency (75%) and throughput (85%)
-    balanced: 0.85, // Sweet spot for most workloads
-    performance: 0.90, // Higher utilization when performance is prioritized
-  },
-  
-  // Chunked prefill settings for balance
-  chunkedPrefillThreshold: 2048, // Enable for sequences longer than this
-  chunkedPrefillSize: 1024, // Moderate chunk size
-  
-  // KV cache block sizes (balanced for efficiency and locality)
-  kvCacheBlockSizes: [16, 24], // Between latency (8-16) and throughput (16-32)
-  
-  // Balanced optimization targets
-  targets: {
-    'general': { priority: 'balanced', memoryUtil: 0.85, maxSeqs: 128 },
-    'web-api': { priority: 'latency-focused', memoryUtil: 0.80, maxSeqs: 96 },
-    'multi-user': { priority: 'throughput-focused', memoryUtil: 0.90, maxSeqs: 160 },
-    'cost-optimized': { priority: 'efficiency', memoryUtil: 0.85, maxSeqs: 64 },
-    'production': { priority: 'reliability', memoryUtil: 0.80, maxSeqs: 96 },
-  },
-}
-
-/**
- * Calculate optimal batch size for balanced performance
- * @param {object} config - Configuration parameters
- * @param {number} config.availableMemoryGB - Available GPU memory in GB
- * @param {number} config.modelMemoryGB - Model memory usage in GB
- * @param {number} config.maxSequenceLength - Maximum sequence length
- * @param {number} config.averageSequenceLength - Average expected sequence length
- * @param {object} config.architecture - Model architecture info
- * @param {string} config.balanceTarget - 'general' | 'web-api' | 'multi-user' | 'cost-optimized' | 'production'
- * @returns {object} Optimal batch configuration for balanced performance
- */
-export function calculateBalancedBatchSize(config) {
-  const {
-    availableMemoryGB,
-    modelMemoryGB,
-    maxSequenceLength = 2048,
-    averageSequenceLength = 512,
-    architecture,
-    balanceTarget = 'general',
-  } = config
-
-  if (availableMemoryGB <= modelMemoryGB) {
-    throw new Error('Available memory must be greater than model memory')
-  }
-
-  const remainingMemoryGB = availableMemoryGB - modelMemoryGB
-  
-  // Get target configuration based on balance target
-  const targetConfig = BALANCED_OPTIMIZATION_CONFIGS.targets[balanceTarget] || 
-                      BALANCED_OPTIMIZATION_CONFIGS.targets.general
-  
-  // Calculate KV cache memory per sequence
-  const kvCachePerSeqGB = calculateKVCacheMemory(
-    1, // single sequence
-    maxSequenceLength,
-    architecture.layers,
-    architecture.hiddenSize,
-    architecture.numHeads,
-    'fp16' // Use FP16 for balanced approach
-  )
-  
-  // Calculate activation memory per token (more efficient estimation for balanced)
-  const activationPerTokenGB = calculateActivationMemory(1, 1, architecture.hiddenSize, architecture.layers) * 0.5 // Reduce activation overhead
-  
-  // Calculate optimal batch size based on target (with safety margin)
-  const safeMemoryGB = remainingMemoryGB * 0.8 // Use 80% of remaining memory for safety
-  const memoryBasedMaxSeqs = Math.floor(safeMemoryGB / (kvCachePerSeqGB + activationPerTokenGB * averageSequenceLength))
-  const targetMaxSeqs = targetConfig.maxSeqs
-  
-  // Use a balanced approach: prefer target but respect memory limits
-  const maxNumSeqs = Math.min(Math.max(memoryBasedMaxSeqs, 32), targetMaxSeqs) // Ensure at least 32
-  
-  // Calculate batched tokens based on target priority
-  let maxNumBatchedTokens
-  switch (targetConfig.priority) {
-    case 'throughput-focused':
-      maxNumBatchedTokens = Math.min(6144, maxNumSeqs * averageSequenceLength)
-      break
-    case 'latency-focused':
-      maxNumBatchedTokens = Math.min(3072, maxNumSeqs * averageSequenceLength)
-      break
-    default: // balanced, efficiency, reliability
-      maxNumBatchedTokens = BALANCED_OPTIMIZATION_CONFIGS.gpu.maxNumBatchedTokensOptimal
-  }
-  
-  // Ensure minimum viable values
-  const finalMaxNumSeqs = Math.max(8, maxNumSeqs)
-  const finalMaxNumBatchedTokens = Math.max(1024, maxNumBatchedTokens)
-  
-  // Calculate memory usage breakdown
-  const kvCacheMemoryGB = finalMaxNumSeqs * kvCachePerSeqGB
-  const activationMemoryGB = finalMaxNumSeqs * activationPerTokenGB * averageSequenceLength
-  const totalUsedMemoryGB = modelMemoryGB + kvCacheMemoryGB + activationMemoryGB
-  const memoryUtilization = totalUsedMemoryGB / availableMemoryGB
-  
-  return {
-    maxNumSeqs: finalMaxNumSeqs,
-    maxNumBatchedTokens: finalMaxNumBatchedTokens,
-    kvCacheMemoryGB,
-    activationMemoryGB,
-    memoryUtilization,
-    balanceTarget,
-    reasoning: {
-      availableForBatching: remainingMemoryGB,
-      kvCachePerSeq: kvCachePerSeqGB,
-      memoryBasedLimit: memoryBasedMaxSeqs,
-      targetBasedLimit: targetMaxSeqs,
-      selectedTarget: targetConfig,
-      optimizationFocus: 'balanced_performance',
-    }
-  }
-}
-
-/**
- * Calculate balanced memory allocation strategy
- * @param {object} config - Configuration object
- * @param {number} config.totalVRAMGB - Total VRAM available
- * @param {number} config.modelSizeGB - Model size in GB
- * @param {number} config.targetBatchSize - Expected concurrent requests
- * @param {string} config.workloadType - Type of workload
- * @param {string} config.balancePriority - 'performance' | 'balanced' | 'conservative'
- * @returns {object} Balanced memory allocation strategy
- */
-export function calculateBalancedMemoryStrategy(config) {
-  const {
-    totalVRAMGB,
-    modelSizeGB,
-    targetBatchSize = 96, // Moderate default for balanced approach
-    workloadType = 'serving',
-    balancePriority = 'balanced',
-  } = config
-
-  if (totalVRAMGB <= modelSizeGB) {
-    throw new Error('Total VRAM must be greater than model size')
-  }
-
-  // Use balanced memory utilization
-  let gpuMemoryUtilization
-  switch (balancePriority) {
-    case 'performance':
-      gpuMemoryUtilization = BALANCED_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.performance
-      break
-    case 'conservative':
-      gpuMemoryUtilization = BALANCED_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.conservative
-      break
-    default: // 'balanced'
-      gpuMemoryUtilization = BALANCED_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.balanced
-  }
-
-  const allocatedVRAMGB = totalVRAMGB * gpuMemoryUtilization
-  const availableForKVCacheGB = allocatedVRAMGB - modelSizeGB
-  
-  // Reserve balanced amount for system overhead
-  const systemReservedGB = totalVRAMGB * (1 - gpuMemoryUtilization)
-  
-  // Calculate KV cache allocation (balanced approach)
-  const kvCacheAllocationGB = availableForKVCacheGB * 0.75 // Reserve 25% for activations and overhead
-  
-  // Moderate swap space for balanced workloads
-  const swapSpaceGB = Math.min(4, totalVRAMGB * 0.1) // 10% or 4GB max
-  
-  // Balanced block sizes for good cache efficiency and memory utilization
-  const recommendedBlockSize = balancePriority === 'performance' ? 24 : 16
-  
-  // Enable chunked prefill for longer sequences
-  const enableChunkedPrefill = targetBatchSize > 32 // Enable when we have reasonable batch size
-  
-  return {
-    gpuMemoryUtilization,
-    swapSpaceGB,
-    allocatedVRAMGB,
-    kvCacheAllocationGB,
-    reservedMemoryGB: systemReservedGB,
-    recommendedBlockSize,
-    enableChunkedPrefill,
-    workloadOptimization: workloadType,
-    balanceOptimizations: {
-      moderatePreemption: true, // Allow some preemption for efficiency
-      adaptiveBatching: balancePriority === 'performance',
-      stableAllocation: balancePriority === 'conservative',
-    },
-    memoryBreakdown: {
-      model: modelSizeGB,
-      kvCache: kvCacheAllocationGB,
-      reserved: systemReservedGB,
-      swap: swapSpaceGB,
-    }
-  }
-}
-
-/**
- * Estimate balanced performance metrics (both throughput and latency)
- * @param {object} config - vLLM configuration
- * @param {object} hardwareSpecs - GPU specifications
- * @param {string} optimizationLevel - 'performance' | 'balanced' | 'conservative'
- * @returns {object} Estimated balanced performance metrics
- */
-export function estimateBalancedMetrics(config, hardwareSpecs, optimizationLevel = 'balanced') {
-  const {
-    maxNumSeqs,
-    modelSizeGB,
-    quantization = 'fp16',
-    maxSequenceLength = 2048,
-  } = config
-
-  const {
-    gpuMemoryBandwidthGBps = 900, // Default for A100
-    tensorCores = true,
-  } = hardwareSpecs
-
-  // Balanced memory bandwidth utilization (between throughput and latency)
-  const memoryBandwidthUtilization = optimizationLevel === 'performance' ? 0.75 : 
-                                    optimizationLevel === 'conservative' ? 0.55 : 0.65
-  const effectiveMemoryBandwidth = gpuMemoryBandwidthGBps * memoryBandwidthUtilization
-  
-  // Calculate throughput metrics (similar to throughput optimization but more conservative)
-  const quantizationInfo = calculateQuantizationFactor(quantization)
-  const decodeTokensPerSec = (effectiveMemoryBandwidth / modelSizeGB) * maxNumSeqs * 0.8 // 80% efficiency
-  
-  // Calculate latency metrics (similar to latency optimization but less aggressive)
-  const prefillComputeIntensity = tensorCores ? 1.3 : 1.0 // Moderate tensor core utilization
-  const timeToFirstTokenMs = Math.max(
-    75, // Reasonable minimum TTFT
-    (maxSequenceLength * modelSizeGB) / (effectiveMemoryBandwidth * prefillComputeIntensity * 80)
-  )
-  
-  // Inter-token latency with batch penalty
-  const batchLatencyPenalty = 1 + (maxNumSeqs - 32) * 0.05 // 5% penalty per sequence above 32
-  const baseInterTokenLatency = (modelSizeGB * (quantizationInfo.memoryFactor || 0.5)) / effectiveMemoryBandwidth
-  const interTokenLatencyMs = Math.max(10, baseInterTokenLatency * batchLatencyPenalty * 1000) // Ensure minimum and convert to ms
-  
-  // Calculate balanced performance scores
-  const avgOutputLength = 100
-  const totalLatencyMs = timeToFirstTokenMs + (interTokenLatencyMs * avgOutputLength)
-  const requestsPerSecond = Math.min(decodeTokensPerSec / avgOutputLength, 1000 / totalLatencyMs * maxNumSeqs)
-  
-  // Performance balance score (0-1, higher is better balanced) - with safe guards against NaN
-  const throughputScore = Math.min(1, Math.max(0, decodeTokensPerSec / (modelSizeGB * 1000))) // Normalize by model size
-  const latencyScore = Math.min(1, Math.max(0, 1 - (totalLatencyMs / 5000))) // Normalize to 5 second max
-  const balanceScore = (throughputScore + latencyScore) / 2
-  
-  return {
-    // Throughput metrics
-    tokensPerSecond: Math.floor(decodeTokensPerSec),
-    requestsPerSecond: Math.floor(requestsPerSecond),
-    
-    // Latency metrics
-    timeToFirstToken: Math.ceil(timeToFirstTokenMs),
-    interTokenLatency: Math.ceil(interTokenLatencyMs),
-    totalLatency: Math.ceil(totalLatencyMs),
-    
-    // Balanced performance analysis
-    balanceMetrics: {
-      throughputScore: Math.round(throughputScore * 100) / 100,
-      latencyScore: Math.round(latencyScore * 100) / 100,
-      overallBalanceScore: Math.round(balanceScore * 100) / 100,
-      performanceClass: balanceScore > 0.8 ? 'excellent' : 
-                       balanceScore > 0.6 ? 'good' : 
-                       balanceScore > 0.4 ? 'fair' : 'poor'
-    },
-    
-    // Performance percentiles (balanced between best and worst case)
-    latencyPercentiles: {
-      p50: Math.ceil(totalLatencyMs),
-      p90: Math.ceil(totalLatencyMs * 1.3), // Less variance than pure latency optimization
-      p99: Math.ceil(totalLatencyMs * 1.6),
-    },
-    
-    // Utilization efficiency
-    utilizationEfficiency: memoryBandwidthUtilization,
-    concurrentCapacity: maxNumSeqs,
-    
-    optimizationLevel,
-    
-    // Bottleneck analysis
-    bottlenecks: [
-      ...(timeToFirstTokenMs > 300 ? ['prefill_latency'] : []),
-      ...(interTokenLatencyMs > 75 ? ['decode_latency'] : []),
-      ...(requestsPerSecond < maxNumSeqs * 2 ? ['memory_bandwidth'] : []),
-      ...(balanceScore < 0.5 ? ['configuration_balance'] : []),
-    ],
-    
-    // Recommendations for improvement
-    recommendations: {
-      increaseMemoryUtil: gpuMemoryBandwidthGBps > 1500 && memoryBandwidthUtilization < 0.7,
-      reduceBatchSize: maxNumSeqs > 128 && latencyScore < 0.6,
-      enableOptimizations: throughputScore < 0.5 && optimizationLevel === 'conservative',
-      adjustBalanceTarget: balanceScore < 0.6,
-    }
-  }
-}
-
-/**
- * Main function to calculate balanced vLLM configuration
- * @param {object} params - Parameters object containing gpuSpecs, modelSpecs, and workloadSpecs
- * @returns {object} Optimized vLLM configuration for balanced performance
- */
-export function calculateBalancedOptimizedConfig(params) {
-  // Validate input parameters
-  Validators.object(params, [], 'params')
-  
-  // Handle both structured and flat parameter styles
-  let gpuSpecs, modelSpecs, workloadSpecs
-  
-  if (params.gpuSpecs && params.modelSpecs) {
-    // Structured style - validate sub-objects
-    VLLMValidators.gpuSpecs(params.gpuSpecs)
-    VLLMValidators.modelSpecs(params.modelSpecs)
-    
-    gpuSpecs = {
-      totalVRAMGB: params.gpuSpecs.totalVRAMGB || params.gpu?.memory || params.totalVRAMGB || 80,
-      memoryBandwidthGBps: params.gpuSpecs.memoryBandwidthGBps || params.memoryBandwidthGBps || 900,
-      computeCapability: params.gpuSpecs.computeCapability || params.computeCapability || 8.0,
-      tensorCores: params.gpuSpecs.tensorCores !== undefined ? params.gpuSpecs.tensorCores : (params.tensorCores !== false),
-      multiGPU: params.gpuSpecs.multiGPU || params.multiGPU || false,
-      gpuCount: params.gpuSpecs.gpuCount || params.gpu?.count || params.gpuCount || 1,
-    }
-    modelSpecs = params.modelSpecs
-    workloadSpecs = params.workloadSpecs || {}
-  } else {
-    // Flat style: extract from mixed object
-    // Validate required fields are present
-    if (!params.modelSizeGB && !params.numParams) {
-      throw new ValidationError('Either modelSizeGB or numParams must be provided', 'params', params)
-    }
-    
-    gpuSpecs = {
-      totalVRAMGB: params.gpu?.memory || params.totalVRAMGB || 80,
-      memoryBandwidthGBps: params.memoryBandwidthGBps || 900,
-      computeCapability: params.computeCapability || 8.0,
-      tensorCores: params.tensorCores !== false,
-      multiGPU: params.multiGPU || false,
-      gpuCount: params.gpu?.count || params.gpuCount || 1,
-    }
-    
-    modelSpecs = params.modelSpecs || {
-      modelSizeGB: params.modelSizeGB || (params.modelSpecs && params.modelSpecs.modelSizeGB) || 13.5,
-      numParams: params.numParams || (params.modelSpecs && params.modelSpecs.numParams) || 7,
-      quantization: params.quantization || 'fp16',
-      architecture: params.architecture,
-      modelPath: params.model,
-    }
-    
-    workloadSpecs = params.workloadSpecs || {
-      expectedConcurrentUsers: params.workload?.concurrentRequests || params.expectedConcurrentUsers || 96, // Balanced default
-      averageSequenceLength: params.workload?.averageTokensPerRequest || params.averageSequenceLength || 512,
-      maxSequenceLength: params.workload?.maxSeqLen || params.maxSequenceLength || 2048,
-      workloadType: params.workloadType || 'serving',
-      balanceTarget: params.workloadSpecs?.balanceTarget || params.balanceTarget || 'general',
-    }
-  }
-
-  const {
-    totalVRAMGB,
-    memoryBandwidthGBps = 900,
-    computeCapability = 8.0,
-    tensorCores = true,
-    multiGPU = false,
-    gpuCount = 1,
-  } = gpuSpecs
-
-  const {
-    modelSizeGB,
-    numParams,
-    quantization = 'fp16',
-    architecture,
-  } = modelSpecs
-
-  const {
-    expectedConcurrentUsers = 96,
-    averageSequenceLength = 512,
-    maxSequenceLength = 2048,
-    workloadType = 'serving',
-    balanceTarget = 'general',
-  } = workloadSpecs
-
-  // Calculate model memory if not provided
-  let finalModelSizeGB = modelSizeGB
-  if (!finalModelSizeGB && numParams) {
-    const modelMemoryInfo = calculateModelWeightsMemory(numParams, quantization)
-    finalModelSizeGB = modelMemoryInfo.totalMemory
-  }
-
-  if (!finalModelSizeGB) {
-    throw new Error('Either modelSizeGB or numParams must be provided')
-  }
-
-  // Get model architecture if not provided
-  let finalArchitecture = architecture
-  if (!finalArchitecture) {
-    // Check if modelSpecs has architecture properties directly
-    if (modelSpecs.layers && modelSpecs.hiddenSize && modelSpecs.numHeads) {
-      finalArchitecture = {
-        layers: modelSpecs.layers,
-        hiddenSize: modelSpecs.hiddenSize,
-        numHeads: modelSpecs.numHeads,
-      }
-    } else {
-      // Estimate architecture from model size
-      finalArchitecture = estimateModelArchitecture(numParams || (finalModelSizeGB / 2))
-    }
-  }
-
-  // Determine balance priority based on target
-  const balancePriority = balanceTarget === 'multi-user' ? 'performance' :
-                         balanceTarget === 'web-api' || balanceTarget === 'production' ? 'conservative' :
-                         'balanced'
-
-  // Calculate balanced memory allocation strategy
-  const memoryStrategy = calculateBalancedMemoryStrategy({
-    totalVRAMGB,
-    modelSizeGB: finalModelSizeGB,
-    targetBatchSize: expectedConcurrentUsers,
-    workloadType,
-    balancePriority,
-  })
-
-  // Calculate balanced batch sizes
-  const batchConfig = calculateBalancedBatchSize({
-    availableMemoryGB: memoryStrategy.allocatedVRAMGB,
-    modelMemoryGB: finalModelSizeGB,
-    maxSequenceLength,
-    averageSequenceLength,
-    architecture: finalArchitecture,
-    balanceTarget,
-  })
-
-  // Estimate balanced performance
-  const balancedEstimates = estimateBalancedMetrics(
-    {
-      maxNumSeqs: batchConfig.maxNumSeqs,
-      maxNumBatchedTokens: batchConfig.maxNumBatchedTokens,
-      modelSizeGB: finalModelSizeGB,
-      quantization,
-      maxSequenceLength,
-    },
-    { memoryBandwidthGBps, computeCapability, tensorCores },
-    balancePriority
-  )
-
-  // Generate vLLM command line arguments optimized for balance
-  const vllmArgs = {
-    model: modelSpecs.modelPath || 'MODEL_PATH',
-    host: '0.0.0.0',
-    port: 8000,
-    'gpu-memory-utilization': memoryStrategy.gpuMemoryUtilization,
-    'max-num-seqs': batchConfig.maxNumSeqs,
-    'max-num-batched-tokens': batchConfig.maxNumBatchedTokens,
-    'max-model-len': maxSequenceLength,
-    'block-size': memoryStrategy.recommendedBlockSize,
-    
-    // Balanced optimizations
-    ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength > BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
-      'enable-chunked-prefill': true,
-      'max-chunked-prefill-tokens': BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillSize
-    }),
-    ...(quantization !== 'fp16' && { quantization }),
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
-    
-    // Balanced performance settings
-    'disable-log-stats': workloadType === 'batch', // Only for batch workloads
-    ...(balancePriority === 'performance' && { 'enforce-eager': false }), // Enable CUDA graphs for performance
-  }
-
-  return {
-    batchConfiguration: batchConfig,
-    memoryConfiguration: memoryStrategy,
-    balancedEstimate: balancedEstimates,
-    vllmParameters: vllmArgs,
-    vllmCommand: generateVLLMCommand(vllmArgs),
-    
-    optimizationSummary: {
-      primaryOptimizations: [
-        `Balanced batch size of ${batchConfig.maxNumSeqs} concurrent sequences`,
-        `Memory utilization set to ${Math.round(memoryStrategy.gpuMemoryUtilization * 100)}% for stability`,
-        `Block size optimized to ${memoryStrategy.recommendedBlockSize} for balanced performance`,
-        `Target: ${balanceTarget} with ${balancePriority} priority`,
-        `Balance score: ${balancedEstimates.balanceMetrics.overallBalanceScore} (${balancedEstimates.balanceMetrics.performanceClass})`
-      ],
-      tradeoffs: [
-        'Balanced approach sacrifices peak throughput for consistent latency',
-        'Conservative memory usage prevents OOM but may limit maximum performance',
-        `Moderate batching provides ${balancedEstimates.requestsPerSecond} req/s with ${balancedEstimates.timeToFirstToken}ms TTFT`,
-        'Good general-purpose configuration for most production workloads'
-      ],
-      expectedImprovements: {
-        balanceScore: `${Math.round(balancedEstimates.balanceMetrics.overallBalanceScore * 100)}%`,
-        throughputPerformance: `${balancedEstimates.tokensPerSecond} tokens/sec`,
-        latencyPerformance: `${balancedEstimates.timeToFirstToken}ms TTFT, ${balancedEstimates.interTokenLatency}ms ITL`,
-        concurrentCapacity: batchConfig.maxNumSeqs,
-        reliabilityClass: balancedEstimates.balanceMetrics.performanceClass
-      }
-    },
-    
-    // Balance-specific metrics
-    balanceMetrics: balancedEstimates,
-    configuration: vllmArgs,
-    memoryAllocation: memoryStrategy,
-    batchOptimization: batchConfig,
-    command: generateVLLMCommand(vllmArgs),
-  }
-}
-
-/**
- * Optimize configuration for balanced workload patterns
- * @param {object} workloadProfile - Workload characteristics for balanced optimization
- * @returns {object} Balance-specific optimizations
- */
-export function optimizeForBalance(workloadProfile) {
-  const {
-    workloadType = 'serving', // 'general' | 'web-api' | 'multi-user' | 'cost-optimized' | 'production'
-    averageInputLength = 256,
-    averageOutputLength = 100,
-    peakConcurrency = 96,
-    performancePriority = 'balanced', // 'throughput' | 'balanced' | 'latency'
-    costSensitivity = 'medium', // 'low' | 'medium' | 'high'
-    reliabilityRequirement = 'standard', // 'basic' | 'standard' | 'high'
-  } = workloadProfile
-
-  const optimizations = {
-    recommendedQuantization: 'fp16', // Balanced default
-    memoryStrategy: 'balanced',
-    batchingStrategy: {},
-    balanceSettings: {},
-    specialSettings: {},
-  }
-
-  // Calculate sequence parameters
-  const totalSeqLen = averageInputLength + averageOutputLength
-  const maxSeqLen = Math.min(totalSeqLen * 2, 4096) // Allow for 2x variance, cap at 4K
-  
-  // Determine batch size based on workload type and concurrency
-  let targetBatchSize, memoryUtilization, balanceTarget
-  
-  switch (workloadType) {
-    case 'web-api':
-      targetBatchSize = Math.min(peakConcurrency, 96) // Conservative for web APIs
-      memoryUtilization = 0.80
-      balanceTarget = 'web-api'
-      break
-      
-    case 'multi-user':
-      targetBatchSize = Math.min(peakConcurrency, 160) // Higher for multi-user systems
-      memoryUtilization = 0.90
-      balanceTarget = 'multi-user'
-      break
-      
-    case 'cost-optimized':
-      targetBatchSize = Math.min(peakConcurrency, 64) // Lower for cost optimization
-      memoryUtilization = 0.85
-      balanceTarget = 'cost-optimized'
-      break
-      
-    case 'production':
-      targetBatchSize = Math.min(peakConcurrency, 96) // Conservative for production
-      memoryUtilization = 0.80
-      balanceTarget = 'production'
-      break
-      
-    default: // 'general'
-      targetBatchSize = Math.min(peakConcurrency, 128)
-      memoryUtilization = 0.85
-      balanceTarget = 'general'
-  }
-  
-  // Adjust based on performance priority
-  if (performancePriority === 'throughput') {
-    targetBatchSize = Math.min(targetBatchSize * 1.5, 192)
-    memoryUtilization = Math.min(memoryUtilization + 0.05, 0.95)
-  } else if (performancePriority === 'latency') {
-    targetBatchSize = Math.max(targetBatchSize * 0.7, 32)
-    memoryUtilization = Math.max(memoryUtilization - 0.05, 0.75)
-  }
-  
-  // Balanced batching strategy
-  optimizations.batchingStrategy = {
-    maxSeqLen: maxSeqLen,
-    maxNumSeqs: Math.floor(targetBatchSize),
-    maxNumBatchedTokens: Math.min(targetBatchSize * (totalSeqLen * 0.8), 6144),
-    enableChunkedPrefill: maxSeqLen > 2048,
-    adaptiveBatching: performancePriority !== 'latency',
-  }
-
-  // Balance-specific settings
-  optimizations.balanceSettings = {
-    blockSize: performancePriority === 'throughput' ? 24 : 16,
-    gpuMemoryUtilization: memoryUtilization,
-    swapSpace: costSensitivity === 'high' ? 2 : 4, // GB
-    preemptiveScheduling: reliabilityRequirement !== 'high',
-    moderateLogging: workloadType === 'production',
-  }
-
-  // Cost and reliability adjustments
-  if (costSensitivity === 'high') {
-    optimizations.recommendedQuantization = 'awq' // Better cost efficiency
-    optimizations.balanceSettings.gpuMemoryUtilization = Math.min(memoryUtilization + 0.05, 0.90)
-  }
-  
-  if (reliabilityRequirement === 'high') {
-    optimizations.balanceSettings.gpuMemoryUtilization = Math.max(memoryUtilization - 0.05, 0.75)
-    optimizations.specialSettings['enforce-eager'] = false // Enable CUDA graphs for stability
-  }
-
-  // Special settings based on workload
-  switch (workloadType) {
-    case 'web-api':
-      optimizations.specialSettings['api-key'] = 'PLACEHOLDER'
-      optimizations.specialSettings['disable-log-requests'] = false
-      break
-    case 'multi-user':
-      optimizations.specialSettings['enable-prefix-caching'] = true
-      break
-    case 'cost-optimized':
-      optimizations.specialSettings['disable-log-stats'] = true
-      break
-    case 'production':
-      optimizations.specialSettings['disable-log-requests'] = true
-      optimizations.specialSettings['max-log-len'] = 100
-      break
-  }
-
-  return {
-    workloadType,
-    balanceTarget,
-    inputProfile: {
-      averageInputLength,
-      averageOutputLength,
-      peakConcurrency,
-      totalSequenceLength: totalSeqLen,
-      performancePriority,
-      costSensitivity,
-      reliabilityRequirement,
-    },
-    optimizations,
-    recommendations: {
-      quantization: optimizations.recommendedQuantization,
-      memoryUtilization: optimizations.balanceSettings.gpuMemoryUtilization,
-      batchConfiguration: optimizations.batchingStrategy,
-      balanceFeatures: optimizations.balanceSettings,
-      specialFeatures: optimizations.specialSettings,
-    },
-    reasoning: {
-      balanceConsiderations: getBalancedConsiderations(workloadType),
-      performancePriority,
-      costImpact: costSensitivity,
-      reliabilityLevel: reliabilityRequirement,
-      expectedBalance: `Targets ${Math.round(targetBatchSize)} concurrent users with balanced ${performancePriority} focus`,
-    }
-  }
-}
-
-/**
- * Get balance-specific considerations for different workload types
- * @param {string} workloadType - Type of workload
- * @returns {string[]} List of balanced considerations
- */
-function getBalancedConsiderations(workloadType) {
-  const considerations = {
-    general: [
-      'Balanced configuration suitable for most production workloads',
-      'Moderate batch sizes provide good throughput without sacrificing latency',
-      'Conservative memory usage ensures stability under varying loads',
-    ],
-    'web-api': [
-      'API-optimized settings for consistent response times',
-      'Lower batch sizes prioritize individual request latency',
-      'Balanced memory allocation handles variable API traffic',
-    ],
-    'multi-user': [
-      'Higher concurrency support for multiple simultaneous users',
-      'Prefix caching beneficial for similar user queries',
-      'Performance-focused balance for user experience',
-    ],
-    'cost-optimized': [
-      'Resource-efficient settings to minimize operational costs',
-      'Quantization and memory optimization for cost reduction',
-      'Balanced performance per dollar spent',
-    ],
-    'production': [
-      'Reliability-focused configuration for production stability',
-      'Conservative settings to prevent resource exhaustion',
-      'Monitoring and logging optimized for production use',
-    ],
-    serving: [
-      'General serving optimization balancing all factors',
-      'Adaptable to various request patterns and loads',
-      'Good starting point for most vLLM deployments',
-    ]
-  }
-  
-  return considerations[workloadType] || considerations.serving
-}
-
-// ============================================================================
-// VRAM BREAKDOWN CALCULATIONS (Task 2.6)
-// ============================================================================
-
-/**
- * Calculate detailed VRAM breakdown with quantization support
- * @param {object} config - Configuration object
- * @param {number} config.totalVRAMGB - Total VRAM available in GB
- * @param {number} config.modelSizeGB - Base model size in GB (before quantization)
- * @param {number} [config.numParams] - Number of parameters in billions (alternative to modelSizeGB)
- * @param {string} [config.quantization='fp16'] - Quantization format
- * @param {number} [config.batchSize=32] - Batch size for calculations
- * @param {number} [config.maxSeqLen=2048] - Maximum sequence length
- * @param {number} [config.seqLen=512] - Actual sequence length for activations
- * @param {object} [config.architecture] - Model architecture details
- * @param {string} [config.kvCachePrecision='fp16'] - KV cache precision
- * @param {number} [config.swapSpaceGB] - Custom swap space allocation
- * @param {object} [config.optimizationStrategy] - Memory optimization strategy
- * @returns {object} Detailed VRAM breakdown
- */
-export function calculateVRAMBreakdown(config) {
-  // Validate configuration object
-  Validators.object(config, [], 'config')
-  
-  const {
-    totalVRAMGB,
-    modelSizeGB,
-    numParams,
-    quantization = 'fp16',
-    batchSize = 32,
-    maxSeqLen = 2048,
-    seqLen = 512,
-    architecture,
-    kvCachePrecision = 'fp16',
-    swapSpaceGB,
-    optimizationStrategy,
-  } = config
-
-  // Validate required fields
-  Validators.positiveNumber(totalVRAMGB, 'totalVRAMGB')
-  
-  // Validate either modelSizeGB or numParams is provided
-  if (!modelSizeGB && !numParams) {
-    throw new ValidationError('Either modelSizeGB or numParams must be provided', 'config', config)
-  }
-
-  if (modelSizeGB) {
-    Validators.positiveNumber(modelSizeGB, 'modelSizeGB')
-  }
-  
-  if (numParams) {
-    Validators.positiveNumber(numParams, 'numParams')
-  }
-
-  // Validate other parameters
-  const normalizedQuantization = VLLMValidators.quantizationFormat(quantization)
-  VLLMValidators.batchSize(batchSize, 'batchSize')
-  VLLMValidators.sequenceLength(maxSeqLen, 'maxSeqLen')
-  VLLMValidators.sequenceLength(seqLen, 'seqLen')
-  
-  if (kvCachePrecision) {
-    VLLMValidators.quantizationFormat(kvCachePrecision)
-  }
-  
-  if (swapSpaceGB) {
-    Validators.positiveNumber(swapSpaceGB, 'swapSpaceGB')
-  }
-
-  // Calculate model weights with quantization
-  const modelWeightsResult = modelSizeGB 
-    ? calculateModelWeightsMemoryFromSize(modelSizeGB, normalizedQuantization)
-    : calculateModelWeightsMemory(numParams, normalizedQuantization)
-
-  // Determine model architecture
-  const arch = architecture || estimateModelArchitecture(numParams || (modelSizeGB / 2))
-
-  // Calculate KV cache memory
-  const kvCacheMemory = calculateKVCacheMemory(
-    batchSize,
-    maxSeqLen,
-    arch.layers,
-    arch.hiddenSize,
-    arch.numHeads,
-    kvCachePrecision
-  )
-
-  // Calculate activation memory
-  const activationMemory = calculateActivationMemory(
-    batchSize,
-    seqLen,
-    arch.hiddenSize,
-    arch.layers,
-    quantization
-  )
-
-  // Calculate system overhead and reserved memory
-  const systemOverhead = calculateSystemOverhead(
-    modelWeightsResult.totalMemory || modelWeightsResult,
-    batchSize,
-    { includeFragmentation: true, includeCudaContext: true }
-  )
-
-  // Calculate swap space
-  const swapMemory = swapSpaceGB || calculateOptimalSwapSpace(
-    totalVRAMGB,
-    modelWeightsResult.totalMemory || modelWeightsResult,
-    optimizationStrategy
-  )
-
-  // Calculate fragmentation overhead
-  const fragmentationOverhead = calculateMemoryFragmentation(
-    totalVRAMGB,
-    batchSize,
-    maxSeqLen,
-    { quantization, architecture: arch }
-  )
-
-  // Calculate reserved memory for system operations
-  const reservedMemory = calculateReservedMemory(
-    totalVRAMGB,
-    optimizationStrategy || { priority: 'balanced' }
-  )
-
-  // Total used memory
-  const modelWeightsGB = modelWeightsResult.totalMemory || modelWeightsResult
-  const usedMemory = modelWeightsGB + kvCacheMemory + activationMemory + systemOverhead + fragmentationOverhead
-  const totalAllocated = usedMemory + swapMemory + reservedMemory
-  const availableMemory = Math.max(0, totalVRAMGB - totalAllocated)
-
-  // Calculate utilization percentages
-  const utilizationPercent = (usedMemory / totalVRAMGB) * 100
-  const allocationPercent = (totalAllocated / totalVRAMGB) * 100
-
-  // Memory efficiency analysis
-  const efficiency = calculateMemoryEfficiency({
-    totalVRAMGB,
-    usedMemory,
-    modelWeightsGB,
-    kvCacheMemory,
-    batchSize,
-    quantization
-  })
-
-  return {
-    totalVRAMGB: Math.round(totalVRAMGB * 1000) / 1000,
-    breakdown: {
-      modelWeights: {
-        sizeGB: Math.round(modelWeightsGB * 1000) / 1000,
-        percentage: Math.round((modelWeightsGB / totalVRAMGB) * 100 * 10) / 10,
-        quantization: quantization,
-        quantizationSavings: modelWeightsResult.quantizationSavings || 0,
-        baseSize: modelWeightsResult.baseMemory || modelWeightsGB,
-        overhead: modelWeightsResult.overhead || 0,
-      },
-      kvCache: {
-        sizeGB: Math.round(kvCacheMemory * 1000) / 1000,
-        percentage: Math.round((kvCacheMemory / totalVRAMGB) * 100 * 10) / 10,
-        precision: kvCachePrecision,
-        batchSize: batchSize,
-        maxSeqLen: maxSeqLen,
-        layersSupported: arch.layers,
-      },
-      activations: {
-        sizeGB: Math.round(activationMemory * 1000) / 1000,
-        percentage: Math.round((activationMemory / totalVRAMGB) * 100 * 10) / 10,
-        batchSize: batchSize,
-        seqLen: seqLen,
-        precision: quantization,
-      },
-      systemOverhead: {
-        sizeGB: Math.round(systemOverhead * 1000) / 1000,
-        percentage: Math.round((systemOverhead / totalVRAMGB) * 100 * 10) / 10,
-        includes: ['CUDA context', 'driver overhead', 'kernel buffers'],
-      },
-      fragmentation: {
-        sizeGB: Math.round(fragmentationOverhead * 1000) / 1000,
-        percentage: Math.round((fragmentationOverhead / totalVRAMGB) * 100 * 10) / 10,
-        cause: 'Memory allocation patterns and block alignment',
-      },
-      swap: {
-        sizeGB: Math.round(swapMemory * 1000) / 1000,
-        percentage: Math.round((swapMemory / totalVRAMGB) * 100 * 10) / 10,
-        purpose: 'Overflow handling and memory pressure relief',
-      },
-      reserved: {
-        sizeGB: Math.round(reservedMemory * 1000) / 1000,
-        percentage: Math.round((reservedMemory / totalVRAMGB) * 100 * 10) / 10,
-        purpose: 'System stability and emergency buffer',
-      },
-    },
-    summary: {
-      usedMemory: Math.round(usedMemory * 1000) / 1000,
-      totalAllocated: Math.round(totalAllocated * 1000) / 1000,
-      availableMemory: Math.round(availableMemory * 1000) / 1000,
-      utilizationPercent: Math.round(utilizationPercent * 10) / 10,
-      allocationPercent: Math.round(allocationPercent * 10) / 10,
-      efficiency: efficiency,
-    },
+    vramBreakdown,
     analysis: {
-      memoryPressure: analyzememoryPressure(utilizationPercent, availableMemory),
-      quantizationBenefit: analyzeQuantizationBenefit(modelWeightsResult, quantization),
-      optimizationRecommendations: generateMemoryOptimizationRecommendations({
-        totalVRAMGB,
-        utilizationPercent,
-        breakdown: {
-          modelWeightsGB,
-          kvCacheMemory,
-          activationMemory,
-          systemOverhead,
-          fragmentationOverhead,
-        },
-        quantization,
-        batchSize,
-        maxSeqLen,
-      }),
+      memoryEfficiency,
+      memoryPressure,
+      quantizationBenefit,
+      efficiencyRating: getEfficiencyRating(memoryEfficiency.utilizationPercent)
     },
-    compatibility: {
-      supportsModel: totalAllocated <= totalVRAMGB,
-      safetyMargin: Math.max(0, totalVRAMGB - totalAllocated),
-      recommendedBatchSize: calculateOptimalBatchSizeForVRAM(totalVRAMGB, modelWeightsGB, kvCachePrecision),
-      maxConcurrentSequences: calculateMaxConcurrentSequences(totalVRAMGB, modelWeightsGB, maxSeqLen, arch),
+    recommendations: generateMemoryOptimizationRecommendations(vramBreakdown, memoryPressure, optimizationStrategy)
+  }
+}
+
+/**
+ * Generate optimized configuration based on strategy and constraints
+ * @param {object} params - Optimization parameters
+ * @returns {object} Optimized configuration
+ */
+export function generateOptimizedConfiguration(params) {
+  const {
+    strategy = 'balanced',
+    modelSize,
+    gpuSpecs,
+    workloadType = 'serving',
+    constraints = {},
+    preferences = {}
+  } = params
+
+  // Basic validation
+  if (!modelSize || !gpuSpecs) {
+    throw new ValidationError('modelSize and gpuSpecs are required parameters')
+  }
+
+  // Estimate model architecture if not provided
+  const architecture = params.architecture || estimateModelArchitecture(modelSize)
+
+  // Generate base configuration based on strategy
+  let optimizedConfig
+  switch (strategy) {
+    case 'throughput':
+      optimizedConfig = calculateThroughputOptimizedConfig({
+        modelSize,
+        gpuSpecs,
+        architecture,
+        workloadType,
+        constraints
+      })
+      break
+    
+    case 'latency':
+      optimizedConfig = calculateLatencyOptimizedConfig({
+        modelSize,
+        gpuSpecs,
+        architecture,
+        workloadType,
+        constraints
+      })
+      break
+    
+    case 'balanced':
+    default:
+      optimizedConfig = calculateBalancedOptimizedConfig({
+        modelSize,
+        gpuSpecs,
+        architecture,
+        workloadType,
+        constraints
+      })
+      break
+  }
+
+  // Apply workload-specific optimizations
+  const workloadOptimized = optimizeForWorkload({
+    ...optimizedConfig,
+    workloadType,
+    architecture,
+    preferences
+  })
+
+  // Generate vLLM command
+  const vllmCommand = generateVLLMCommand(workloadOptimized.config, {
+    format: preferences.commandFormat || 'shell',
+    includeComments: preferences.includeComments || false
+  })
+
+  // Validate final configuration
+  const validation = validateConfiguration(workloadOptimized.config)
+
+  return {
+    config: workloadOptimized.config,
+    optimization: {
+      strategy,
+      workloadType,
+      metrics: workloadOptimized.metrics,
+      considerations: workloadOptimized.considerations
+    },
+    deployment: {
+      vllmCommand,
+      validation
+    },
+    memoryAnalysis: calculateComprehensiveMemoryBreakdown({
+      modelSizeGB: modelSize,
+      maxSequenceLength: workloadOptimized.config['max-model-len'] || 2048,
+      batchSize: workloadOptimized.config['max-num-seqs'] || 1,
+      architecture,
+      quantization: workloadOptimized.config.quantization || 'fp16',
+      gpuMemoryGB: gpuSpecs.memoryGB,
+      optimizationStrategy: strategy
+    })
+  }
+}
+
+/**
+ * Check if a model can run on given GPU configuration
+ * @param {object} params - Model and GPU parameters
+ * @returns {object} Compatibility analysis
+ */
+export function checkModelGPUCompatibility(params) {
+  const {
+    modelSize,
+    gpuSpecs,
+    maxSequenceLength = 2048,
+    batchSize = 1,
+    quantization = 'fp16',
+    optimizationStrategy = 'balanced'
+  } = params
+
+  // Validate input parameters
+  if (!modelSize || !gpuSpecs) {
+    throw new ValidationError('modelSize and gpuSpecs are required parameters')
+  }
+
+  // Estimate model architecture
+  const architecture = estimateModelArchitecture(modelSize)
+
+  // Calculate individual memory components (simplified)
+  const modelWeights = calculateModelWeightsMemory(modelSize, quantization)
+  
+  // For now, return basic compatibility check
+  const totalModelMemory = modelWeights.totalMemory
+  const availableMemory = gpuSpecs.memoryGB
+  const compatible = totalModelMemory < (availableMemory * 0.8) // 80% threshold
+  
+  return {
+    compatible,
+    modelMemory: totalModelMemory,
+    availableMemory,
+    utilizationPercent: (totalModelMemory / availableMemory) * 100,
+    architecture,
+    recommendations: compatible ? ['Configuration looks good'] : ['Consider using quantization or a larger GPU']
+  }
+}
+
+/**
+ * Compare optimization strategies for given configuration
+ * @param {object} config - Base configuration
+ * @returns {object} Strategy comparison
+ */
+export function compareOptimizationStrategies(config) {
+  const strategies = ['throughput', 'latency', 'balanced']
+  const comparisons = {}
+
+  for (const strategy of strategies) {
+    try {
+      const optimizedConfig = generateOptimizedConfiguration({
+        ...config,
+        strategy
+      })
+
+      comparisons[strategy] = {
+        config: optimizedConfig.config,
+        metrics: optimizedConfig.optimization.metrics,
+        memoryUsage: optimizedConfig.memoryAnalysis.vramBreakdown.totalUsedGB,
+        memoryEfficiency: optimizedConfig.memoryAnalysis.analysis.memoryEfficiency.utilizationPercent,
+        recommendations: optimizedConfig.recommendations
+      }
+    } catch (error) {
+      comparisons[strategy] = {
+        error: error.message,
+        viable: false
+      }
     }
   }
-}
-
-/**
- * Calculate model weights memory from a given size with quantization applied
- * @param {number} baseSizeGB - Base model size in GB (in fp16 precision)
- * @param {string} quantization - Quantization format
- * @returns {object} Memory calculation result
- */
-export function calculateModelWeightsMemoryFromSize(baseSizeGB, quantization = 'fp16') {
-  if (baseSizeGB <= 0) {
-    throw new Error('Base model size must be positive')
-  }
-
-  const quantConfig = QUANTIZATION_FORMATS[quantization]
-  if (!quantConfig) {
-    throw new Error(`Unsupported quantization format: ${quantization}`)
-  }
-
-  // For fp16, the base size is already in fp16 - no further quantization needed
-  // For other formats, calculate relative to fp16 base
-  const fp16MemoryEfficiency = QUANTIZATION_FORMATS.fp16.memoryEfficiency // 0.5
-  const baseMemoryFP32 = baseSizeGB / fp16MemoryEfficiency // Convert fp16 base to fp32 equivalent
-  
-  const quantizedSize = baseMemoryFP32 * quantConfig.memoryEfficiency
-  const overhead = quantizedSize * (quantConfig.overhead || 0)
-  const totalMemory = quantizedSize + overhead
-  const quantizationSavings = baseSizeGB - totalMemory // Savings compared to fp16 base
 
   return {
-    baseMemory: baseSizeGB,
-    quantizedMemory: quantizedSize,
-    overhead: overhead,
-    totalMemory: totalMemory,
-    quantizationSavings: Math.max(0, quantizationSavings), // No negative savings
-    savingsPercent: Math.max(0, (quantizationSavings / baseSizeGB) * 100),
-    quantization: quantization,
+    strategies: comparisons,
+    recommended: determineRecommendedStrategy(comparisons, config.workloadType || 'serving')
   }
 }
 
 /**
- * Calculate optimal swap space based on VRAM and optimization strategy
- * @param {number} totalVRAMGB - Total VRAM available
- * @param {number} modelSizeGB - Model size in GB
- * @param {object} strategy - Optimization strategy
- * @returns {number} Optimal swap space in GB
+ * Determine recommended optimization strategy based on comparisons
+ * @param {object} comparisons - Strategy comparison results
+ * @param {string} workloadType - Type of workload
+ * @returns {string} Recommended strategy
  */
-export function calculateOptimalSwapSpace(totalVRAMGB, modelSizeGB, strategy = {}) {
-  const { priority = 'balanced', workloadType = 'serving' } = strategy
-
-  let swapRatio = 0.1 // Default 10% of VRAM
-
-  switch (priority) {
-    case 'throughput':
-      swapRatio = workloadType === 'batch' ? 0.2 : 0.15 // Higher for batch processing
-      break
-    case 'latency':
-      swapRatio = 0.05 // Minimal swap for latency
-      break
-    case 'balanced':
-      swapRatio = 0.1 // Moderate swap space
-      break
-    default:
-      swapRatio = 0.1
+function determineRecommendedStrategy(comparisons, workloadType) {
+  const viable = Object.entries(comparisons).filter(([, result]) => !result.error)
+  
+  if (viable.length === 0) {
+    return 'none' // No viable strategies
   }
 
-  const maxSwap = Math.min(16, totalVRAMGB * 0.25) // Cap at 16GB or 25% of VRAM
-  const minSwap = Math.max(1, modelSizeGB * 0.1) // At least 10% of model size or 1GB
+  // Workload-specific preferences
+  const workloadPreferences = {
+    'chat': 'latency',
+    'completion': 'throughput',
+    'code-generation': 'balanced',
+    'batch': 'throughput',
+    'serving': 'balanced',
+    'embedding': 'throughput'
+  }
 
-  return Math.min(maxSwap, Math.max(minSwap, totalVRAMGB * swapRatio))
+  const preferred = workloadPreferences[workloadType] || 'balanced'
+
+  // Return preferred strategy if viable, otherwise return best viable option
+  if (viable.find(([strategy]) => strategy === preferred)) {
+    return preferred
+  }
+
+  // Fallback to highest efficiency
+  return viable.reduce((best, [strategy, result]) => {
+    return result.memoryEfficiency > (comparisons[best]?.memoryEfficiency || 0) ? strategy : best
+  }, viable[0][0])
 }
 
-/**
- * Calculate memory fragmentation overhead
- * @param {number} totalVRAMGB - Total VRAM available
- * @param {number} batchSize - Batch size
- * @param {number} maxSeqLen - Maximum sequence length
- * @param {object} options - Additional options
- * @returns {number} Fragmentation overhead in GB
- */
-export function calculateMemoryFragmentation(totalVRAMGB, batchSize, maxSeqLen, options = {}) {
-  const { quantization = 'fp16' } = options
+// ================================
+// RE-EXPORTS FOR BACKWARD COMPATIBILITY
+// ================================
 
-  // Base fragmentation rate depends on VRAM size - smaller VRAM has higher fragmentation
-  let baseFragmentationRate = 0.02 // 2% base fragmentation
-
-  // Smaller VRAM has worse allocation efficiency
-  if (totalVRAMGB <= 16) {
-    baseFragmentationRate = 0.025
-  } else if (totalVRAMGB >= 40) {
-    baseFragmentationRate = 0.018
-  } else if (totalVRAMGB >= 80) {
-    baseFragmentationRate = 0.015
-  }
-
-  // Batch size affects fragmentation
-  const batchFragmentationFactor = Math.max(0.5, Math.min(2.0, batchSize / 32))
-  
-  // Sequence length affects memory allocation patterns
-  const seqLenFactor = Math.max(0.8, Math.min(1.5, maxSeqLen / 2048))
-
-  // Quantization affects alignment requirements
-  const quantConfig = QUANTIZATION_FORMATS[quantization]
-  const alignmentFactor = quantConfig ? (1 + (quantConfig.overhead || 0)) : 1
-
-  const fragmentationOverhead = totalVRAMGB * baseFragmentationRate * 
-                               batchFragmentationFactor * 
-                               seqLenFactor * 
-                               alignmentFactor
-
-  return Math.max(0.1, fragmentationOverhead) // Minimum 0.1GB fragmentation
+// Memory calculation functions
+export {
+  calculateKVCacheMemory,
+  calculateKVCacheBreakdown,
+  estimateOptimalKVCacheBlockSize,
+  calculateKVCacheScaling,
+  validateKVCacheConfig,
+  calculateActivationMemory,
+  calculateActivationBreakdown,
+  calculateActivationScaling,
+  calculatePeakActivationMemory,
+  optimizeActivationMemory,
+  calculateSystemOverhead,
+  calculateSystemOverheadBreakdown,
+  compareSystemOverheadByGPU,
+  optimizeSystemOverhead,
+  calculateVRAMBreakdown,
+  calculateModelWeightsMemoryFromSize,
+  calculateOptimalSwapSpace,
+  calculateMemoryFragmentation,
+  calculateReservedMemory,
+  calculateMemoryEfficiency,
+  getEfficiencyRating,
+  analyzeMemoryPressure,
+  analyzeQuantizationBenefit,
+  generateMemoryOptimizationRecommendations,
+  calculateOptimalBatchSizeForVRAM,
+  calculateMaxConcurrentSequences
 }
 
-/**
- * Calculate reserved memory for system operations
- * @param {number} totalVRAMGB - Total VRAM available
- * @param {object} strategy - Optimization strategy
- * @returns {number} Reserved memory in GB
- */
-export function calculateReservedMemory(totalVRAMGB, strategy = {}) {
-  const { priority = 'balanced' } = strategy
-
-  let reservationRate = 0.05 // Default 5% reservation
-
-  switch (priority) {
-    case 'throughput':
-      reservationRate = 0.03 // Aggressive: minimal reservation
-      break
-    case 'latency':
-      reservationRate = 0.08 // Conservative: more reservation for stability
-      break
-    case 'balanced':
-      reservationRate = 0.05 // Moderate reservation
-      break
-    case 'conservative':
-      reservationRate = 0.1 // High reservation for maximum stability
-      break
-    default:
-      reservationRate = 0.05
-  }
-
-  const minReserved = 0.5 // Minimum 0.5GB reserved
-  const maxReserved = Math.min(8, totalVRAMGB * 0.15) // Maximum 8GB or 15% of VRAM
-
-  return Math.min(maxReserved, Math.max(minReserved, totalVRAMGB * reservationRate))
+// Quantization functions
+export {
+  calculateQuantizationFactor,
+  getSupportedQuantizationFormats,
+  compareQuantizationFormats,
+  estimateQuantizationQualityImpact,
+  generateQuantizationRecommendation,
+  calculateModelWeightsMemory
 }
 
-/**
- * Calculate memory efficiency metrics
- * @param {object} config - Configuration object
- * @returns {object} Efficiency analysis
- */
-export function calculateMemoryEfficiency(config) {
-  const {
-    totalVRAMGB,
-    usedMemory,
-    modelWeightsGB,
-    batchSize,
-    quantization,
-  } = config
-
-  const utilizationRatio = usedMemory / totalVRAMGB
-  const modelToTotalRatio = modelWeightsGB / totalVRAMGB
-
-  // Calculate efficiency scores
-  const utilizationEfficiency = Math.max(0, Math.min(1, (utilizationRatio - 0.5) / 0.4)) // Optimal range: 50-90%
-  const modelEfficiency = Math.max(0, Math.min(1, (modelToTotalRatio * 2))) // Higher model ratio is better
-  const batchEfficiency = Math.max(0, Math.min(1, Math.log(batchSize + 1) / Math.log(128))) // Log scale efficiency
-  
-  // Quantization efficiency bonus
-  const quantConfig = QUANTIZATION_FORMATS[quantization]
-  const quantizationEfficiency = quantConfig ? (1 - quantConfig.memoryEfficiency) : 0
-
-  const overallEfficiency = (
-    utilizationEfficiency * 0.4 +
-    modelEfficiency * 0.3 +
-    batchEfficiency * 0.2 +
-    quantizationEfficiency * 0.1
-  )
-
-  return {
-    overall: Math.round(overallEfficiency * 100),
-    utilization: Math.round(utilizationEfficiency * 100),
-    modelRatio: Math.round(modelEfficiency * 100),
-    batchEfficiency: Math.round(batchEfficiency * 100),
-    quantizationBonus: Math.round(quantizationEfficiency * 100),
-    rating: getEfficiencyRating(overallEfficiency),
-  }
+// Validation functions
+export {
+  ValidationError,
+  ConfigurationError,
+  MemoryError,
+  Validators,
+  VLLMValidators
 }
 
-/**
- * Get efficiency rating based on score
- * @param {number} score - Efficiency score (0-1)
- * @returns {string} Rating description
- */
-export function getEfficiencyRating(score) {
-  if (score >= 0.9) return 'Excellent'
-  if (score >= 0.8) return 'Very Good'
-  if (score >= 0.7) return 'Good'
-  if (score >= 0.6) return 'Fair'
-  if (score >= 0.5) return 'Poor'
-  return 'Very Poor'
+// Optimization functions
+export {
+  THROUGHPUT_OPTIMIZATION_CONFIGS,
+  calculateOptimalBatchSize,
+  calculateMemoryAllocationStrategy,
+  estimateThroughputMetrics,
+  calculateThroughputOptimizedConfig,
+  LATENCY_OPTIMIZATION_CONFIGS,
+  calculateLatencyOptimalBatchSize,
+  calculateLatencyMemoryStrategy,
+  estimateLatencyMetrics,
+  calculateLatencyOptimizedConfig,
+  optimizeForLatency,
+  calculateVRAMUsage,
+  canRunOnGPU,
+  BALANCED_OPTIMIZATION_CONFIGS,
+  calculateBalancedBatchSize,
+  calculateBalancedMemoryStrategy,
+  estimateBalancedMetrics,
+  calculateBalancedOptimizedConfig,
+  optimizeForBalance,
+  getBalancedConsiderations
 }
 
-/**
- * Analyze memory pressure level
- * @param {number} utilizationPercent - Memory utilization percentage
- * @param {number} availableMemory - Available memory in GB
- * @returns {object} Memory pressure analysis
- */
-export function analyzememoryPressure(utilizationPercent, availableMemory) {
-  let level, description, recommendations
-
-  if (utilizationPercent >= 95) {
-    level = 'Critical'
-    description = 'Memory usage is at critical levels. System instability likely.'
-    recommendations = [
-      'Reduce batch size immediately',
-      'Use more aggressive quantization',
-      'Consider model sharding across multiple GPUs',
-      'Reduce maximum sequence length',
-    ]
-  } else if (utilizationPercent >= 90) {
-    level = 'High'
-    description = 'High memory pressure. Performance degradation possible.'
-    recommendations = [
-      'Reduce batch size for stability',
-      'Monitor for OOM errors',
-      'Consider using int8 or 4-bit quantization',
-      'Implement gradual scaling',
-    ]
-  } else if (utilizationPercent >= 80) {
-    level = 'Moderate'
-    description = 'Moderate memory usage. Generally safe for production.'
-    recommendations = [
-      'Monitor memory usage during peak loads',
-      'Have scaling plans ready',
-      'Consider memory optimizations for efficiency',
-    ]
-  } else if (utilizationPercent >= 60) {
-    level = 'Low'
-    description = 'Comfortable memory usage with good headroom.'
-    recommendations = [
-      'Consider increasing batch size for better throughput',
-      'Opportunity to use higher precision if quality is important',
-      'Room for handling traffic spikes',
-    ]
-  } else {
-    level = 'Very Low'
-    description = 'Memory is underutilized. Efficiency could be improved.'
-    recommendations = [
-      'Increase batch size significantly',
-      'Consider using higher precision formats',
-      'Optimize for throughput rather than memory conservation',
-      'Consider running multiple models or larger model variants',
-    ]
-  }
-
-  return {
-    level,
-    description,
-    utilizationPercent,
-    availableMemoryGB: availableMemory,
-    recommendations,
-    isStable: utilizationPercent < 90,
-    hasHeadroom: availableMemory > 2.0,
-  }
-}
-
-/**
- * Analyze quantization benefits
- * @param {object} modelWeightsResult - Model weights calculation result
- * @param {string} quantization - Quantization format used
- * @returns {object} Quantization analysis
- */
-export function analyzeQuantizationBenefit(modelWeightsResult, quantization) {
-  const quantConfig = QUANTIZATION_FORMATS[quantization]
-  if (!quantConfig) {
-    return { error: 'Unknown quantization format' }
-  }
-
-  const memorySavings = modelWeightsResult.quantizationSavings || 0
-  const savingsPercent = modelWeightsResult.savingsPercent || 0
-  const qualityImpact = quantConfig.qualityLoss || 0
-
-  let recommendation, tradeoffAnalysis
-
-  if (savingsPercent >= 75) {
-    recommendation = 'Excellent memory savings with acceptable quality trade-off'
-    tradeoffAnalysis = 'Highly recommended for memory-constrained deployments'
-  } else if (savingsPercent >= 50) {
-    recommendation = 'Good memory savings with moderate quality impact'
-    tradeoffAnalysis = 'Recommended for most production deployments'
-  } else if (savingsPercent >= 25) {
-    recommendation = 'Moderate savings with minimal quality loss'
-    tradeoffAnalysis = 'Good balance for quality-sensitive applications'
-  } else {
-    recommendation = 'Minimal savings - consider higher precision if memory allows'
-    tradeoffAnalysis = 'Higher precision may be worthwhile if VRAM is sufficient'
-  }
-
-  return {
-    format: quantization,
-    memorySavingsGB: memorySavings,
-    savingsPercent: savingsPercent,
-    qualityLoss: qualityImpact * 100, // Convert to percentage
-    bitsPerParam: quantConfig.bitsPerParam,
-    recommendation,
-    tradeoffAnalysis,
-    efficiency: quantConfig.memoryEfficiency,
-    isRecommended: savingsPercent >= 25 && qualityImpact <= 0.05,
-  }
-}
-
-/**
- * Generate memory optimization recommendations
- * @param {object} config - Configuration and breakdown data
- * @returns {array} Array of optimization recommendations
- */
-export function generateMemoryOptimizationRecommendations(config) {
-  const {
-    totalVRAMGB,
-    utilizationPercent,
-    breakdown,
-    quantization,
-    batchSize,
-  } = config
-
-  const recommendations = []
-
-  // High memory usage recommendations
-  if (utilizationPercent > 90) {
-    recommendations.push({
-      priority: 'High',
-      category: 'Immediate Action',
-      title: 'Reduce Memory Usage',
-      description: 'Memory usage is critically high and may cause instability',
-      actions: [
-        'Reduce batch size by 25-50%',
-        'Implement more aggressive quantization (int8 or int4)',
-        'Reduce maximum sequence length',
-        'Enable memory-efficient attention mechanisms',
-      ],
-    })
-  }
-
-  // Quantization recommendations
-  const quantConfig = QUANTIZATION_FORMATS[quantization]
-  if (quantConfig && quantConfig.memoryEfficiency > 0.5) {
-    recommendations.push({
-      priority: 'Medium',
-      category: 'Quantization',
-      title: 'Consider More Aggressive Quantization',
-      description: 'Further memory savings possible with advanced quantization',
-      actions: [
-        'Try AWQ or GPTQ for better quality-size trade-offs',
-        'Consider 4-bit quantization for maximum memory savings',
-        'Evaluate int8 dynamic quantization for activations',
-      ],
-    })
-  }
-
-  // Batch size optimization
-  if (batchSize < 16 && utilizationPercent < 70) {
-    recommendations.push({
-      priority: 'Medium',
-      category: 'Performance',
-      title: 'Increase Batch Size',
-      description: 'Memory is underutilized, can increase throughput',
-      actions: [
-        `Increase batch size to ${Math.min(64, Math.floor(batchSize * 2))}`,
-        'Monitor memory usage during peak loads',
-        'Implement gradual batch size scaling',
-      ],
-    })
-  }
-
-  // KV cache optimization
-  const kvCachePercent = (breakdown.kvCacheMemory / totalVRAMGB) * 100
-  if (kvCachePercent > 30) {
-    recommendations.push({
-      priority: 'Medium',
-      category: 'KV Cache',
-      title: 'Optimize KV Cache Usage',
-      description: 'KV cache is consuming significant memory',
-      actions: [
-        'Reduce maximum sequence length if possible',
-        'Implement KV cache compression',
-        'Use int8 precision for KV cache',
-        'Enable selective KV cache eviction',
-      ],
-    })
-  }
-
-  // Fragmentation recommendations
-  const fragmentationPercent = (breakdown.fragmentationOverhead / totalVRAMGB) * 100
-  if (fragmentationPercent > 3) {
-    recommendations.push({
-      priority: 'Low',
-      category: 'Memory Management',
-      title: 'Reduce Memory Fragmentation',
-      description: 'Memory fragmentation is higher than optimal',
-      actions: [
-        'Use consistent batch sizes to improve allocation patterns',
-        'Implement memory pre-allocation strategies',
-        'Consider memory pool allocation for frequent operations',
-      ],
-    })
-  }
-
-  // Architecture-specific recommendations
-  if (totalVRAMGB >= 80) {
-    recommendations.push({
-      priority: 'Low',
-      category: 'High-End Optimization',
-      title: 'Leverage High VRAM Capacity',
-      description: 'High VRAM capacity allows for advanced optimizations',
-      actions: [
-        'Consider running larger model variants',
-        'Implement model parallelism for even larger models',
-        'Use higher precision where quality is critical',
-        'Optimize for maximum throughput',
-      ],
-    })
-  }
-
-  return recommendations.sort((a, b) => {
-    const priorityOrder = { High: 3, Medium: 2, Low: 1 }
-    return priorityOrder[b.priority] - priorityOrder[a.priority]
-  })
-}
-
-/**
- * Calculate optimal batch size for given VRAM constraints
- * @param {number} totalVRAMGB - Total VRAM available
- * @param {number} modelSizeGB - Model size in GB
- * @param {string} kvCachePrecision - KV cache precision
- * @returns {number} Recommended batch size
- */
-export function calculateOptimalBatchSizeForVRAM(totalVRAMGB, modelSizeGB, kvCachePrecision = 'fp16') {
-  const availableForInference = (totalVRAMGB * 0.85) - modelSizeGB // 85% utilization, minus model
-  
-  if (availableForInference <= 0) {
-    return 1 // Minimum viable batch size
-  }
-  
-  // Rough estimation: each sequence needs memory for KV cache and activations
-  // This is a conservative estimate based on typical transformer models
-  const bytesPerParam = kvCachePrecision === 'fp16' ? 2 : 4
-  const estimatedMemoryPerSequence = 0.1 + (bytesPerParam * 0.001) // Base overhead + precision factor
-  
-  // Calculate based on available memory
-  const maxSequences = Math.floor(availableForInference / estimatedMemoryPerSequence)
-  
-  // Apply reasonable bounds and adjust for VRAM size
-  let recommendedBatchSize = maxSequences
-  
-  if (totalVRAMGB <= 16) {
-    recommendedBatchSize = Math.min(recommendedBatchSize, 16) // Limited VRAM
-  } else if (totalVRAMGB <= 24) {
-    recommendedBatchSize = Math.min(recommendedBatchSize, 32)
-  } else if (totalVRAMGB <= 48) {
-    recommendedBatchSize = Math.min(recommendedBatchSize, 64)
-  } else {
-    recommendedBatchSize = Math.min(recommendedBatchSize, 256) // Cap at 256
-  }
-  
-  return Math.max(1, recommendedBatchSize) // At least 1
-}
-
-/**
- * Calculate maximum concurrent sequences for given constraints
- * @param {number} totalVRAMGB - Total VRAM available
- * @param {number} modelSizeGB - Model size in GB
- * @param {number} maxSeqLen - Maximum sequence length
- * @param {object} architecture - Model architecture
- * @returns {number} Maximum concurrent sequences
- */
-export function calculateMaxConcurrentSequences(totalVRAMGB, modelSizeGB, maxSeqLen, architecture) {
-  const availableMemory = totalVRAMGB * 0.9 - modelSizeGB // 90% utilization
-  const kvCachePerSequence = calculateKVCacheMemory(
-    1, // Single sequence
-    maxSeqLen,
-    architecture.layers,
-    architecture.hiddenSize,
-    architecture.numHeads,
-    'fp16'
-  )
-  
-  const activationPerSequence = 0.1 // Rough estimate in GB
-  const memoryPerSequence = kvCachePerSequence + activationPerSequence
-  
-  return Math.max(1, Math.floor(availableMemory / memoryPerSequence))
+// Workload management functions
+export {
+  optimizeForWorkload,
+  generateWorkloadConfiguration,
+  WORKLOAD_TYPES,
+  PERFORMANCE_PRIORITIES,
+  generateVLLMCommand,
+  generateConfiguration,
+  validateConfiguration,
+  estimateModelArchitecture,
+  calculateVLLMMemoryUsage
 }

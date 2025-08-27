@@ -1,257 +1,196 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import {
-  Chart as ChartJS,
-  Title,
-  Tooltip,
-  Legend,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-} from 'chart.js'
-import { Bar } from 'vue-chartjs'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import GPUSelector from './components/GPUSelector.vue'
 import ModelSelector from './components/ModelSelector.vue'
 import ConfigurationOutput from './components/ConfigurationOutput.vue'
 import VRAMChart from './components/VRAMChart.vue'
+import ErrorBoundary from './components/ErrorBoundary.vue'
+import LoadingIndicator from './components/LoadingIndicator.vue'
+import TheHeader from './components/layout/TheHeader.vue'
+import TheFooter from './components/layout/TheFooter.vue'
+import HeroSection from './components/HeroSection.vue'
+import ConfigurationSummary from './components/ConfigurationSummary.vue'
+import DebugPanel from './components/DebugPanel.vue'
 
-// Register Chart.js components
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+// Import Pinia stores
+import { useGpuStore } from './stores/gpuStore.js'
+import { useModelStore } from './stores/modelStore.js'
+import { useConfigStore } from './stores/configStore.js'
+import { useUiStore } from './stores/uiStore.js'
 
-// GPU selection state
-const selectedGPUs = ref([])
-// Model selection state
-const selectedModels = ref([])
+// Initialize stores
+const gpuStore = useGpuStore()
+const modelStore = useModelStore()
+const configStore = useConfigStore()
+const uiStore = useUiStore()
 
-// Computed properties for chart data
-const hasConfiguration = computed(
-  () => selectedGPUs.value.length > 0 && selectedModels.value.length > 0
-)
+// Extract required computeds from stores for debugging
+const { stateAnalysis, memoryPressure, vramBreakdown, quantizationRecommendations } = storeToRefs(configStore)
 
-const totalVRAM = computed(() =>
-  selectedGPUs.value.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
-)
+// Enhanced state management with persistence and validation
+// All state is now managed through Pinia stores
 
-const totalModelSize = computed(() =>
-  selectedModels.value.reduce((total, model) => total + (model.size || 0), 0)
-)
+// Reactive references to store getters for template use
+const selectedGPUs = computed(() => gpuStore.selectedGPUs)
+const selectedModels = computed(() => modelStore.selectedModels)
+const applicationReady = computed(() => uiStore.applicationReady)
+const lastSavedState = computed(() => uiStore.lastSavedState)
+const stateErrors = computed(() => uiStore.stateErrors)
+const isStateRestoring = computed(() => uiStore.isStateRestoring)
 
-const configurations = computed(() => {
-  if (!hasConfiguration.value) return []
+// Configuration calculations from config store
+const hasValidConfiguration = computed(() => configStore.hasValidConfiguration)
 
-  const remainingVRAM = totalVRAM.value - totalModelSize.value
-  const baseMemoryUtilization = Math.min(
-    0.9,
-    Math.max(0.5, totalModelSize.value / totalVRAM.value + 0.1)
-  )
+// State management functions - now delegated to stores
+const loadStateFromStorage = () => {
+  try {
+    uiStore.setStateRestoring(true)
+    // Pinia stores automatically load their state with the persist plugin
+    // No explicit loading needed as it happens on store initialization
+  } catch (error) {
+    console.warn('Failed to load state from localStorage:', error)
+    uiStore.addStateError('Failed to restore previous configuration.')
+  } finally {
+    uiStore.setStateRestoring(false)
+  }
+}
 
-  const configs = [
-    {
-      type: 'throughput',
-      title: 'Maximum Throughput',
-      description: 'Optimized for handling the highest number of concurrent requests and maximum token generation.',
-      parameters: [
-        {
-          name: '--gpu-memory-utilization',
-          value: Math.min(0.95, baseMemoryUtilization + 0.1).toFixed(2),
-          explanation: 'High memory utilization to maximize concurrent processing capacity.',
-        },
-        {
-          name: '--max-model-len',
-          value: '2048',
-          explanation: 'Shorter sequences to allow more concurrent requests and higher throughput.',
-        },
-        {
-          name: '--max-num-seqs',
-          value: Math.max(32, Math.floor(remainingVRAM / 2)).toString(),
-          explanation: 'High concurrent sequence limit to maximize parallel processing.',
-        },
-        {
-          name: '--max-num-batched-tokens',
-          value: Math.max(8192, Math.floor(remainingVRAM * 1024)).toString(),
-          explanation: 'Large batch size to maximize GPU utilization and throughput.',
-        },
-        {
-          name: '--block-size',
-          value: '16',
-          explanation: 'Larger block size for efficient memory allocation in high-throughput scenarios.',
-        },
-        {
-          name: '--swap-space',
-          value: Math.max(4, Math.floor(totalVRAM.value * 0.1)).toString(),
-          explanation: 'Generous swap space to handle peak memory usage during high throughput periods.',
-        },
-      ],
-    },
-    {
-      type: 'latency',
-      title: 'Minimum Latency',
-      description: 'Optimized for fastest response times and lowest latency per request.',
-      parameters: [
-        {
-          name: '--gpu-memory-utilization',
-          value: Math.max(0.7, baseMemoryUtilization - 0.1).toFixed(2),
-          explanation: 'Conservative memory utilization to ensure consistent performance and low latency.',
-        },
-        {
-          name: '--max-model-len',
-          value: '4096',
-          explanation: 'Longer sequences supported while maintaining low latency for individual requests.',
-        },
-        {
-          name: '--max-num-seqs',
-          value: Math.max(8, Math.floor(remainingVRAM / 4)).toString(),
-          explanation: 'Lower concurrent sequences to minimize context switching and latency.',
-        },
-        {
-          name: '--max-num-batched-tokens',
-          value: Math.max(2048, Math.floor(remainingVRAM * 512)).toString(),
-          explanation: 'Smaller batches for faster processing and reduced waiting time.',
-        },
-        {
-          name: '--block-size',
-          value: '8',
-          explanation: 'Smaller block size for more granular memory management and faster allocation.',
-        },
-        {
-          name: '--swap-space',
-          value: Math.max(2, Math.floor(totalVRAM.value * 0.05)).toString(),
-          explanation: 'Minimal swap space to reduce memory management overhead.',
-        },
-      ],
-    },
-    {
-      type: 'balanced',
-      title: 'Balanced Performance',
-      description: 'Balanced configuration providing good throughput while maintaining reasonable latency.',
-      parameters: [
-        {
-          name: '--gpu-memory-utilization',
-          value: baseMemoryUtilization.toFixed(2),
-          explanation: 'Balanced memory utilization for optimal resource usage without overcommitment.',
-        },
-        {
-          name: '--max-model-len',
-          value: '3072',
-          explanation: 'Moderate sequence length balancing memory usage and capability.',
-        },
-        {
-          name: '--max-num-seqs',
-          value: Math.max(16, Math.floor(remainingVRAM / 3)).toString(),
-          explanation: 'Moderate concurrent sequences for balanced performance.',
-        },
-        {
-          name: '--max-num-batched-tokens',
-          value: Math.max(4096, Math.floor(remainingVRAM * 768)).toString(),
-          explanation: 'Medium batch size balancing throughput and latency.',
-        },
-        {
-          name: '--block-size',
-          value: '12',
-          explanation: 'Medium block size for balanced memory management efficiency.',
-        },
-        {
-          name: '--swap-space',
-          value: Math.max(3, Math.floor(totalVRAM.value * 0.075)).toString(),
-          explanation: 'Reasonable swap space for handling moderate memory pressure.',
-        },
-      ],
-    },
-  ]
-
-  return configs
+// Enhanced application lifecycle with state management
+onMounted(() => {
+  // Load saved state first
+  loadStateFromStorage()
+  
+  // Mark application as ready after initial load
+  setTimeout(() => {
+    uiStore.setApplicationReady(true)
+  }, 100)
 })
 
-// Chart data and options
-const chartData = ref({
-  labels: ['Tesla A100', 'RTX 4090', 'H100', 'V100'],
-  datasets: [
-    {
-      label: 'VRAM (GB)',
-      backgroundColor: ['#3B82F6', '#EF4444', '#10B981', '#F59E0B'],
-      data: [80, 24, 80, 32],
-    },
-  ],
-})
+// Pinia stores now handle state persistence automatically
 
-const chartOptions = ref({
-  responsive: true,
-  plugins: {
-    title: {
-      display: true,
-      text: 'GPU VRAM Comparison',
-    },
-    legend: {
-      display: true,
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      title: {
-        display: true,
-        text: 'VRAM (GB)',
-      },
-    },
-  },
-})
+// Window beforeunload handler for cleanup
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    // Auto-save handled by Pinia persistence plugin
+  })
+}
+
+// Development utilities (exposed to window for debugging)
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  window.vllmDebug = {
+    stateAnalysis,
+    memoryPressure,
+    vramBreakdown,
+    quantizationRecommendations,
+    // Store access for debugging
+    gpuStore,
+    modelStore,
+    configStore,
+    uiStore
+  }
+}
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50 py-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <!-- Header -->
-      <div class="text-center mb-12">
-        <h1 class="text-5xl font-bold text-gray-900 mb-4">vLLM Configuration Calculator</h1>
-        <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-          Configure optimal vLLM parameters for your GPU and model setup with intelligent recommendations
-        </p>
-      </div>
+  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <!-- Navigation Header -->
+    <TheHeader />
 
-      <!-- GPU Selection Component -->
-      <div class="mb-12">
-        <GPUSelector 
-          v-model:selectedGPUs="selectedGPUs"
-          @update:selectedGPUs="selectedGPUs = $event"
-        />
-      </div>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <ErrorBoundary>
+        <LoadingIndicator />
+        
+        <!-- Hero Section -->
+        <HeroSection />
+        
+        <!-- Configuration Steps -->
+      <div class="space-y-8 sm:space-y-12">
+        <!-- Step 1: GPU Selection -->
+        <section class="scroll-mt-20" id="gpu-selection">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
+              1
+            </div>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Select Your GPU Configuration</h3>
+          </div>
+          
+          <!-- State Error Display -->
+          <div v-if="stateErrors.length > 0" class="mb-6 space-y-2">
+            <div 
+              v-for="error in stateErrors" 
+              :key="error.id"
+              class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start"
+            >
+              <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+              </svg>
+              <div class="flex-1">
+                <p class="text-red-700 font-medium">{{ error.message }}</p>
+                <p class="text-red-600 text-sm mt-1">{{ error.timestamp.toLocaleTimeString() }}</p>
+              </div>
+              <button 
+                @click="uiStore.removeStateError(error.id)"
+                class="ml-4 text-red-400 hover:text-red-600 focus:outline-none"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <GPUSelector />
+        </section>
 
-      <!-- Model Selection Component -->
-      <div class="mb-12">
-        <ModelSelector 
-          v-model:selectedModels="selectedModels"
-          @update:selectedModels="selectedModels = $event"
-        />
-      </div>
+        <!-- Step 2: Model Selection -->
+        <section class="scroll-mt-20" id="model-selection">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
+              2
+            </div>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Choose Your Model</h3>
+          </div>
+          <ModelSelector />
+        </section>
 
-      <!-- Configuration Output Component -->
-      <div class="mb-12">
-        <ConfigurationOutput 
-          :selectedGPUs="selectedGPUs"
-          :selectedModels="selectedModels"
-        />
-      </div>
+        <!-- Configuration Results -->
+        <section v-if="hasValidConfiguration" class="scroll-mt-20" id="configuration-output">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
+              ✓
+            </div>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
+          </div>
+          <ConfigurationOutput />
+        </section>
 
-      <!-- VRAM Usage Breakdown Chart -->
-      <div class="mb-12" v-if="hasConfiguration">
-        <VRAMChart 
-          :selectedGPUs="selectedGPUs"
-          :selectedModels="selectedModels"
-          :configurations="configurations"
-          :showBreakdown="true"
-          title="VRAM Memory Allocation by Configuration"
-        />
+        <!-- VRAM Visualization -->
+        <section v-if="hasValidConfiguration" class="scroll-mt-20" id="vram-analysis">
+          <div class="flex items-center mb-4 sm:mb-6">
+            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-purple-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
+              📊
+            </div>
+            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
+          </div>
+          <VRAMChart 
+            :show-breakdown="true"
+            title="VRAM Memory Allocation by Configuration"
+          />
+        </section>
       </div>
+      
+      <!-- Configuration Summary Dashboard -->
+      <ConfigurationSummary />
+      
+      </ErrorBoundary>
+    </main>
 
-      <!-- Chart.js Integration Test (keeping for development) -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">GPU VRAM Comparison</h2>
-        <div class="h-96">
-          <Bar :data="chartData" :options="chartOptions" />
-        </div>
-        <p class="text-green-600 font-semibold text-center mt-4">✅ Chart.js Integration Ready</p>
-      </div>
-    </div>
+    <!-- Debug Information Panel -->
+    <DebugPanel />
+
+    <!-- Footer -->
+    <TheFooter />
   </div>
 </template>
 
