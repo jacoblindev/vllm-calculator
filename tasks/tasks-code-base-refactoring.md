@@ -120,11 +120,11 @@
   * [x] 4.5 Create `src/components/DebugPanel.vue` to encapsulate the debug information section.
   * [x] 4.6 Update `App.vue` to use these new layout and UI components, drastically
 
-* [ ] 5.0 Post-Refactoring Cleanup and Test Alignment
+* [x] 5.0 Post-Refactoring Cleanup and Test Alignment
   * [x] 5.1 Update integration tests to align with new modular component architecture.
   * [x] 5.2 Fix failing tests that expect old App.vue computed properties (now handled by individual components).
   * [x] 5.3 Add unit tests for new components that might be missing test coverage.
   * [x] 5.4 Review and update component tests to use Pinia store mocking instead of prop-based testing.
   * [x] 5.5 Verify all components work correctly with the new state management architecture.
-  * [ ] 5.6 Clean up any remaining legacy code or unused imports across the codebase.
+  * [x] 5.6 Clean up any remaining legacy code or unused imports across the codebase.
   
