@@ -16,177 +16,95 @@ import ConfigurationOutput from './components/ConfigurationOutput.vue'
 import VRAMChart from './components/VRAMChart.vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
 import LoadingIndicator from './components/LoadingIndicator.vue'
-import {
-  calculateThroughputOptimizedConfig,
-  calculateLatencyOptimalBatchSize,
-  calculateBalancedOptimizedConfig,
-  calculateVLLMMemoryUsage,
-  estimateThroughputMetrics,
-  estimateLatencyMetrics,
-  calculateMemoryAllocationStrategy,
-  generateVLLMCommand,
-  calculateKVCacheMemory,
-} from './lib/calculationEngine.js'
-import {
-  calculateModelWeightsMemory,
-  getSupportedQuantizationFormats,
-  generateQuantizationRecommendation
-} from './lib/quantization.js'
+
+// Import Pinia stores
+import { useGpuStore } from './stores/gpuStore.js'
+import { useModelStore } from './stores/modelStore.js'
+import { useConfigStore } from './stores/configStore.js'
+import { useUiStore } from './stores/uiStore.js'
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
 
+// Initialize stores
+const gpuStore = useGpuStore()
+const modelStore = useModelStore()
+const configStore = useConfigStore()
+const uiStore = useUiStore()
+
 // Enhanced state management with persistence and validation
-const selectedGPUs = ref([])
-const selectedModels = ref([])
-const applicationReady = ref(false)
-const lastSavedState = ref(null)
-const stateErrors = ref([])
-const isStateRestoring = ref(false)
+// All state is now managed through Pinia stores
 
-// Navigation and UI state
-const showSettingsMenu = ref(false)
-const showMobileMenu = ref(false)
-const showDebugInfo = ref(false)
+// Reactive references to store getters for template use
+const selectedGPUs = computed(() => gpuStore.selectedGPUs)
+const selectedModels = computed(() => modelStore.selectedModels)
+const applicationReady = computed(() => uiStore.applicationReady)
+const lastSavedState = computed(() => uiStore.lastSavedState)
+const stateErrors = computed(() => uiStore.stateErrors)
+const isStateRestoring = computed(() => uiStore.isStateRestoring)
 
-// State persistence keys
-const STATE_KEYS = {
-  gpus: 'vllm-calculator-selected-gpus',
-  models: 'vllm-calculator-selected-models',
-  timestamp: 'vllm-calculator-last-saved'
-}
+// Navigation and UI state from store
+const showSettingsMenu = computed(() => uiStore.showSettingsMenu)
+const showMobileMenu = computed(() => uiStore.showMobileMenu)
+const showDebugInfo = computed(() => uiStore.showDebugInfo)
 
-// State management functions
+// Configuration calculations from config store
+const hasValidConfiguration = computed(() => configStore.hasValidConfiguration)
+const totalVRAM = computed(() => gpuStore.totalVRAM)
+const totalModelSize = computed(() => modelStore.totalModelSize)
+const configurationStep = computed(() => configStore.configurationStep)
+const setupProgress = computed(() => configStore.setupProgress)
+const vramBreakdown = computed(() => configStore.vramBreakdown)
+const quantizationRecommendations = computed(() => configStore.quantizationRecommendations)
+const stateAnalysis = computed(() => configStore.stateAnalysis)
+const memoryPressure = computed(() => configStore.memoryPressure)
+const configurationHealth = computed(() => configStore.configurationHealth)
+const configurations = computed(() => configStore.configurations)
+
+// State management functions - now delegated to stores
 const saveStateToStorage = () => {
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const state = {
-        gpus: selectedGPUs.value,
-        models: selectedModels.value,
-        timestamp: Date.now()
-      }
-      
-      window.localStorage.setItem(STATE_KEYS.gpus, JSON.stringify(selectedGPUs.value))
-      window.localStorage.setItem(STATE_KEYS.models, JSON.stringify(selectedModels.value))
-      window.localStorage.setItem(STATE_KEYS.timestamp, state.timestamp.toString())
-      
-      lastSavedState.value = state
-    }
+    // Pinia stores automatically persist their state with the persist plugin
+    uiStore.updateLastSavedState({
+      gpus: selectedGPUs.value,
+      models: selectedModels.value
+    })
+    uiStore.showSuccessNotification('Configuration saved successfully!')
   } catch (error) {
     console.warn('Failed to save state to localStorage:', error)
-    addStateError('Failed to save configuration. Your settings may not persist.')
+    uiStore.addStateError('Failed to save configuration. Your settings may not persist.')
   }
 }
 
 const loadStateFromStorage = () => {
   try {
-    isStateRestoring.value = true
-    
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const savedGPUs = window.localStorage.getItem(STATE_KEYS.gpus)
-      const savedModels = window.localStorage.getItem(STATE_KEYS.models)
-      const savedTimestamp = window.localStorage.getItem(STATE_KEYS.timestamp)
-      
-      if (savedGPUs) {
-        const parsedGPUs = JSON.parse(savedGPUs)
-        if (Array.isArray(parsedGPUs) && validateGPUSelections(parsedGPUs)) {
-          selectedGPUs.value = parsedGPUs
-        }
-      }
-      
-      if (savedModels) {
-        const parsedModels = JSON.parse(savedModels)
-        if (Array.isArray(parsedModels) && validateModelSelections(parsedModels)) {
-          selectedModels.value = parsedModels
-        }
-      }
-      
-      if (savedTimestamp) {
-        lastSavedState.value = {
-          gpus: selectedGPUs.value,
-          models: selectedModels.value,
-          timestamp: parseInt(savedTimestamp)
-        }
-      }
-    }
+    uiStore.setStateRestoring(true)
+    // Pinia stores automatically load their state with the persist plugin
+    // No explicit loading needed as it happens on store initialization
   } catch (error) {
     console.warn('Failed to load state from localStorage:', error)
-    addStateError('Failed to restore previous configuration.')
+    uiStore.addStateError('Failed to restore previous configuration.')
   } finally {
-    isStateRestoring.value = false
+    uiStore.setStateRestoring(false)
   }
 }
 
 const clearStoredState = () => {
   try {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      Object.values(STATE_KEYS).forEach(key => {
-        window.localStorage.removeItem(key)
-      })
-      lastSavedState.value = null
-    }
+    // Clear the stores which will automatically update persistence
+    gpuStore.clearAllGPUs()
+    modelStore.clearAllModels()
+    uiStore.clearLastSavedState()
+    uiStore.showInfoNotification('All stored data cleared.')
   } catch (error) {
     console.warn('Failed to clear stored state:', error)
   }
 }
 
-const addStateError = (message) => {
-  const error = {
-    id: Date.now(),
-    message,
-    timestamp: new Date()
-  }
-  stateErrors.value.push(error)
-  
-  // Auto-remove error after 5 seconds
-  setTimeout(() => {
-    removeStateError(error.id)
-  }, 5000)
-}
-
-const removeStateError = (errorId) => {
-  const index = stateErrors.value.findIndex(err => err.id === errorId)
-  if (index > -1) {
-    stateErrors.value.splice(index, 1)
-  }
-}
-
-// State validation functions
-const validateGPUSelections = (gpus) => {
-  if (!Array.isArray(gpus)) return false
-  
-  return gpus.every(selection => {
-    return (
-      selection &&
-      typeof selection === 'object' &&
-      selection.gpu &&
-      typeof selection.gpu.name === 'string' &&
-      typeof selection.gpu.vram_gb === 'number' &&
-      typeof selection.quantity === 'number' &&
-      selection.quantity > 0 &&
-      selection.quantity <= 8
-    )
-  })
-}
-
-const validateModelSelections = (models) => {
-  if (!Array.isArray(models)) return false
-  
-  return models.every(model => {
-    return (
-      model &&
-      typeof model === 'object' &&
-      typeof model.name === 'string' &&
-      (typeof model.size === 'number' || model.size === null)
-    )
-  })
-}
-
 // Enhanced state change handlers
 const handleGPUSelectionChange = (newGPUs) => {
   if (!isStateRestoring.value) {
-    selectedGPUs.value = newGPUs
-    validateCurrentState()
+    gpuStore.updateSelectedGPUs(newGPUs)
     nextTick(() => {
       saveStateToStorage()
     })
@@ -195,36 +113,10 @@ const handleGPUSelectionChange = (newGPUs) => {
 
 const handleModelSelectionChange = (newModels) => {
   if (!isStateRestoring.value) {
-    selectedModels.value = newModels
-    validateCurrentState()
+    modelStore.updateSelectedModels(newModels)
     nextTick(() => {
       saveStateToStorage()
     })
-  }
-}
-
-const validateCurrentState = () => {
-  stateErrors.value = stateErrors.value.filter(err => err.message.includes('Failed to'))
-  
-  // Validate GPU selections
-  if (selectedGPUs.value.length > 0) {
-    const totalVRAMValue = totalVRAM.value
-    if (totalVRAMValue > 1000) {
-      addStateError('Extremely high VRAM configuration detected. Please verify your GPU selection.')
-    }
-    
-    const totalGPUCount = selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0)
-    if (totalGPUCount > 32) {
-      addStateError('Large number of GPUs selected. This may impact performance.')
-    }
-  }
-  
-  // Validate model selections
-  if (selectedModels.value.length > 0) {
-    const totalModelSizeValue = totalModelSize.value
-    if (totalModelSizeValue > totalVRAM.value * 0.8) {
-      addStateError('Model size approaching VRAM limits. Consider quantization or additional GPUs.')
-    }
   }
 }
 
@@ -235,7 +127,7 @@ onMounted(() => {
   
   // Mark application as ready after initial load
   setTimeout(() => {
-    applicationReady.value = true
+    uiStore.setApplicationReady(true)
   }, 100)
 
   // Add click listener to close menus when clicking outside
@@ -244,7 +136,7 @@ onMounted(() => {
     if (showSettingsMenu.value) {
       const settingsButton = event.target.closest('[data-settings-menu]')
       if (!settingsButton) {
-        showSettingsMenu.value = false
+        uiStore.toggleSettingsMenu()
       }
     }
     
@@ -253,7 +145,7 @@ onMounted(() => {
       const mobileMenuButton = event.target.closest('[data-mobile-menu]')
       const mobileMenuContent = event.target.closest('[data-mobile-menu-content]')
       if (!mobileMenuButton && !mobileMenuContent) {
-        showMobileMenu.value = false
+        uiStore.toggleMobileMenu()
       }
     }
   }
@@ -282,200 +174,6 @@ if (typeof window !== 'undefined') {
   })
 }
 
-// Configuration validation
-const hasValidConfiguration = computed(
-  () => selectedGPUs.value.length > 0 && selectedModels.value.length > 0
-)
-
-// Hardware calculations
-const totalVRAM = computed(() =>
-  selectedGPUs.value.reduce((total, sel) => total + sel.gpu.vram * sel.quantity, 0)
-)
-
-const totalModelSize = computed(() =>
-  selectedModels.value.reduce((total, model) => total + (model.size || 0), 0)
-)
-
-// Configuration state tracking
-const configurationStep = computed(() => {
-  if (selectedGPUs.value.length === 0) return 'gpu'
-  if (selectedModels.value.length === 0) return 'model'
-  return 'complete'
-})
-
-// Progress indicator
-const setupProgress = computed(() => {
-  const steps = ['gpu', 'model', 'complete']
-  const currentStepIndex = steps.indexOf(configurationStep.value)
-  return Math.min(100, ((currentStepIndex + 1) / steps.length) * 100)
-})
-
-// Enhanced VRAM breakdown calculations using calculation engine
-const vramBreakdown = computed(() => {
-  if (!hasValidConfiguration.value) return null
-
-  try {
-    const breakdown = {
-      modelWeights: 0,
-      kvCache: 0,
-      activations: 0,
-      systemOverhead: 0,
-      available: 0
-    }
-
-    // Calculate model weights memory for each selected model
-    selectedModels.value.forEach(model => {
-      const params = model.parameters || estimateParametersFromSize(model.size)
-      const quantization = model.quantization || 'fp16'
-      
-      const weightsMemory = calculateModelWeightsMemory(params, quantization)
-      breakdown.modelWeights += weightsMemory
-    })
-
-    // Calculate KV cache memory (estimate based on configuration)
-    const avgConfig = configurations.value.find(c => c.type === 'balanced') || configurations.value[0]
-    if (avgConfig && avgConfig.parameters) {
-      const maxSeqs = parseInt(avgConfig.parameters.find(p => p.name === '--max-num-seqs')?.value || '16')
-      const maxLen = parseInt(avgConfig.parameters.find(p => p.name === '--max-model-len')?.value || '2048')
-      
-      selectedModels.value.forEach(model => {
-        const params = model.parameters || estimateParametersFromSize(model.size)
-        const kvMemory = calculateKVCacheMemory(
-          params,
-          maxSeqs,
-          maxLen,
-          'fp16', // Assuming fp16 for KV cache
-          { numLayers: Math.floor(Math.sqrt(params / 1000000)) } // Rough layer estimation
-        )
-        breakdown.kvCache += kvMemory
-      })
-    }
-
-    // Estimate activation memory (roughly 10-20% of model weights)
-    breakdown.activations = breakdown.modelWeights * 0.15
-
-    // Estimate system overhead (roughly 5-10% of total VRAM)
-    breakdown.systemOverhead = totalVRAM.value * 0.08
-
-    // Calculate available memory
-    const usedMemory = breakdown.modelWeights + breakdown.kvCache + 
-                      breakdown.activations + breakdown.systemOverhead
-    breakdown.available = Math.max(0, totalVRAM.value - usedMemory)
-
-    return breakdown
-  } catch (error) {
-    console.error('Error calculating VRAM breakdown:', error)
-    
-    // Fallback calculation
-    const modelMemory = totalModelSize.value
-    const kvCache = modelMemory * 0.3 // Rough estimate
-    const activations = modelMemory * 0.15
-    const systemOverhead = totalVRAM.value * 0.08
-    const available = Math.max(0, totalVRAM.value - modelMemory - kvCache - activations - systemOverhead)
-
-    return {
-      modelWeights: modelMemory,
-      kvCache,
-      activations,
-      systemOverhead,
-      available
-    }
-  }
-})
-
-// Enhanced quantization recommendations
-const quantizationRecommendations = computed(() => {
-  if (!hasValidConfiguration.value) return []
-
-  try {
-    const recommendations = []
-    
-    selectedModels.value.forEach(model => {
-      if (model.size && model.size > 0) {
-        const recommendation = generateQuantizationRecommendation(
-          totalVRAM.value,
-          model.parameters || estimateParametersFromSize(model.size),
-          {
-            modelName: model.name,
-            targetMemoryUtilization: 0.85,
-            qualityTolerance: 'medium'
-          }
-        )
-        
-        if (recommendation) {
-          recommendations.push({
-            modelName: model.name,
-            currentFormat: model.quantization || 'fp16',
-            recommendedFormat: recommendation.recommendedFormat,
-            memorySavings: recommendation.memorySavings,
-            qualityImpact: recommendation.qualityImpact,
-            reason: recommendation.reason
-          })
-        }
-      }
-    })
-
-    return recommendations
-  } catch (error) {
-    console.error('Error generating quantization recommendations:', error)
-    return []
-  }
-})
-
-// Enhanced state analysis
-const stateAnalysis = computed(() => {
-  return {
-    hasErrors: stateErrors.value.length > 0,
-    isComplete: hasValidConfiguration.value,
-    gpuCount: selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0),
-    modelCount: selectedModels.value.length,
-    memoryEfficiency: totalVRAM.value > 0 ? (totalModelSize.value / totalVRAM.value) : 0,
-    hasCustomGPUs: selectedGPUs.value.some(sel => sel.gpu.custom),
-    hasMultipleModels: selectedModels.value.length > 1,
-    estimatedCost: calculateEstimatedCost(),
-    lastSaved: lastSavedState.value?.timestamp || null
-  }
-})
-
-const memoryPressure = computed(() => {
-  if (totalVRAM.value === 0) return 'unknown'
-  const ratio = totalModelSize.value / totalVRAM.value
-  if (ratio > 0.9) return 'critical'
-  if (ratio > 0.8) return 'high'
-  if (ratio > 0.6) return 'moderate'
-  return 'low'
-})
-
-const configurationHealth = computed(() => {
-  const issues = []
-  
-  if (stateErrors.value.length > 0) {
-    issues.push('State validation errors detected')
-  }
-  
-  if (memoryPressure.value === 'critical') {
-    issues.push('Critical memory pressure - models may not fit')
-  }
-  
-  if (stateAnalysis.value.gpuCount > 16) {
-    issues.push('Excessive GPU count may impact performance')
-  }
-  
-  return {
-    status: issues.length === 0 ? 'healthy' : issues.length === 1 ? 'warning' : 'critical',
-    issues
-  }
-})
-
-// Helper functions for state analysis
-const calculateEstimatedCost = () => {
-  // Simplified cost estimation based on GPU types
-  return selectedGPUs.value.reduce((total, selection) => {
-    const baseCost = selection.gpu.vram_gb * 0.1 // $0.10 per GB of VRAM per hour (example)
-    return total + (baseCost * selection.quantity)
-  }, 0)
-}
-
 // Development utilities (exposed to window for debugging)
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   window.vllmDebug = {
@@ -485,263 +183,11 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     memoryPressure,
     vramBreakdown,
     quantizationRecommendations,
-    // Calculation engine functions for debugging
-    calculateLatencyOptimalBatchSize,
-    calculateVLLMMemoryUsage,
-    estimateThroughputMetrics,
-    estimateLatencyMetrics,
-    calculateMemoryAllocationStrategy,
-    getSupportedQuantizationFormats
-  }
-}
-
-const configurations = computed(() => {
-  if (!hasValidConfiguration.value) return []
-
-  // Prepare parameters for calculation engine
-  const totalVRAMValue = totalVRAM.value
-  const totalModelSizeValue = totalModelSize.value
-  
-  // Extract hardware specifications
-  const hardwareSpecs = {
-    totalVRAM: totalVRAMValue,
-    gpuCount: selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0),
-    gpuTypes: selectedGPUs.value.map(sel => sel.gpu.name),
-    memoryBandwidth: selectedGPUs.value.reduce((total, sel) => {
-      // Estimate memory bandwidth based on GPU type
-      const estimatedBandwidth = sel.gpu.vram_gb > 80 ? 3500 : // H100/A100 class
-                                 sel.gpu.vram_gb > 40 ? 2000 : // RTX 6000 class  
-                                 sel.gpu.vram_gb > 20 ? 1000 : // RTX 4090 class
-                                 800 // Lower-end GPUs
-      return total + (estimatedBandwidth * sel.quantity)
-    }, 0) / selectedGPUs.value.reduce((sum, sel) => sum + sel.quantity, 0) // Average
-  }
-  
-  // Extract model specifications
-  const modelSpecs = selectedModels.value.map(model => ({
-    name: model.name,
-    parameters: model.parameters || estimateParametersFromSize(model.size),
-    size: model.size || 0,
-    quantization: model.quantization || 'fp16',
-    architecture: model.architecture || 'transformer'
-  }))
-  
-  // Common calculation parameters
-  const baseParams = {
-    totalVRAMGB: totalVRAMValue,
-    modelSizeGB: totalModelSizeValue,
-    models: modelSpecs,
-    hardware: hardwareSpecs
-  }
-
-  try {
-    // Generate optimized configurations using calculation engine
-    const throughputConfig = calculateThroughputOptimizedConfig({
-      ...baseParams,
-      optimizationTarget: 'throughput',
-      maxSequenceLength: 2048,
-      prioritizeMemoryEfficiency: false
-    })
-    
-    const latencyConfig = calculateBalancedOptimizedConfig({
-      ...baseParams,
-      optimizationTarget: 'latency',
-      maxSequenceLength: 4096,
-      balanceTarget: 'latency'
-    })
-    
-    const balancedConfig = calculateBalancedOptimizedConfig({
-      ...baseParams,
-      optimizationTarget: 'balanced',
-      maxSequenceLength: 3072,
-      balanceTarget: 'general'
-    })
-
-    // Transform calculation engine output to UI format
-    return [
-      transformConfigToUI(throughputConfig, 'throughput', 'Maximum Throughput'),
-      transformConfigToUI(latencyConfig, 'latency', 'Minimum Latency'),
-      transformConfigToUI(balancedConfig, 'balanced', 'Balanced Performance')
-    ]
-  } catch (error) {
-    console.error('Error generating configurations with calculation engine:', error)
-    
-    // Fallback to basic calculations if engine fails
-    return generateFallbackConfigurations(totalVRAMValue, totalModelSizeValue)
-  }
-})
-
-// Helper function to estimate parameters from model size
-const estimateParametersFromSize = (sizeGB) => {
-  if (!sizeGB) return 7000000000 // Default 7B parameters
-  // Rough estimation: ~2 bytes per parameter for fp16
-  return Math.round((sizeGB * 1024 * 1024 * 1024) / 2)
-}
-
-// Transform calculation engine output to UI-compatible format
-const transformConfigToUI = (engineConfig, type, title) => {
-  if (!engineConfig || !engineConfig.parameters) {
-    return generateFallbackConfig(type, title)
-  }
-
-  const params = engineConfig.parameters
-  const metrics = engineConfig.metrics || {}
-  
-  // Map calculation engine parameters to UI format
-  const uiParameters = [
-    {
-      name: '--gpu-memory-utilization',
-      value: params['gpu-memory-utilization'] || '0.85',
-      explanation: engineConfig.explanations?.find(e => e.includes('memory utilization'))?.text || 
-                   'GPU memory utilization for optimal performance.'
-    },
-    {
-      name: '--max-model-len',
-      value: params['max-model-len'] || '2048',
-      explanation: engineConfig.explanations?.find(e => e.includes('sequence length'))?.text ||
-                   'Maximum sequence length supported by the configuration.'
-    },
-    {
-      name: '--max-num-seqs',
-      value: params['max-num-seqs'] || '16',
-      explanation: engineConfig.explanations?.find(e => e.includes('concurrent sequences'))?.text ||
-                   'Maximum number of concurrent sequences.'
-    },
-    {
-      name: '--max-num-batched-tokens',
-      value: params['max-num-batched-tokens'] || '4096',
-      explanation: engineConfig.explanations?.find(e => e.includes('batch'))?.text ||
-                   'Maximum number of tokens processed in a single batch.'
-    },
-    {
-      name: '--block-size',
-      value: params['block-size'] || '16',
-      explanation: 'Block size for memory allocation and attention computation.'
-    }
-  ]
-
-  // Add optional parameters if present
-  if (params['swap-space']) {
-    uiParameters.push({
-      name: '--swap-space',
-      value: params['swap-space'],
-      explanation: 'Swap space allocation for handling memory overflow.'
-    })
-  }
-
-  if (params['enable-chunked-prefill'] === 'true') {
-    uiParameters.push({
-      name: '--enable-chunked-prefill',
-      value: 'true',
-      explanation: 'Enable chunked prefill for better memory management.'
-    })
-  }
-
-  return {
-    type,
-    title,
-    description: engineConfig.description || `${title} configuration optimized using advanced calculations.`,
-    parameters: uiParameters,
-    metrics: {
-      estimatedThroughput: metrics.estimatedThroughput || 'N/A',
-      estimatedLatency: metrics.averageLatency || 'N/A',
-      memoryEfficiency: metrics.memoryEfficiency || 'N/A',
-      ...metrics
-    },
-    command: engineConfig.command || generateVLLMCommand(params)
-  }
-}
-
-// Fallback configuration generation for when calculation engine fails
-const generateFallbackConfigurations = (totalVRAMValue, totalModelSizeValue) => {
-  const remainingVRAM = totalVRAMValue - totalModelSizeValue
-  const baseMemoryUtilization = Math.min(
-    0.9,
-    Math.max(0.5, totalModelSizeValue / totalVRAMValue + 0.1)
-  )
-
-  return [
-    generateFallbackConfig('throughput', 'Maximum Throughput', {
-      gpuMemoryUtilization: Math.min(0.95, baseMemoryUtilization + 0.1).toFixed(2),
-      maxModelLen: '2048',
-      maxNumSeqs: Math.max(32, Math.floor(remainingVRAM / 2)).toString(),
-      maxNumBatchedTokens: Math.max(8192, Math.floor(remainingVRAM * 1024)).toString(),
-      blockSize: '16',
-      swapSpace: Math.max(4, Math.floor(totalVRAMValue * 0.1)).toString()
-    }),
-    generateFallbackConfig('latency', 'Minimum Latency', {
-      gpuMemoryUtilization: Math.max(0.7, baseMemoryUtilization - 0.1).toFixed(2),
-      maxModelLen: '4096',
-      maxNumSeqs: Math.max(8, Math.floor(remainingVRAM / 4)).toString(),
-      maxNumBatchedTokens: Math.max(2048, Math.floor(remainingVRAM * 512)).toString(),
-      blockSize: '8',
-      swapSpace: Math.max(2, Math.floor(totalVRAMValue * 0.05)).toString()
-    }),
-    generateFallbackConfig('balanced', 'Balanced Performance', {
-      gpuMemoryUtilization: baseMemoryUtilization.toFixed(2),
-      maxModelLen: '3072',
-      maxNumSeqs: Math.max(16, Math.floor(remainingVRAM / 3)).toString(),
-      maxNumBatchedTokens: Math.max(4096, Math.floor(remainingVRAM * 768)).toString(),
-      blockSize: '12',
-      swapSpace: Math.max(3, Math.floor(totalVRAMValue * 0.075)).toString()
-    })
-  ]
-}
-
-const generateFallbackConfig = (type, title, params = {}) => {
-  const descriptions = {
-    throughput: 'Optimized for handling the highest number of concurrent requests and maximum token generation.',
-    latency: 'Optimized for fastest response times and lowest latency per request.',
-    balanced: 'Balanced configuration providing good throughput while maintaining reasonable latency.'
-  }
-
-  const defaultParams = {
-    gpuMemoryUtilization: '0.85',
-    maxModelLen: '2048',
-    maxNumSeqs: '16',
-    maxNumBatchedTokens: '4096',
-    blockSize: '16',
-    swapSpace: '4'
-  }
-
-  const finalParams = { ...defaultParams, ...params }
-
-  return {
-    type,
-    title,
-    description: descriptions[type] || 'Fallback configuration with basic optimization.',
-    parameters: [
-      {
-        name: '--gpu-memory-utilization',
-        value: finalParams.gpuMemoryUtilization,
-        explanation: 'GPU memory utilization for this configuration type.'
-      },
-      {
-        name: '--max-model-len',
-        value: finalParams.maxModelLen,
-        explanation: 'Maximum sequence length supported.'
-      },
-      {
-        name: '--max-num-seqs',
-        value: finalParams.maxNumSeqs,
-        explanation: 'Maximum number of concurrent sequences.'
-      },
-      {
-        name: '--max-num-batched-tokens',
-        value: finalParams.maxNumBatchedTokens,
-        explanation: 'Maximum tokens processed in a batch.'
-      },
-      {
-        name: '--block-size',
-        value: finalParams.blockSize,
-        explanation: 'Block size for memory allocation.'
-      },
-      {
-        name: '--swap-space',
-        value: finalParams.swapSpace,
-        explanation: 'Swap space allocation in GB.'
-      }
-    ]
+    // Store access for debugging
+    gpuStore,
+    modelStore,
+    configStore,
+    uiStore
   }
 }
 
@@ -783,7 +229,7 @@ const chartOptions = ref({
 <template>
   <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
     <!-- Navigation Header -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm backdrop-blur-sm bg-white/95">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm backdrop-blur-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <!-- Brand Section -->
@@ -907,7 +353,7 @@ const chartOptions = ref({
               <!-- Clear Configuration -->
               <button
                 v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
-                @click="clearStoredState(); selectedGPUs.splice(0); selectedModels.splice(0);"
+                @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels();"
                 class="inline-flex items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                 title="Clear all selections"
               >
@@ -920,7 +366,7 @@ const chartOptions = ref({
               <!-- Settings Dropdown -->
               <div class="relative" @click="$event.stopPropagation()" data-settings-menu>
                 <button
-                  @click="showSettingsMenu = !showSettingsMenu"
+                                        @click="uiStore.toggleSettingsMenu()"
                   class="inline-flex items-center p-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                   title="Settings and options"
                 >
@@ -940,7 +386,7 @@ const chartOptions = ref({
                       Configuration
                     </div>
                     <button
-                      @click="clearStoredState(); showSettingsMenu = false"
+                      @click="clearStoredState(); uiStore.showSettingsMenu = false"
                       class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -949,11 +395,11 @@ const chartOptions = ref({
                       Clear Saved Data
                     </button>
                     
-                    <div class="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 border-t border-gray-100 mt-1">
+                    <div class="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 border-t mt-1">
                       View Options
                     </div>
                     <button
-                      @click="showDebugInfo = !showDebugInfo; showSettingsMenu = false"
+                      @click="uiStore.toggleDebugInfo(); uiStore.showSettingsMenu = false"
                       class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                     >
                       <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -967,7 +413,7 @@ const chartOptions = ref({
                       target="_blank"
                       rel="noopener noreferrer"
                       class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
-                      @click="showSettingsMenu = false"
+                      @click="uiStore.showSettingsMenu = false"
                     >
                       <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -981,7 +427,7 @@ const chartOptions = ref({
 
             <!-- Mobile Menu Button -->
             <button
-              @click="showMobileMenu = !showMobileMenu"
+              @click="uiStore.toggleMobileMenu()"
               class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
               data-mobile-menu
             >
@@ -1013,7 +459,7 @@ const chartOptions = ref({
             <!-- Mobile Navigation Links -->
             <a
               href="#gpu-selection"
-              @click="showMobileMenu = false"
+              @click="uiStore.showMobileMenu = false"
               :class="[
                 'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
                 configurationStep === 'gpu'
@@ -1026,7 +472,7 @@ const chartOptions = ref({
             
             <a
               href="#model-selection"
-              @click="showMobileMenu = false"
+              @click="uiStore.showMobileMenu = false"
               :class="[
                 'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
                 configurationStep === 'model'
@@ -1041,7 +487,7 @@ const chartOptions = ref({
             
             <a
               href="#configuration-results"
-              @click="showMobileMenu = false"
+              @click="uiStore.showMobileMenu = false"
               :class="[
                 'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
                 configurationStep === 'complete'
@@ -1058,7 +504,7 @@ const chartOptions = ref({
             <div class="px-4 py-3 border-t border-gray-200 space-y-2">
               <button
                 v-if="hasValidConfiguration"
-                @click="saveStateToStorage(); showMobileMenu = false"
+                @click="saveStateToStorage(); uiStore.showMobileMenu = false"
                 class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1069,7 +515,7 @@ const chartOptions = ref({
               
               <button
                 v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
-                @click="clearStoredState(); selectedGPUs.splice(0); selectedModels.splice(0); showMobileMenu = false"
+                @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels(); uiStore.showMobileMenu = false"
                 class="w-full flex items-center justify-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
               >
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1292,7 +738,7 @@ const chartOptions = ref({
                 <p class="text-red-600 text-sm mt-1">{{ error.timestamp.toLocaleTimeString() }}</p>
               </div>
               <button 
-                @click="removeStateError(error.id)"
+                @click="uiStore.removeStateError(error.id)"
                 class="ml-4 text-red-400 hover:text-red-600 focus:outline-none"
               >
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -1303,7 +749,7 @@ const chartOptions = ref({
           </div>
           
           <GPUSelector 
-            v-model:selectedGPUs="selectedGPUs"
+            :selected-g-p-us="selectedGPUs"
             @update:selectedGPUs="handleGPUSelectionChange"
           />
         </section>
@@ -1317,7 +763,7 @@ const chartOptions = ref({
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Choose Your Model</h3>
           </div>
           <ModelSelector 
-            v-model:selectedModels="selectedModels"
+            :selected-models="selectedModels"
             @update:selectedModels="handleModelSelectionChange"
           />
         </section>
@@ -1331,8 +777,9 @@ const chartOptions = ref({
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
           </div>
           <ConfigurationOutput 
-            :selectedGPUs="selectedGPUs"
-            :selectedModels="selectedModels"
+            :selected-g-p-us="selectedGPUs"
+            :selected-models="selectedModels"
+            :configurations="configurations"
           />
         </section>
 
@@ -1345,10 +792,11 @@ const chartOptions = ref({
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
           </div>
           <VRAMChart 
-            :selectedGPUs="selectedGPUs"
-            :selectedModels="selectedModels"
+            :selected-g-p-us="selectedGPUs"
+            :selected-models="selectedModels"
             :configurations="configurations"
-            :showBreakdown="true"
+            :vram-breakdown="vramBreakdown"
+            :show-breakdown="true"
             title="VRAM Memory Allocation by Configuration"
           />
         </section>
@@ -1373,7 +821,7 @@ const chartOptions = ref({
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-base sm:text-lg font-bold">Debug Information</h3>
           <button
-            @click="showDebugInfo = false"
+            @click="uiStore.toggleDebugInfo()"
             class="text-gray-400 hover:text-white transition-colors p-1"
             title="Close debug panel"
           >

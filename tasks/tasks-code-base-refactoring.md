@@ -100,7 +100,7 @@
 * [ ] 3.0 Implement Pinia and Refactor Components for State Management
   * [x] 3.1 Install Pinia and configure it in `src/main.js`.
   * [x] 3.2 Create Pinia stores (e.g., `useGpuStore`, `useModelStore`, `useConfigStore`) to manage global state.
-  * [ ] 3.3 Move state logic (e.g., `selectedGPUs`, `selectedModels`) and computed properties (e.g., `configurations`, `vramBreakdown`) from `App.vue` into the appropriate Pinia stores.
+  * [x] 3.3 Move state logic (e.g., `selectedGPUs`, `selectedModels`) and computed properties (e.g., `configurations`, `vramBreakdown`) from `App.vue` into the appropriate Pinia stores.
   * [ ] 3.4 Refactor `GPUSelector.vue` and `ModelSelector.vue` to use Pinia actions for state changes.
   * [ ] 3.5 Refactor `ConfigurationOutput.vue` and `VRAMChart.vue` to read data directly from Pinia getters.
   * [ ] 3.6 Remove old state management logic and prop drilling from all refactored components.
