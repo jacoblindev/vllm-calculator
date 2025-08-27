@@ -744,11 +744,7 @@ const chartOptions = ref({
             </div>
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
           </div>
-          <ConfigurationOutput 
-            :selected-g-p-us="selectedGPUs"
-            :selected-models="selectedModels"
-            :configurations="configurations"
-          />
+          <ConfigurationOutput />
         </section>
 
         <!-- VRAM Visualization -->
@@ -760,10 +756,6 @@ const chartOptions = ref({
             <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
           </div>
           <VRAMChart 
-            :selected-g-p-us="selectedGPUs"
-            :selected-models="selectedModels"
-            :configurations="configurations"
-            :vram-breakdown="vramBreakdown"
             :show-breakdown="true"
             title="VRAM Memory Allocation by Configuration"
           />

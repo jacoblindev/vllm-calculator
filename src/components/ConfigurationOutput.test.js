@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import ConfigurationOutput from './ConfigurationOutput.vue'
+import { useGpuStore } from '../stores/gpuStore.js'
+import { useModelStore } from '../stores/modelStore.js'
+import { useConfigStore } from '../stores/configStore.js'
 
 // Mock navigator.clipboard for happy-dom
 Object.defineProperty(navigator, 'clipboard', {
@@ -11,6 +15,11 @@ Object.defineProperty(navigator, 'clipboard', {
 })
 
 describe('ConfigurationOutput.vue', () => {
+  let pinia
+  let gpuStore
+  let modelStore
+  let configStore
+
   const mockGPUs = [{ gpu: { name: 'NVIDIA A100', vram: 80 }, quantity: 2 }]
 
   const mockModels = [
@@ -25,6 +34,15 @@ describe('ConfigurationOutput.vue', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    
+    // Create a fresh Pinia instance for each test
+    pinia = createPinia()
+    setActivePinia(pinia)
+    
+    // Initialize stores
+    gpuStore = useGpuStore()
+    modelStore = useModelStore()
+    configStore = useConfigStore()
   })
 
   it('renders component correctly', () => {
