@@ -38,10 +38,10 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
       <div class="relative">
         <div class="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 rounded-3xl -z-10"></div>
         <div class="py-12 sm:py-16 px-6 sm:px-8">
-          <h2 class="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent mb-4 sm:mb-6 leading-tight">
+          <h2 class="heading-primary bg-gradient-to-r from-gray-900 via-blue-900 to-purple-900 bg-clip-text text-transparent component-spacing leading-tight">
             Optimize Your vLLM Deployment
           </h2>
-          <p class="text-xl sm:text-2xl text-gray-600 mb-8 sm:mb-10 leading-relaxed max-w-4xl mx-auto font-light">
+          <p class="text-body-large component-spacing leading-relaxed max-w-4xl mx-auto">
             Configure optimal vLLM parameters for your GPU and model setup with intelligent recommendations
             based on throughput, latency, and balanced performance profiles.
           </p>
@@ -57,7 +57,7 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
                       'w-4 h-4 rounded-full shadow-sm animate-pulse-soft',
                       selectedGPUs.length > 0 ? 'bg-green-500' : 'bg-gray-300'
                     ]"></div>
-                    <span class="text-sm font-semibold text-gray-700">GPU Selected</span>
+                    <span class="text-caption text-emphasis">GPU Selected</span>
                   </div>
                   <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -67,7 +67,7 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
                       'w-4 h-4 rounded-full shadow-sm animate-pulse-soft',
                       selectedModels.length > 0 ? 'bg-green-500' : 'bg-gray-300'
                     ]"></div>
-                    <span class="text-sm font-semibold text-gray-700">Model Selected</span>
+                    <span class="text-caption text-emphasis">Model Selected</span>
                   </div>
                   <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -77,7 +77,7 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
                       'w-4 h-4 rounded-full shadow-sm animate-pulse-soft',
                       hasValidConfiguration ? 'bg-green-500' : 'bg-gray-300'
                     ]"></div>
-                    <span class="text-sm font-semibold text-gray-700">Ready to Configure</span>
+                    <span class="text-caption text-emphasis">Ready to Configure</span>
                   </div>
                 </div>
               </div>
@@ -85,21 +85,21 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
               <!-- Mobile Layout -->
               <div class="sm:hidden card-professional p-6 space-y-4">
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-gray-700">GPU Selected</span>
+                  <span class="text-caption text-emphasis">GPU Selected</span>
                   <div :class="[
                     'w-4 h-4 rounded-full shadow-sm animate-pulse-soft',
                     selectedGPUs.length > 0 ? 'bg-green-500' : 'bg-gray-300'
                   ]"></div>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-gray-700">Model Selected</span>
+                  <span class="text-caption text-emphasis">Model Selected</span>
                   <div :class="[
                     'w-4 h-4 rounded-full shadow-sm animate-pulse-soft',
                     selectedModels.length > 0 ? 'bg-green-500' : 'bg-gray-300'
                   ]"></div>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-sm font-semibold text-gray-700">Ready to Configure</span>
+                  <span class="text-caption text-emphasis">Ready to Configure</span>
                   <div :class="[
                     'w-4 h-4 rounded-full shadow-sm animate-pulse-soft',
                     hasValidConfiguration ? 'bg-green-500' : 'bg-gray-300'
@@ -121,22 +121,22 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                 </svg>
               </div>
-              <h4 class="text-2xl sm:text-3xl font-bold text-gray-900">Configuration Summary</h4>
+              <h4 class="heading-secondary">Configuration Summary</h4>
             </div>
           </div>
           
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 component-spacing">
             <div class="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
-              <div class="text-2xl sm:text-3xl font-bold text-blue-600 mb-1">{{ stateAnalysis.gpuCount }}</div>
-              <div class="text-sm sm:text-base font-medium text-blue-800">Total GPUs</div>
+              <div class="heading-tertiary text-blue-600 tight-spacing">{{ stateAnalysis.gpuCount }}</div>
+              <div class="text-caption text-blue-800">Total GPUs</div>
             </div>
             <div class="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200">
-              <div class="text-2xl sm:text-3xl font-bold text-green-600 mb-1">{{ totalVRAM }}GB</div>
-              <div class="text-sm sm:text-base font-medium text-green-800">Total VRAM</div>
+              <div class="heading-tertiary text-green-600 tight-spacing">{{ totalVRAM }}GB</div>
+              <div class="text-caption text-green-800">Total VRAM</div>
             </div>
             <div class="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl border border-purple-200">
-              <div class="text-2xl sm:text-3xl font-bold text-purple-600 mb-1">{{ stateAnalysis.modelCount }}</div>
-              <div class="text-sm sm:text-base font-medium text-purple-800">Models</div>
+              <div class="heading-tertiary text-purple-600 tight-spacing">{{ stateAnalysis.modelCount }}</div>
+              <div class="text-caption text-purple-800">Models</div>
             </div>
             <div class="text-center p-4 rounded-xl border" :class="{
               'bg-gradient-to-br from-green-50 to-green-100 border-green-200': memoryPressure === 'low',
@@ -145,7 +145,7 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
               'bg-gradient-to-br from-red-50 to-red-100 border-red-200': memoryPressure === 'critical'
             }">
               <div :class="[
-                'text-2xl sm:text-3xl font-bold mb-1',
+                'heading-tertiary tight-spacing',
                 memoryPressure === 'low' ? 'text-green-600' :
                 memoryPressure === 'moderate' ? 'text-yellow-600' :
                 memoryPressure === 'high' ? 'text-orange-600' : 'text-red-600'
@@ -153,7 +153,7 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
                 {{ Math.round(stateAnalysis.memoryEfficiency * 100) }}%
               </div>
               <div :class="[
-                'text-sm sm:text-base font-medium',
+                'text-caption',
                 memoryPressure === 'low' ? 'text-green-800' :
                 memoryPressure === 'moderate' ? 'text-yellow-800' :
                 memoryPressure === 'high' ? 'text-orange-800' : 'text-red-800'

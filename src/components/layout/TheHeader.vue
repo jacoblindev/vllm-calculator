@@ -88,14 +88,26 @@ onMounted(() => {
 
 <template>
   <!-- Navigation Header -->
-  <header class="glass-morphism border-b border-white/20 sticky top-0 z-50 backdrop-blur-md">
+  <header 
+    class="glass-morphism border-b border-white/20 sticky top-0 z-50 backdrop-blur-md"
+    role="banner"
+    aria-label="Main navigation"
+  >
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-14 sm:h-16">
         <!-- Brand Section -->
         <div class="flex items-center space-x-3">
           <div class="flex-shrink-0">
-            <div class="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center shadow-md">
-              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <div 
+              class="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center shadow-md"
+              aria-label="vLLM Calculator logo"
+            >
+              <svg 
+                class="w-5 h-5 text-white" 
+                fill="currentColor" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
               </svg>
             </div>
@@ -107,7 +119,11 @@ onMounted(() => {
         </div>
 
         <!-- Navigation Links -->
-        <nav class="hidden lg:flex items-center space-x-8">
+        <nav 
+          class="hidden lg:flex items-center space-x-8"
+          role="navigation"
+          aria-label="Main navigation links"
+        >
           <a 
             href="#gpu-selection" 
             :class="[
@@ -116,9 +132,18 @@ onMounted(() => {
                 ? 'text-blue-600 bg-blue-50 border border-blue-200 shadow-sm' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
             ]"
+            :aria-current="configurationStep === 'gpu' ? 'step' : undefined"
+            aria-label="GPU selection step"
           >
             <span class="flex items-center space-x-3">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg 
+                class="w-6 h-6" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <rect x="4" y="4" width="16" height="16" rx="2"/>
                 <rect x="9" y="9" width="6" height="6"/>
                 <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
@@ -137,9 +162,19 @@ onMounted(() => {
                   ? 'text-gray-600 hover:text-gray-900 hover:bg-white/50' 
                   : 'text-gray-400 cursor-not-allowed opacity-50'
             ]"
+            :aria-current="configurationStep === 'model' ? 'step' : undefined"
+            :aria-disabled="selectedGPUs.length === 0"
+            aria-label="Model selection step"
           >
             <span class="flex items-center space-x-3">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg 
+                class="w-6 h-6" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
               </svg>
               <span>Model</span>
@@ -156,9 +191,19 @@ onMounted(() => {
                   ? 'text-gray-600 hover:text-gray-900 hover:bg-white/50' 
                   : 'text-gray-400 cursor-not-allowed opacity-50'
             ]"
+            :aria-current="configurationStep === 'complete' ? 'step' : undefined"
+            :aria-disabled="!hasValidConfiguration"
+            aria-label="Configuration results step"
           >
             <span class="flex items-center space-x-3">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg 
+                class="w-6 h-6" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path d="M9 12h6M9 16h6M9 8h6"/>
                 <rect x="3" y="4" width="18" height="16" rx="2"/>
               </svg>
@@ -179,6 +224,8 @@ onMounted(() => {
                 'bg-red-500'
               ]"
               :title="configurationHealth.issues.join(', ') || 'Configuration is healthy'"
+              :aria-label="'Configuration status: ' + configurationHealth.status"
+              role="status"
             ></div>
             <span 
               :class="[
@@ -187,6 +234,7 @@ onMounted(() => {
                 configurationHealth.status === 'warning' ? 'text-yellow-700' :
                 'text-red-700'
               ]"
+              aria-live="polite"
             >
               {{ configurationHealth.status === 'healthy' ? 'Ready' : 
                  configurationHealth.status === 'warning' ? 'Warning' : 'Issues' }}
@@ -195,8 +243,8 @@ onMounted(() => {
 
           <!-- Progress Indicator -->
           <div class="hidden lg:flex items-center space-x-2">
-            <span class="text-xs font-medium text-gray-700">Progress</span>
-            <div class="relative w-16">
+            <span class="text-xs font-medium text-gray-700" id="progress-label">Progress</span>
+            <div class="relative w-16" role="progressbar" :aria-valuenow="Math.round(setupProgress)" aria-valuemin="0" aria-valuemax="100" aria-labelledby="progress-label">
               <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
                 <div 
                   class="gradient-primary h-1.5 rounded-full transition-all duration-500 ease-out" 
@@ -204,7 +252,7 @@ onMounted(() => {
                 ></div>
               </div>
             </div>
-            <span class="text-xs font-medium text-gray-600 min-w-[2rem] text-right">{{ Math.round(setupProgress) }}%</span>
+            <span class="text-xs font-medium text-gray-600 min-w-[2rem] text-right" aria-live="polite">{{ Math.round(setupProgress) }}%</span>
           </div>
 
           <!-- Action Menu -->
@@ -214,9 +262,15 @@ onMounted(() => {
               v-if="hasValidConfiguration"
               @click="saveStateToStorage"
               class="!hidden lg:!inline-flex btn-professional px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md shadow-sm hover:shadow-md border border-blue-600 items-center"
-              title="Save current configuration"
+              aria-label="Save current configuration"
             >
-              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                class="w-4 h-4 mr-1.5" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
               <span class="hidden sm:inline">Save</span>
@@ -227,9 +281,15 @@ onMounted(() => {
               v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
               @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels();"
               class="!hidden lg:!inline-flex btn-professional px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 text-xs rounded-md shadow-sm hover:shadow-md items-center"
-              title="Clear all selections"
+              aria-label="Clear all selections"
             >
-              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                class="w-4 h-4 mr-1.5" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
               <span class="hidden sm:inline">Clear</span>
@@ -240,9 +300,17 @@ onMounted(() => {
               <button
                 @click="uiStore.toggleSettingsMenu()"
                 class="btn-professional p-2 lg:p-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-md shadow-sm hover:shadow-md"
-                title="Settings and options"
+                aria-label="Settings and options"
+                :aria-expanded="showSettingsMenu"
+                aria-haspopup="true"
               >
-                <svg class="w-6 h-6 lg:w-4 lg:h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg 
+                  class="w-6 h-6 lg:w-4 lg:h-4 text-gray-600" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                 </svg>
               </button>
@@ -252,6 +320,8 @@ onMounted(() => {
                 v-if="showSettingsMenu"
                 class="absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 overflow-hidden"
                 @click.stop
+                role="menu"
+                aria-labelledby="settings-button"
               >
                 <div class="py-1">
                   <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
@@ -260,8 +330,16 @@ onMounted(() => {
                   <button
                     @click="clearStoredState(); uiStore.showSettingsMenu = false"
                     class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors duration-200"
+                    role="menuitem"
+                    aria-label="Clear all saved configuration data"
                   >
-                    <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg 
+                      class="w-4 h-4 mr-3 text-gray-400" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
                     <div>
@@ -276,8 +354,16 @@ onMounted(() => {
                   <button
                     @click="uiStore.toggleDebugInfo(); uiStore.showSettingsMenu = false"
                     class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors duration-200"
+                    role="menuitem"
+                    :aria-label="(showDebugInfo ? 'Hide' : 'Show') + ' debug information panel'"
                   >
-                    <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg 
+                      class="w-4 h-4 mr-3 text-gray-400" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
                     <div>
@@ -292,8 +378,16 @@ onMounted(() => {
                     rel="noopener noreferrer"
                     class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors duration-200"
                     @click="uiStore.showSettingsMenu = false"
+                    role="menuitem"
+                    aria-label="Open vLLM documentation in new tab"
                   >
-                    <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg 
+                      class="w-4 h-4 mr-3 text-gray-400" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                     </svg>
                     <div>
@@ -311,8 +405,16 @@ onMounted(() => {
             @click="uiStore.toggleMobileMenu()"
             class="lg:!hidden md:block sm:block block btn-professional p-2 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-md shadow-sm"
             data-mobile-menu
+            aria-label="Toggle mobile navigation menu"
+            :aria-expanded="showMobileMenu"
           >
-            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg 
+              class="w-6 h-6 text-gray-600" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
               <path v-if="!showMobileMenu" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
               <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -321,15 +423,28 @@ onMounted(() => {
       </div>
 
       <!-- Mobile Navigation Menu -->
-      <div v-if="showMobileMenu" class="lg:hidden border-t border-white/20 glass-morphism" data-mobile-menu-content>
+      <nav 
+        v-if="showMobileMenu" 
+        class="lg:hidden border-t border-white/20 glass-morphism" 
+        data-mobile-menu-content
+        role="navigation"
+        aria-label="Mobile navigation menu"
+      >
         <div class="pt-4 pb-6 space-y-1">
           <!-- Mobile Progress Indicator -->
           <div class="px-4 py-4 border-b border-white/10">
             <div class="flex items-center space-x-3 mb-3">
-              <span class="text-sm font-semibold text-gray-700">Setup Progress</span>
-              <span class="text-sm font-medium text-gray-600">{{ Math.round(setupProgress) }}%</span>
+              <span class="text-sm font-semibold text-gray-700" id="mobile-progress-label">Setup Progress</span>
+              <span class="text-sm font-medium text-gray-600" aria-live="polite">{{ Math.round(setupProgress) }}%</span>
             </div>
-            <div class="relative w-full">
+            <div 
+              class="relative w-full" 
+              role="progressbar" 
+              :aria-valuenow="Math.round(setupProgress)" 
+              aria-valuemin="0" 
+              aria-valuemax="100" 
+              aria-labelledby="mobile-progress-label"
+            >
               <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                 <div 
                   class="gradient-primary h-2 rounded-full transition-all duration-500 ease-out" 
@@ -349,9 +464,18 @@ onMounted(() => {
                 ? 'text-blue-700 bg-blue-50 border-blue-500 shadow-sm'
                 : 'text-gray-600 hover:text-gray-800 hover:bg-white/50 border-transparent'
             ]"
+            :aria-current="configurationStep === 'gpu' ? 'step' : undefined"
+            aria-label="GPU selection step"
           >
             <div class="flex items-center space-x-3">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg 
+                class="w-6 h-6" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <rect x="4" y="4" width="16" height="16" rx="2"/>
                 <rect x="9" y="9" width="6" height="6"/>
                 <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
@@ -371,9 +495,19 @@ onMounted(() => {
                   ? 'text-gray-600 hover:text-gray-800 hover:bg-white/50 border-transparent'
                   : 'text-gray-400 border-transparent cursor-not-allowed opacity-50'
             ]"
+            :aria-current="configurationStep === 'model' ? 'step' : undefined"
+            :aria-disabled="selectedGPUs.length === 0"
+            aria-label="Model selection step"
           >
             <div class="flex items-center space-x-3">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg 
+                class="w-6 h-6" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
               </svg>
               <span>Model</span>
@@ -391,9 +525,19 @@ onMounted(() => {
                   ? 'text-gray-600 hover:text-gray-800 hover:bg-white/50 border-transparent'
                   : 'text-gray-400 border-transparent cursor-not-allowed opacity-50'
             ]"
+            :aria-current="configurationStep === 'complete' ? 'step' : undefined"
+            :aria-disabled="!hasValidConfiguration"
+            aria-label="Configuration results step"
           >
             <div class="flex items-center space-x-3">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <svg 
+                class="w-6 h-6" 
+                fill="none" 
+                stroke="currentColor" 
+                stroke-width="2" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path d="M9 12h6M9 16h6M9 8h6"/>
                 <rect x="3" y="4" width="18" height="16" rx="2"/>
               </svg>
@@ -407,8 +551,15 @@ onMounted(() => {
               v-if="hasValidConfiguration"
               @click="saveStateToStorage(); uiStore.showMobileMenu = false"
               class="w-full btn-professional px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm flex items-center justify-center"
+              aria-label="Save current configuration"
             >
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                class="w-5 h-5 mr-2" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
               <span class="text-sm font-medium">Save Configuration</span>
@@ -418,15 +569,22 @@ onMounted(() => {
               v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
               @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels(); uiStore.showMobileMenu = false"
               class="w-full btn-professional px-3 py-2.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg shadow-sm flex items-center justify-center"
+              aria-label="Clear all selections"
             >
-              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                class="w-5 h-5 mr-2" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
               <span class="text-sm font-medium">Clear All</span>
             </button>
           </div>
         </div>
-      </div>
+      </nav>
     </div>
   </header>
 </template>

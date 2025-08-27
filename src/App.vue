@@ -97,7 +97,11 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
     <!-- Navigation Header -->
     <TheHeader />
 
-    <main class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+    <main 
+      class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8"
+      role="main"
+      aria-label="vLLM Configuration Calculator Application"
+    >
       <ErrorBoundary>
         <LoadingIndicator />
         
@@ -114,14 +118,27 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
         <!-- Configuration Steps -->
         <div class="space-y-4 sm:space-y-6 lg:space-y-8">
           <!-- Step 1: GPU Selection -->
-          <section class="scroll-mt-16 sm:scroll-mt-20 animate-fade-in-up" id="gpu-selection" style="animation-delay: 0.1s">
+          <section 
+            class="scroll-mt-16 sm:scroll-mt-20 animate-fade-in-up" 
+            id="gpu-selection" 
+            style="animation-delay: 0.1s"
+            aria-labelledby="gpu-selection-heading"
+          >
             <div class="card-professional p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
               <div class="flex items-center mb-4 sm:mb-6 lg:mb-8">
-                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 gradient-primary text-white rounded-full text-sm sm:text-lg font-bold mr-3 sm:mr-4 lg:mr-6 shadow-lg flex-shrink-0">
+                <div 
+                  class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 gradient-primary text-white rounded-full text-sm sm:text-lg font-bold mr-3 sm:mr-4 lg:mr-6 shadow-lg flex-shrink-0"
+                  aria-label="Step 1 of 3"
+                >
                   1
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate">Select Your GPU Configuration</h3>
+                  <h3 
+                    id="gpu-selection-heading"
+                    class="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate"
+                  >
+                    Select Your GPU Configuration
+                  </h3>
                   <p class="text-gray-600 text-xs sm:text-sm lg:text-base leading-relaxed">Choose the GPUs that will power your vLLM deployment</p>
                 </div>
               </div>
@@ -143,6 +160,8 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
                   <button 
                     @click="uiStore.removeStateError(error.id)"
                     class="ml-2 sm:ml-3 lg:ml-4 text-red-400 hover:text-red-600 focus:outline-none transition-colors duration-200 p-1 rounded-md hover:bg-red-100 flex-shrink-0"
+                    aria-label="Dismiss error message"
+                    :title="`Dismiss error: ${error.message}`"
                   >
                     <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
@@ -156,14 +175,27 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
           </section>
 
           <!-- Step 2: Model Selection -->
-          <section class="scroll-mt-16 sm:scroll-mt-20 animate-fade-in-up" id="model-selection" style="animation-delay: 0.2s">
+          <section 
+            class="scroll-mt-16 sm:scroll-mt-20 animate-fade-in-up" 
+            id="model-selection" 
+            style="animation-delay: 0.2s"
+            aria-labelledby="model-selection-heading"
+          >
             <div class="card-professional p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
               <div class="flex items-center mb-4 sm:mb-6 lg:mb-8">
-                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 gradient-secondary text-white rounded-full text-sm sm:text-lg font-bold mr-3 sm:mr-4 lg:mr-6 shadow-lg flex-shrink-0">
+                <div 
+                  class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 gradient-secondary text-white rounded-full text-sm sm:text-lg font-bold mr-3 sm:mr-4 lg:mr-6 shadow-lg flex-shrink-0"
+                  aria-label="Step 2 of 3"
+                >
                   2
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate">Choose Your Model</h3>
+                  <h3 
+                    id="model-selection-heading"
+                    class="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate"
+                  >
+                    Choose Your Model
+                  </h3>
                   <p class="text-gray-600 text-xs sm:text-sm lg:text-base leading-relaxed">Select the language model and quantization settings</p>
                 </div>
               </div>
@@ -172,14 +204,28 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
           </section>
 
           <!-- Configuration Results -->
-          <section v-if="hasValidConfiguration" class="scroll-mt-16 sm:scroll-mt-20 animate-fade-in-up" id="configuration-output" style="animation-delay: 0.3s">
+          <section 
+            v-if="hasValidConfiguration" 
+            class="scroll-mt-16 sm:scroll-mt-20 animate-fade-in-up" 
+            id="configuration-output" 
+            style="animation-delay: 0.3s"
+            aria-labelledby="configuration-results-heading"
+          >
             <div class="card-professional p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
               <div class="flex items-center mb-4 sm:mb-6 lg:mb-8">
-                <div class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 gradient-success text-white rounded-full text-sm sm:text-lg font-bold mr-3 sm:mr-4 lg:mr-6 shadow-lg flex-shrink-0">
+                <div 
+                  class="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 gradient-success text-white rounded-full text-sm sm:text-lg font-bold mr-3 sm:mr-4 lg:mr-6 shadow-lg flex-shrink-0"
+                  aria-label="Step 3 completed"
+                >
                   ✓
                 </div>
                 <div class="flex-1 min-w-0">
-                  <h3 class="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate">Optimized vLLM Configurations</h3>
+                  <h3 
+                    id="configuration-results-heading"
+                    class="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate"
+                  >
+                    Optimized vLLM Configurations
+                  </h3>
                   <p class="text-gray-600 text-xs sm:text-sm lg:text-base leading-relaxed">Three performance-optimized configurations for your setup</p>
                 </div>
               </div>

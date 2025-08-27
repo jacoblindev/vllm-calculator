@@ -1,16 +1,16 @@
 <template>
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-8">
-    <div class="mb-10">
-      <div class="flex items-start justify-between mb-6">
+    <div class="section-spacing">
+      <div class="flex items-start justify-between component-spacing">
         <div class="flex-1">
-          <h2 class="text-3xl font-semibold text-gray-900 mb-3">Model Selection</h2>
-          <p class="text-gray-600 text-lg leading-relaxed">Choose language models with appropriate quantization settings for optimal performance and memory usage</p>
+          <h2 class="heading-secondary content-spacing">Model Selection</h2>
+          <p class="text-body-large leading-relaxed">Choose language models with appropriate quantization settings for optimal performance and memory usage</p>
         </div>
         <div class="flex-shrink-0 ml-6">
           <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
             <div class="text-center">
-              <div class="text-2xl font-bold text-blue-900">{{ selectedModels.length }}</div>
-              <div class="text-sm text-blue-700 font-medium">Selected</div>
+              <div class="heading-tertiary text-blue-900">{{ selectedModels.length }}</div>
+              <div class="text-caption text-blue-700 text-emphasis">Selected</div>
             </div>
           </div>
         </div>
@@ -35,7 +35,7 @@
     <!-- Predefined Model Selection -->
     <div class="mb-10">
       <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Available Models</h3>
+        <h3 class="heading-tertiary content-spacing">Available Models</h3>
         <p class="text-gray-500">Select from our curated list of high-performance language models</p>
       </div>
 
@@ -171,6 +171,12 @@
               : 'hover:bg-gray-50'
           "
           @click="toggleModel(model)"
+          @keydown.enter="toggleModel(model)"
+          @keydown.space.prevent="toggleModel(model)"
+          role="button"
+          tabindex="0"
+          :aria-pressed="isModelSelected(model)"
+          :aria-label="`${isModelSelected(model) ? 'Deselect' : 'Select'} ${model.name} model with ${model.quantization} quantization`"
         >
           <div class="mb-3 sm:mb-4">
             <div class="flex items-start justify-between mb-2 sm:mb-3">
@@ -1034,7 +1040,7 @@
     <!-- Selected Models Summary -->
     <div v-if="selectedModels.length > 0" class="border-t border-gray-200 pt-10">
       <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Selected Models</h3>
+        <h3 class="heading-tertiary content-spacing">Selected Models</h3>
         <p class="text-gray-500">Review your model selection and quantization settings</p>
       </div>
       

@@ -1,15 +1,15 @@
 <template>
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 p-8">
-    <div class="mb-8">
-      <h2 class="text-3xl font-semibold text-gray-900 mb-2">GPU Selection</h2>
-      <p class="text-gray-600 text-lg">Choose your hardware configuration for optimal vLLM performance</p>
+    <div class="component-spacing">
+      <h2 class="heading-secondary content-spacing">GPU Selection</h2>
+      <p class="text-body-large">Choose your hardware configuration for optimal vLLM performance</p>
     </div>
 
     <!-- Predefined GPU Selection -->
-    <div class="mb-10">
-      <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Available GPUs</h3>
-        <p class="text-gray-500">Select from our curated list of high-performance GPUs</p>
+    <div class="section-spacing">
+      <div class="component-spacing">
+        <h3 class="heading-tertiary content-spacing">Available GPUs</h3>
+        <p class="text-body">Select from our curated list of high-performance GPUs</p>
       </div>
       
       <!-- Loading State -->
@@ -56,6 +56,12 @@
               : 'hover:bg-gray-50'
           "
           @click="toggleGPU(gpu)"
+          @keydown.enter="toggleGPU(gpu)"
+          @keydown.space.prevent="toggleGPU(gpu)"
+          role="button"
+          tabindex="0"
+          :aria-pressed="isGPUSelected(gpu)"
+          :aria-label="`${isGPUSelected(gpu) ? 'Deselect' : 'Select'} ${gpu.name} with ${gpu.vram_gb}GB VRAM`"
         >
           <div class="flex justify-between items-start mb-3 sm:mb-4">
             <div class="flex-1 min-w-0">
@@ -76,6 +82,8 @@
                 min="1"
                 max="8"
                 class="w-12 sm:w-14 text-center py-1.5 sm:py-2 border-0 focus:ring-0 focus:outline-none text-xs sm:text-sm font-medium"
+                :aria-label="`Quantity of ${gpu.name} GPUs`"
+                :title="`Set quantity for ${gpu.name}`"
               />
               <div class="px-1.5 sm:px-2 py-1.5 sm:py-2 bg-gray-50 text-xs font-medium text-gray-600 border-l">
                 qty
@@ -102,9 +110,9 @@
 
     <!-- Custom GPU Section -->
     <div class="border-t border-gray-200 pt-10">
-      <div class="mb-6">
-        <h3 class="text-xl font-medium text-gray-900 mb-2">Custom GPU</h3>
-        <p class="text-gray-500">Add a custom GPU with specific VRAM configuration</p>
+      <div class="component-spacing">
+        <h3 class="heading-tertiary content-spacing">Custom GPU</h3>
+        <p class="text-body">Add a custom GPU with specific VRAM configuration</p>
       </div>
       
       <!-- Custom GPU Error Display -->
@@ -119,8 +127,8 @@
 
       <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
         <div class="md:col-span-5">
-          <label for="custom-gpu-name" class="block text-sm font-semibold text-gray-900 mb-3">
-            GPU Name
+          <label for="custom-gpu-name" class="block text-body-small text-emphasis content-spacing">
+            GPU Name *
           </label>
           <input
             id="custom-gpu-name"
@@ -144,8 +152,8 @@
         </div>
         
         <div class="md:col-span-4">
-          <label for="custom-gpu-vram" class="block text-sm font-semibold text-gray-900 mb-3">
-            VRAM (GB)
+          <label for="custom-gpu-vram" class="block text-body-small text-emphasis content-spacing">
+            VRAM (GB) *
           </label>
           <div class="relative">
             <input
