@@ -58,9 +58,14 @@
 * `src/components/ModelSelector.test.js` - To be updated for Pinia integration.
 * `src/components/ConfigurationOutput.vue` - To be refactored to read from the Pinia store.
 * `src/components/VRAMChart.vue` - To be refactored to read from the Pinia store.
+
+### Layout Components
+
 * `src/components/layout/` - New directory for layout components.
-* `src/components/layout/TheHeader.vue` - New component for the site header.
+* `src/components/layout/TheHeader.vue` - New component for the site header and navigation.
+* `src/components/layout/TheHeader.test.js` - Unit tests for the header component.
 * `src/components/layout/TheFooter.vue` - New component for the site footer.
+* `src/components/layout/TheFooter.test.js` - Unit tests for the footer component.
 * `src/components/HeroSection.vue` - New component for the introductory section.
 * `src/components/ConfigurationSummary.vue` - New component for the results dashboard.
 * `src/components/DebugPanel.vue` - New component for the debugging section.
@@ -107,11 +112,19 @@
   * [x] 3.7 Add unit tests for Pinia stores and update component tests.
   * [x] 3.8 Implement state persistence for Pinia stores to replace the old `localStorage` logic (e.g., using `pinia-plugin-persistedstate`).
 
-* [ ] 4.0 Decompose App.vue into Smaller, Focused Components
-  * [ ] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
-  * [ ] 4.2 Create `src/components/layout/TheFooter.vue` for the application footer.
-  * [ ] 4.3 Create `src/components/HeroSection.vue` for the main title and description.
-  * [ ] 4.4 Create `src/components/ConfigurationSummary.vue` to display the summary dashboard (VRAM breakdown, memory pressure, etc.).
-  * [ ] 4.5 Create `src/components/DebugPanel.vue` to encapsulate the debug information section.
-  * [ ] 4.6 Update `App.vue` to use these new layout and UI components, drastically
+* [x] 4.0 Decompose App.vue into Smaller, Focused Components
+  * [x] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
+  * [x] 4.2 Create `src/components/layout/TheFooter.vue` for the application footer.
+  * [x] 4.3 Create `src/components/HeroSection.vue` for the main title and description.
+  * [x] 4.4 Create `src/components/ConfigurationSummary.vue` to display the summary dashboard (VRAM breakdown, memory pressure, etc.).
+  * [x] 4.5 Create `src/components/DebugPanel.vue` to encapsulate the debug information section.
+  * [x] 4.6 Update `App.vue` to use these new layout and UI components, drastically
+
+* [ ] 5.0 Post-Refactoring Cleanup and Test Alignment
+  * [ ] 5.1 Update integration tests to align with new modular component architecture.
+  * [ ] 5.2 Fix failing tests that expect old App.vue computed properties (now handled by individual components).
+  * [ ] 5.3 Add unit tests for new components that might be missing test coverage.
+  * [ ] 5.4 Review and update component tests to use Pinia store mocking instead of prop-based testing.
+  * [ ] 5.5 Verify all components work correctly with the new state management architecture.
+  * [ ] 5.6 Clean up any remaining legacy code or unused imports across the codebase.
   
