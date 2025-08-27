@@ -65,10 +65,10 @@
 * `src/components/layout/TheHeader.vue` - New component for the site header and navigation.
 * `src/components/layout/TheHeader.test.js` - Unit tests for the header component.
 * `src/components/layout/TheFooter.vue` - New component for the site footer.
+* `src/components/layout/TheFooter.test.js` - Unit tests for the footer component.
 * `src/components/HeroSection.vue` - New component for the introductory section.
 * `src/components/ConfigurationSummary.vue` - New component for the results dashboard.
 * `src/components/DebugPanel.vue` - New component for the debugging section.
-
 
 ## Notes
 
@@ -114,7 +114,7 @@
 
 * [ ] 4.0 Decompose App.vue into Smaller, Focused Components
   * [x] 4.1 Create `src/components/layout/TheHeader.vue` and move the header, navigation, and menu logic into it.
-  * [ ] 4.2 Create `src/components/layout/TheFooter.vue` for the application footer.
+  * [x] 4.2 Create `src/components/layout/TheFooter.vue` for the application footer.
   * [ ] 4.3 Create `src/components/HeroSection.vue` for the main title and description.
   * [ ] 4.4 Create `src/components/ConfigurationSummary.vue` to display the summary dashboard (VRAM breakdown, memory pressure, etc.).
   * [ ] 4.5 Create `src/components/DebugPanel.vue` to encapsulate the debug information section.
