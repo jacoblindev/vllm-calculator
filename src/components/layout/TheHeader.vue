@@ -88,19 +88,21 @@ onMounted(() => {
 
 <template>
   <!-- Navigation Header -->
-  <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm backdrop-blur-sm">
+  <header class="glass-morphism border-b border-white/20 sticky top-0 z-50 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+      <div class="flex items-center justify-between h-14 sm:h-16">
         <!-- Brand Section -->
-        <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-3">
           <div class="flex-shrink-0">
-            <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-            </svg>
+            <div class="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center shadow-md">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
           </div>
           <div>
-            <h1 class="text-xl font-bold text-gray-900">vLLM Calculator</h1>
-            <p class="text-sm text-gray-500">GPU Configuration Tool</p>
+            <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">vLLM Calculator</h1>
+            <p class="text-xs text-gray-600 hidden sm:block">GPU Configuration Tool</p>
           </div>
         </div>
 
@@ -109,74 +111,83 @@ onMounted(() => {
           <a 
             href="#gpu-selection" 
             :class="[
-              'text-sm font-medium transition-colors duration-200',
+              'text-base font-medium transition-all duration-300 px-5 py-1.5 rounded-lg whitespace-nowrap',
               configurationStep === 'gpu' 
-                ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'text-blue-600 bg-blue-50 border border-blue-200 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
             ]"
           >
-            <span class="flex items-center space-x-1">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+            <span class="flex items-center space-x-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+                <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
               </svg>
-              <span>GPU Setup</span>
+              <span>GPU</span>
             </span>
           </a>
           
           <a 
             href="#model-selection" 
             :class="[
-              'text-sm font-medium transition-colors duration-200',
+              'text-base font-medium transition-all duration-300 px-5 py-1.5 rounded-lg whitespace-nowrap',
               configurationStep === 'model' 
-                ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
+                ? 'text-blue-600 bg-blue-50 border border-blue-200 shadow-sm' 
                 : selectedGPUs.length > 0 
-                  ? 'text-gray-600 hover:text-gray-900' 
-                  : 'text-gray-400 cursor-not-allowed'
+                  ? 'text-gray-600 hover:text-gray-900 hover:bg-white/50' 
+                  : 'text-gray-400 cursor-not-allowed opacity-50'
             ]"
           >
-            <span class="flex items-center space-x-1">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            <span class="flex items-center space-x-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
               </svg>
-              <span>Model Setup</span>
+              <span>Model</span>
             </span>
           </a>
           
           <a 
             href="#configuration-results" 
             :class="[
-              'text-sm font-medium transition-colors duration-200',
+              'text-base font-medium transition-all duration-300 px-5 py-1.5 rounded-lg whitespace-nowrap',
               configurationStep === 'complete' 
-                ? 'text-blue-600 border-b-2 border-blue-600 pb-1' 
+                ? 'text-blue-600 bg-blue-50 border border-blue-200 shadow-sm' 
                 : hasValidConfiguration 
-                  ? 'text-gray-600 hover:text-gray-900' 
-                  : 'text-gray-400 cursor-not-allowed'
+                  ? 'text-gray-600 hover:text-gray-900 hover:bg-white/50' 
+                  : 'text-gray-400 cursor-not-allowed opacity-50'
             ]"
           >
-            <span class="flex items-center space-x-1">
-              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/>
-                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+            <span class="flex items-center space-x-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M9 12h6M9 16h6M9 8h6"/>
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
               </svg>
-              <span>Configurations</span>
+              <span>Config</span>
             </span>
           </a>
         </nav>
         
         <!-- Action Buttons & Status -->
-        <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2 sm:space-x-3">
           <!-- Configuration Health Indicator -->
           <div class="hidden md:flex items-center space-x-2">
             <div 
               :class="[
-                'w-3 h-3 rounded-full',
+                'w-2.5 h-2.5 rounded-full shadow-sm animate-pulse-soft',
                 configurationHealth.status === 'healthy' ? 'bg-green-500' :
                 configurationHealth.status === 'warning' ? 'bg-yellow-500' :
                 'bg-red-500'
               ]"
               :title="configurationHealth.issues.join(', ') || 'Configuration is healthy'"
             ></div>
-            <span class="text-sm text-gray-600">
+            <span 
+              :class="[
+                'text-xs font-medium',
+                configurationHealth.status === 'healthy' ? 'text-green-700' :
+                configurationHealth.status === 'warning' ? 'text-yellow-700' :
+                'text-red-700'
+              ]"
+            >
               {{ configurationHealth.status === 'healthy' ? 'Ready' : 
                  configurationHealth.status === 'warning' ? 'Warning' : 'Issues' }}
             </span>
@@ -184,14 +195,16 @@ onMounted(() => {
 
           <!-- Progress Indicator -->
           <div class="hidden lg:flex items-center space-x-2">
-            <span class="text-sm font-medium text-gray-700">Setup Progress</span>
-            <div class="w-24 bg-gray-200 rounded-full h-2">
-              <div 
-                class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                :style="{ width: setupProgress + '%' }"
-              ></div>
+            <span class="text-xs font-medium text-gray-700">Progress</span>
+            <div class="relative w-16">
+              <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  class="gradient-primary h-1.5 rounded-full transition-all duration-500 ease-out" 
+                  :style="{ width: setupProgress + '%' }"
+                ></div>
+              </div>
             </div>
-            <span class="text-sm text-gray-500">{{ Math.round(setupProgress) }}%</span>
+            <span class="text-xs font-medium text-gray-600 min-w-[2rem] text-right">{{ Math.round(setupProgress) }}%</span>
           </div>
 
           <!-- Action Menu -->
@@ -200,36 +213,36 @@ onMounted(() => {
             <button
               v-if="hasValidConfiguration"
               @click="saveStateToStorage"
-              class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              class="btn-professional px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md shadow-sm hover:shadow-md border border-blue-600"
               title="Save current configuration"
             >
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
-              Save
+              <span class="hidden sm:inline">Save</span>
             </button>
 
             <!-- Clear Configuration -->
             <button
               v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
               @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels();"
-              class="inline-flex items-center px-3 py-1.5 border border-red-300 shadow-sm text-xs font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+              class="btn-professional px-3 py-1.5 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 text-xs rounded-md shadow-sm hover:shadow-md"
               title="Clear all selections"
             >
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
-              Clear
+              <span class="hidden sm:inline">Clear</span>
             </button>
 
             <!-- Settings Dropdown -->
             <div class="relative" @click="$event.stopPropagation()" data-settings-menu>
               <button
                 @click="uiStore.toggleSettingsMenu()"
-                class="inline-flex items-center p-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                class="btn-professional p-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-md shadow-sm hover:shadow-md"
                 title="Settings and options"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                 </svg>
               </button>
@@ -237,47 +250,56 @@ onMounted(() => {
               <!-- Settings Dropdown Menu -->
               <div
                 v-if="showSettingsMenu"
-                class="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                class="absolute right-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50 overflow-hidden"
                 @click.stop
               >
                 <div class="py-1">
-                  <div class="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                  <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 bg-gray-50">
                     Configuration
                   </div>
                   <button
                     @click="clearStoredState(); uiStore.showSettingsMenu = false"
-                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors duration-200"
                   >
                     <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
-                    Clear Saved Data
+                    <div>
+                      <div class="font-medium">Clear Saved Data</div>
+                      <div class="text-xs text-gray-500">Reset all configurations</div>
+                    </div>
                   </button>
                   
-                  <div class="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100 border-t mt-1">
+                  <div class="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 border-t bg-gray-50">
                     View Options
                   </div>
                   <button
                     @click="uiStore.toggleDebugInfo(); uiStore.showSettingsMenu = false"
-                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors duration-200"
                   >
                     <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
-                    {{ showDebugInfo ? 'Hide' : 'Show' }} Debug Info
+                    <div>
+                      <div class="font-medium">{{ showDebugInfo ? 'Hide' : 'Show' }} Debug Info</div>
+                      <div class="text-xs text-gray-500">Developer diagnostics</div>
+                    </div>
                   </button>
                   
                   <a
                     href="https://docs.vllm.ai/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors duration-200"
                     @click="uiStore.showSettingsMenu = false"
                   >
                     <svg class="w-4 h-4 mr-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                     </svg>
-                    vLLM Documentation
+                    <div>
+                      <div class="font-medium">vLLM Documentation</div>
+                      <div class="text-xs text-gray-500">External reference</div>
+                    </div>
                   </a>
                 </div>
               </div>
@@ -287,10 +309,10 @@ onMounted(() => {
           <!-- Mobile Menu Button -->
           <button
             @click="uiStore.toggleMobileMenu()"
-            class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            class="lg:!hidden md:block sm:block block btn-professional p-2 bg-white hover:bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-md shadow-sm"
             data-mobile-menu
           >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path v-if="!showMobileMenu" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
               <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -299,19 +321,21 @@ onMounted(() => {
       </div>
 
       <!-- Mobile Navigation Menu -->
-      <div v-if="showMobileMenu" class="md:hidden border-t border-gray-200 bg-white" data-mobile-menu-content>
-        <div class="pt-2 pb-3 space-y-1">
+      <div v-if="showMobileMenu" class="lg:hidden border-t border-white/20 glass-morphism" data-mobile-menu-content>
+        <div class="pt-4 pb-6 space-y-1">
           <!-- Mobile Progress Indicator -->
-          <div class="px-4 py-2">
-            <div class="flex items-center space-x-2 mb-2">
-              <span class="text-sm font-medium text-gray-700">Setup Progress</span>
-              <span class="text-sm text-gray-500">{{ Math.round(setupProgress) }}%</span>
+          <div class="px-4 py-4 border-b border-white/10">
+            <div class="flex items-center space-x-3 mb-3">
+              <span class="text-sm font-semibold text-gray-700">Setup Progress</span>
+              <span class="text-sm font-medium text-gray-600">{{ Math.round(setupProgress) }}%</span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                :style="{ width: setupProgress + '%' }"
-              ></div>
+            <div class="relative w-full">
+              <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div 
+                  class="gradient-primary h-2 rounded-full transition-all duration-500 ease-out" 
+                  :style="{ width: setupProgress + '%' }"
+                ></div>
+              </div>
             </div>
           </div>
 
@@ -320,53 +344,71 @@ onMounted(() => {
             href="#gpu-selection"
             @click="uiStore.showMobileMenu = false"
             :class="[
-              'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
+              'block px-4 py-3 text-base font-medium border-l-4 transition-all duration-200 mx-2 rounded-r-lg',
               configurationStep === 'gpu'
-                ? 'text-blue-700 bg-blue-50 border-blue-500'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-transparent'
+                ? 'text-blue-700 bg-blue-50 border-blue-500 shadow-sm'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-white/50 border-transparent'
             ]"
           >
-            GPU Setup
+            <div class="flex items-center space-x-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+                <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
+              </svg>
+              <span>GPU</span>
+            </div>
           </a>
           
           <a
             href="#model-selection"
             @click="uiStore.showMobileMenu = false"
             :class="[
-              'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
+              'block px-4 py-3 text-base font-medium border-l-4 transition-all duration-200 mx-2 rounded-r-lg',
               configurationStep === 'model'
-                ? 'text-blue-700 bg-blue-50 border-blue-500'
+                ? 'text-blue-700 bg-blue-50 border-blue-500 shadow-sm'
                 : selectedGPUs.length > 0
-                  ? 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-transparent'
-                  : 'text-gray-400 border-transparent cursor-not-allowed'
+                  ? 'text-gray-600 hover:text-gray-800 hover:bg-white/50 border-transparent'
+                  : 'text-gray-400 border-transparent cursor-not-allowed opacity-50'
             ]"
           >
-            Model Setup
+            <div class="flex items-center space-x-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
+              </svg>
+              <span>Model</span>
+            </div>
           </a>
           
           <a
             href="#configuration-results"
             @click="uiStore.showMobileMenu = false"
             :class="[
-              'block px-4 py-2 text-base font-medium border-l-4 transition-colors duration-200',
+              'block px-4 py-3 text-base font-medium border-l-4 transition-all duration-200 mx-2 rounded-r-lg',
               configurationStep === 'complete'
-                ? 'text-blue-700 bg-blue-50 border-blue-500'
+                ? 'text-blue-700 bg-blue-50 border-blue-500 shadow-sm'
                 : hasValidConfiguration
-                  ? 'text-gray-600 hover:text-gray-800 hover:bg-gray-50 border-transparent'
-                  : 'text-gray-400 border-transparent cursor-not-allowed'
+                  ? 'text-gray-600 hover:text-gray-800 hover:bg-white/50 border-transparent'
+                  : 'text-gray-400 border-transparent cursor-not-allowed opacity-50'
             ]"
           >
-            Configurations
+            <div class="flex items-center space-x-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M9 12h6M9 16h6M9 8h6"/>
+                <rect x="3" y="4" width="18" height="16" rx="2"/>
+              </svg>
+              <span>Config</span>
+            </div>
           </a>
 
           <!-- Mobile Action Buttons -->
-          <div class="px-4 py-3 border-t border-gray-200 space-y-2">
+          <div class="px-4 py-4 border-t border-white/10 space-y-3">
             <button
               v-if="hasValidConfiguration"
               @click="saveStateToStorage(); uiStore.showMobileMenu = false"
-              class="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              class="w-full btn-professional px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
               Save Configuration
@@ -375,9 +417,9 @@ onMounted(() => {
             <button
               v-if="selectedGPUs.length > 0 || selectedModels.length > 0"
               @click="clearStoredState(); gpuStore.clearAllGPUs(); modelStore.clearAllModels(); uiStore.showMobileMenu = false"
-              class="w-full flex items-center justify-center px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+              class="w-full btn-professional px-4 py-3 bg-white hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 rounded-lg shadow-sm"
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
               Clear All

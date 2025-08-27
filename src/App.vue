@@ -93,96 +93,120 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+  <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
     <!-- Navigation Header -->
     <TheHeader />
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <ErrorBoundary>
         <LoadingIndicator />
         
         <!-- Hero Section -->
-        <HeroSection />
+        <div class="animate-fade-in-up">
+          <HeroSection />
+        </div>
         
         <!-- Configuration Steps -->
-      <div class="space-y-8 sm:space-y-12">
-        <!-- Step 1: GPU Selection -->
-        <section class="scroll-mt-20" id="gpu-selection">
-          <div class="flex items-center mb-4 sm:mb-6">
-            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-blue-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
-              1
-            </div>
-            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Select Your GPU Configuration</h3>
-          </div>
-          
-          <!-- State Error Display -->
-          <div v-if="stateErrors.length > 0" class="mb-6 space-y-2">
-            <div 
-              v-for="error in stateErrors" 
-              :key="error.id"
-              class="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start"
-            >
-              <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-              </svg>
-              <div class="flex-1">
-                <p class="text-red-700 font-medium">{{ error.message }}</p>
-                <p class="text-red-600 text-sm mt-1">{{ error.timestamp.toLocaleTimeString() }}</p>
+        <div class="space-y-8 sm:space-y-12">
+          <!-- Step 1: GPU Selection -->
+          <section class="scroll-mt-20 animate-fade-in-up" id="gpu-selection" style="animation-delay: 0.1s">
+            <div class="card-professional p-6 sm:p-8 mb-6">
+              <div class="flex items-center mb-6 sm:mb-8">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-primary text-white rounded-full text-lg font-bold mr-4 sm:mr-6 shadow-lg">
+                  1
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Select Your GPU Configuration</h3>
+                  <p class="text-gray-600 text-sm sm:text-base">Choose the GPUs that will power your vLLM deployment</p>
+                </div>
               </div>
-              <button 
-                @click="uiStore.removeStateError(error.id)"
-                class="ml-4 text-red-400 hover:text-red-600 focus:outline-none"
-              >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                </svg>
-              </button>
+              
+              <!-- State Error Display -->
+              <div v-if="stateErrors.length > 0" class="mb-8 space-y-3">
+                <div 
+                  v-for="error in stateErrors" 
+                  :key="error.id"
+                  class="bg-red-50 border border-red-200 rounded-xl p-5 flex items-start animate-fade-in-right shadow-sm"
+                >
+                  <svg class="w-6 h-6 text-red-500 mr-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                  </svg>
+                  <div class="flex-1">
+                    <p class="text-red-800 font-semibold">{{ error.message }}</p>
+                    <p class="text-red-600 text-sm mt-1">{{ error.timestamp.toLocaleTimeString() }}</p>
+                  </div>
+                  <button 
+                    @click="uiStore.removeStateError(error.id)"
+                    class="ml-4 text-red-400 hover:text-red-600 focus:outline-none transition-colors duration-200 p-1 rounded-md hover:bg-red-100"
+                  >
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <GPUSelector />
             </div>
-          </div>
-          
-          <GPUSelector />
-        </section>
+          </section>
 
-        <!-- Step 2: Model Selection -->
-        <section class="scroll-mt-20" id="model-selection">
-          <div class="flex items-center mb-4 sm:mb-6">
-            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
-              2
+          <!-- Step 2: Model Selection -->
+          <section class="scroll-mt-20 animate-fade-in-up" id="model-selection" style="animation-delay: 0.2s">
+            <div class="card-professional p-6 sm:p-8 mb-6">
+              <div class="flex items-center mb-6 sm:mb-8">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-secondary text-white rounded-full text-lg font-bold mr-4 sm:mr-6 shadow-lg">
+                  2
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Choose Your Model</h3>
+                  <p class="text-gray-600 text-sm sm:text-base">Select the language model and quantization settings</p>
+                </div>
+              </div>
+              <ModelSelector />
             </div>
-            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Choose Your Model</h3>
-          </div>
-          <ModelSelector />
-        </section>
+          </section>
 
-        <!-- Configuration Results -->
-        <section v-if="hasValidConfiguration" class="scroll-mt-20" id="configuration-output">
-          <div class="flex items-center mb-4 sm:mb-6">
-            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
-              ✓
+          <!-- Configuration Results -->
+          <section v-if="hasValidConfiguration" class="scroll-mt-20 animate-fade-in-up" id="configuration-output" style="animation-delay: 0.3s">
+            <div class="card-professional p-6 sm:p-8 mb-6">
+              <div class="flex items-center mb-6 sm:mb-8">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 gradient-success text-white rounded-full text-lg font-bold mr-4 sm:mr-6 shadow-lg">
+                  ✓
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Optimized vLLM Configurations</h3>
+                  <p class="text-gray-600 text-sm sm:text-base">Three performance-optimized configurations for your setup</p>
+                </div>
+              </div>
+              <ConfigurationOutput />
             </div>
-            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Optimized vLLM Configurations</h3>
-          </div>
-          <ConfigurationOutput />
-        </section>
+          </section>
 
-        <!-- VRAM Visualization -->
-        <section v-if="hasValidConfiguration" class="scroll-mt-20" id="vram-analysis">
-          <div class="flex items-center mb-4 sm:mb-6">
-            <div class="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-purple-600 text-white rounded-full text-sm font-bold mr-3 sm:mr-4">
-              📊
+          <!-- VRAM Visualization -->
+          <section v-if="hasValidConfiguration" class="scroll-mt-20 animate-fade-in-up" id="vram-analysis" style="animation-delay: 0.4s">
+            <div class="card-professional p-6 sm:p-8 mb-6">
+              <div class="flex items-center mb-6 sm:mb-8">
+                <div class="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-lg font-bold mr-4 sm:mr-6 shadow-lg">
+                  📊
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Memory Usage Analysis</h3>
+                  <p class="text-gray-600 text-sm sm:text-base">Detailed breakdown of VRAM allocation across components</p>
+                </div>
+              </div>
+              <VRAMChart 
+                :show-breakdown="true"
+                title="VRAM Memory Allocation by Configuration"
+              />
             </div>
-            <h3 class="text-xl sm:text-2xl font-bold text-gray-900">Memory Usage Analysis</h3>
-          </div>
-          <VRAMChart 
-            :show-breakdown="true"
-            title="VRAM Memory Allocation by Configuration"
-          />
-        </section>
-      </div>
-      
-      <!-- Configuration Summary Dashboard -->
-      <ConfigurationSummary />
-      
+          </section>
+        </div>
+        
+        <!-- Configuration Summary Dashboard -->
+        <div class="animate-fade-in-up" style="animation-delay: 0.5s">
+          <ConfigurationSummary />
+        </div>
+        
       </ErrorBoundary>
     </main>
 
