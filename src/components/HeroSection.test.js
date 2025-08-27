@@ -169,20 +169,20 @@ describe('HeroSection', () => {
     })
 
     it('displays configuration summary when state analysis is complete', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
       
-      // Mock state analysis as complete
+      // Mock state analysis as complete BEFORE mounting
       vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
         isComplete: true,
         gpuCount: 2,
         modelCount: 1,
         memoryEfficiency: 0.85
+      })
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
       })
 
       await wrapper.vm.$nextTick()
@@ -195,20 +195,20 @@ describe('HeroSection', () => {
     })
 
     it('does not show dashboard when state analysis is incomplete', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
       
-      // Mock state analysis as incomplete
+      // Mock state analysis as incomplete BEFORE mounting
       vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
         isComplete: false,
         gpuCount: 0,
         modelCount: 0,
         memoryEfficiency: 0
+      })
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
       })
 
       await wrapper.vm.$nextTick()
@@ -218,19 +218,20 @@ describe('HeroSection', () => {
     })
 
     it('displays correct memory usage percentage', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
       
+      // Mock state analysis BEFORE mounting
       vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
         isComplete: true,
         gpuCount: 1,
         modelCount: 1,
         memoryEfficiency: 0.75
+      })
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
       })
 
       await wrapper.vm.$nextTick()
@@ -256,14 +257,22 @@ describe('HeroSection', () => {
     })
 
     it('shows moderate memory pressure warning', async () => {
+      const configStore = useConfigStore()
+      
+      // Mock both state analysis and memory pressure BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
+      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('moderate')
+
       const wrapper = mount(HeroSection, {
         global: {
           plugins: [pinia]
         }
       })
-
-      const configStore = useConfigStore()
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('moderate')
 
       await wrapper.vm.$nextTick()
 
@@ -272,14 +281,22 @@ describe('HeroSection', () => {
     })
 
     it('shows high memory pressure warning', async () => {
+      const configStore = useConfigStore()
+      
+      // Mock both state analysis and memory pressure BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
+      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('high')
+
       const wrapper = mount(HeroSection, {
         global: {
           plugins: [pinia]
         }
       })
-
-      const configStore = useConfigStore()
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('high')
 
       await wrapper.vm.$nextTick()
 
@@ -288,14 +305,22 @@ describe('HeroSection', () => {
     })
 
     it('shows critical memory pressure warning', async () => {
+      const configStore = useConfigStore()
+      
+      // Mock both state analysis and memory pressure BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
+      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('critical')
+
       const wrapper = mount(HeroSection, {
         global: {
           plugins: [pinia]
         }
       })
-
-      const configStore = useConfigStore()
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('critical')
 
       await wrapper.vm.$nextTick()
 
@@ -304,14 +329,22 @@ describe('HeroSection', () => {
     })
 
     it('does not show indicator for low memory pressure', async () => {
+      const configStore = useConfigStore()
+      
+      // Mock both state analysis and memory pressure BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
+      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('low')
+
       const wrapper = mount(HeroSection, {
         global: {
           plugins: [pinia]
         }
       })
-
-      const configStore = useConfigStore()
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('low')
 
       await wrapper.vm.$nextTick()
 
@@ -338,19 +371,27 @@ describe('HeroSection', () => {
     })
 
     it('displays VRAM breakdown when available', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
+      
+      // Mock both state analysis and VRAM breakdown BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
       vi.spyOn(configStore, 'vramBreakdown', 'get').mockReturnValue({
         modelWeights: 13.5,
         kvCache: 8.0,
         activations: 4.5,
         systemOverhead: 2.0,
         available: 52.0
+      })
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
       })
 
       await wrapper.vm.$nextTick()
@@ -369,14 +410,22 @@ describe('HeroSection', () => {
     })
 
     it('does not display VRAM breakdown when not available', async () => {
+      const configStore = useConfigStore()
+      
+      // Mock state analysis complete but no VRAM breakdown BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
+      vi.spyOn(configStore, 'vramBreakdown', 'get').mockReturnValue(null)
+
       const wrapper = mount(HeroSection, {
         global: {
           plugins: [pinia]
         }
       })
-
-      const configStore = useConfigStore()
-      vi.spyOn(configStore, 'vramBreakdown', 'get').mockReturnValue(null)
 
       await wrapper.vm.$nextTick()
 
@@ -384,19 +433,27 @@ describe('HeroSection', () => {
     })
 
     it('uses correct color coding for VRAM components', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
+      
+      // Mock both state analysis and VRAM breakdown BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
       vi.spyOn(configStore, 'vramBreakdown', 'get').mockReturnValue({
         modelWeights: 13.5,
         kvCache: 8.0,
         activations: 4.5,
         systemOverhead: 2.0,
         available: 52.0
+      })
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
       })
 
       await wrapper.vm.$nextTick()
@@ -426,13 +483,15 @@ describe('HeroSection', () => {
     })
 
     it('displays quantization recommendations when available', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
+      
+      // Mock both state analysis and quantization recommendations BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
       vi.spyOn(configStore, 'quantizationRecommendations', 'get').mockReturnValue([
         {
           modelName: 'Llama-2-7B',
@@ -442,6 +501,12 @@ describe('HeroSection', () => {
           reason: 'Reduce memory usage for single GPU deployment'
         }
       ])
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
+      })
 
       await wrapper.vm.$nextTick()
 
@@ -453,14 +518,22 @@ describe('HeroSection', () => {
     })
 
     it('does not display recommendations section when empty', async () => {
+      const configStore = useConfigStore()
+      
+      // Mock state analysis complete but empty recommendations BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
+      vi.spyOn(configStore, 'quantizationRecommendations', 'get').mockReturnValue([])
+
       const wrapper = mount(HeroSection, {
         global: {
           plugins: [pinia]
         }
       })
-
-      const configStore = useConfigStore()
-      vi.spyOn(configStore, 'quantizationRecommendations', 'get').mockReturnValue([])
 
       await wrapper.vm.$nextTick()
 
@@ -468,13 +541,15 @@ describe('HeroSection', () => {
     })
 
     it('displays multiple recommendations correctly', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
       const configStore = useConfigStore()
+      
+      // Mock both state analysis and multiple quantization recommendations BEFORE mounting
+      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
+        isComplete: true,
+        gpuCount: 1,
+        modelCount: 1,
+        memoryEfficiency: 0.85
+      })
       vi.spyOn(configStore, 'quantizationRecommendations', 'get').mockReturnValue([
         {
           modelName: 'Llama-2-7B',
@@ -491,6 +566,12 @@ describe('HeroSection', () => {
           reason: 'Enable larger model deployment'
         }
       ])
+
+      const wrapper = mount(HeroSection, {
+        global: {
+          plugins: [pinia]
+        }
+      })
 
       await wrapper.vm.$nextTick()
 

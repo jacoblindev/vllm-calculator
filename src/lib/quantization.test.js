@@ -240,11 +240,12 @@ describe('Quantization Module', () => {
     it('validates format ordering by memory efficiency', () => {
       const formats = ['fp32', 'fp16', 'awq', 'gptq', 'int4']
       const factors = formats.map(format => {
-        const result = calculateQuantizationFactor(format)
+        // Exclude overhead to test base memory efficiency
+        const result = calculateQuantizationFactor(format, { includeOverhead: false })
         return { format, factor: result.memoryFactor }
       })
       
-      // Memory factors should generally decrease (more compression)
+      // Memory factors should generally decrease (more compression) when overhead excluded
       for (let i = 1; i < factors.length - 1; i++) {
         expect(factors[i].factor).toBeLessThanOrEqual(factors[i - 1].factor)
       }
