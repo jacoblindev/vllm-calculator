@@ -49,7 +49,7 @@
         <div
           v-for="gpu in availableGPUs"
           :key="gpu.name"
-          class="group relative border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 cursor-pointer transition-all duration-200 hover:border-blue-300 hover:shadow-md touch-manipulation"
+          class="micro-card group relative border border-gray-200 rounded-lg sm:rounded-xl p-4 sm:p-5 lg:p-6 cursor-pointer touch-manipulation"
           :class="
             isGPUSelected(gpu)
               ? 'border-blue-500 bg-blue-50 shadow-md ring-1 ring-blue-500 ring-opacity-20'
@@ -128,7 +128,7 @@
             type="text"
             placeholder="e.g., Custom RTX 5090"
             :class="[
-              'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+              'input-enhanced w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2',
               customGPUNameError 
                 ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
                 : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'
@@ -156,7 +156,7 @@
               min="1"
               max="200"
               :class="[
-                'w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2',
+                'input-enhanced w-full px-4 py-3 border rounded-xl font-medium placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2',
                 customGPUVramError 
                   ? 'border-red-300 focus:border-red-500 focus:ring-red-500 bg-red-50' 
                   : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500 hover:border-gray-400'

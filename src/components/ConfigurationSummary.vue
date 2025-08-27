@@ -125,7 +125,7 @@ const configurationSummary = computed(() => {
         </div>
         <div class="w-full bg-gray-200 rounded-full h-2">
           <div 
-            class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+            class="progress-bar bg-blue-600 h-2 rounded-full"
             :style="`width: ${setupProgress}%`"
           ></div>
         </div>
@@ -235,27 +235,27 @@ const configurationSummary = computed(() => {
         <div class="text-sm font-medium text-gray-700 mb-2">Memory Distribution</div>
         <div class="flex h-6 rounded-lg overflow-hidden border border-gray-200">
           <div 
-            class="bg-blue-500" 
+            class="progress-bar bg-blue-500" 
             :style="`width: ${(vramBreakdown.modelWeights / totalVRAM) * 100}%`"
             :title="`Model Weights: ${vramBreakdown.modelWeights.toFixed(1)}GB`"
           ></div>
           <div 
-            class="bg-green-500" 
+            class="progress-bar bg-green-500" 
             :style="`width: ${(vramBreakdown.kvCache / totalVRAM) * 100}%`"
             :title="`KV Cache: ${vramBreakdown.kvCache.toFixed(1)}GB`"
           ></div>
           <div 
-            class="bg-yellow-500" 
+            class="progress-bar bg-yellow-500" 
             :style="`width: ${(vramBreakdown.activations / totalVRAM) * 100}%`"
             :title="`Activations: ${vramBreakdown.activations.toFixed(1)}GB`"
           ></div>
           <div 
-            class="bg-red-500" 
+            class="progress-bar bg-red-500" 
             :style="`width: ${(vramBreakdown.systemOverhead / totalVRAM) * 100}%`"
             :title="`System Overhead: ${vramBreakdown.systemOverhead.toFixed(1)}GB`"
           ></div>
           <div 
-            class="bg-gray-300" 
+            class="progress-bar bg-gray-300" 
             :style="`width: ${(vramBreakdown.available / totalVRAM) * 100}%`"
             :title="`Available: ${vramBreakdown.available.toFixed(1)}GB`"
           ></div>
@@ -312,15 +312,6 @@ const configurationSummary = computed(() => {
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- Chart.js Integration Test (development only) -->
-    <div v-if="isDevelopment" class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-8">
-      <h4 class="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6 text-center">Development: Chart.js Integration Test</h4>
-      <div class="h-48 sm:h-64">
-        <Bar :data="chartData" :options="chartOptions" />
-      </div>
-      <p class="text-green-600 font-semibold text-center mt-4">✅ Chart.js Integration Ready</p>
     </div>
   </div>
 </template>
