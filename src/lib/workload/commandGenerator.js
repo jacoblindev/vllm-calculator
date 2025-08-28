@@ -196,7 +196,7 @@ export function generateVLLMCommand(config, options = {}) {
     ];
     let cmd = `      --model ${config.model}`;
     paramList.forEach(([key, value]) => {
-      cmd += ` \\n        --${key.replace(/_/g, '-')} ${value}`;
+      cmd += `\n        --${key.replace(/_/g, '-')} ${value}`;
     });
     compose.push(cmd);
     return {
