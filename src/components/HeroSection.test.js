@@ -146,6 +146,7 @@ describe('HeroSection', () => {
 
       const gpuStore = useGpuStore()
       const modelStore = useModelStore()
+      const configStore = useConfigStore()
       
       await wrapper.vm.$nextTick()
       
@@ -155,6 +156,15 @@ describe('HeroSection', () => {
         quantity: 1 
       }]
       modelStore.selectedModels = [{ id: 'model1', name: 'Llama-2-7B', size: 13.5 }]
+
+      // Mock the computed values that depend on the store state
+      vi.spyOn(configStore, 'vramBreakdown', 'get').mockReturnValue({
+        modelWeights: 13.5,
+        kvCache: 8.0,
+        activations: 4.5,
+        systemOverhead: 2.0,
+        available: 52.0
+      })
 
       await wrapper.vm.$nextTick()
       expect(wrapper.text()).toContain('Ready to Configure')

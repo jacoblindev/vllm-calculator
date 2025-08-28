@@ -21,6 +21,7 @@ vi.mock('../composables/useLoadingState.js', () => ({
     isLoading: ref(false),
     executeWithRetry: vi.fn((fn) => fn()),
     lastError: ref(null),
+    retryCount: ref(0),
   }),
   useDataLoadingState: () => ({
     model: {

@@ -88,14 +88,26 @@ export const useConfigStore = defineStore('config', () => {
         
         modelStore.selectedModels.forEach(model => {
           const params = model.parameters || modelStore.estimateParametersFromSize(model.size)
-          const kvMemory = calculateKVCacheMemory(
-            params,
-            maxSeqs,
-            maxLen,
-            'fp16', // Assuming fp16 for KV cache
-            { numLayers: Math.floor(Math.sqrt(params / 1000000)) } // Rough layer estimation
-          )
-          breakdown.kvCache += kvMemory
+          // Estimate model architecture from parameters
+          const estimatedLayers = Math.floor(Math.sqrt(params / 1000000)) || 32 // Default to 32 layers
+          const estimatedHiddenSize = Math.floor(Math.pow(params / estimatedLayers, 0.33)) || 4096 // Rough estimate
+          const estimatedHeads = Math.max(1, Math.floor(estimatedHiddenSize / 128)) || 32 // Typical head size is 128
+          
+          try {
+            const kvMemory = calculateKVCacheMemory(
+              maxSeqs,              // batchSize
+              maxLen,               // maxSeqLen  
+              estimatedLayers,      // numLayers
+              estimatedHiddenSize,  // hiddenSize
+              estimatedHeads,       // numHeads
+              'fp16'                // kvPrecision
+            )
+            breakdown.kvCache += kvMemory
+          } catch (error) {
+            console.warn('Error calculating KV cache memory:', error)
+            // Fallback to simple estimation
+            breakdown.kvCache += params * 0.1 / 1000000000 // 10% of parameters as GB
+          }
         })
       }
 
