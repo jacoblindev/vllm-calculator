@@ -214,7 +214,10 @@ export const useConfigStore = defineStore('config', () => {
         transformConfigToUI(balancedConfig, 'balanced', 'Balanced Performance')
       ]
 
-      console.log('Generated UI Configurations:', JSON.stringify(configs, null, 2));
+      // Only log debug info if VITE_DEBUG is set (for Vite projects)
+      if (import.meta.env && import.meta.env.VITE_DEBUG) {
+        console.log('Generated UI Configurations:', JSON.stringify(configs, null, 2));
+      }
 
       // Cache the result
       calculationCache.value.set(cacheKey, configs)
