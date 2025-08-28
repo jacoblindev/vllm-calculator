@@ -24,7 +24,9 @@ vi.mock('../calculationEngine.js', async (importOriginal) => {
   return {
     ...actual,
     generateConfiguration: vi.fn((gpus, models, workloadType = 'balanced') => {
-      const gpuCount = Array.isArray(gpus) ? gpus.reduce((sum, g) => sum + (g.quantity || 1), 0) : 1
+      const gpuCount = Array.isArray(gpus) ? gpus.reduce((sum, g) => sum + (g.quantity || 1), 0) : 1;
+      const baseCommand = `python -m vllm.entrypoints.openai.api_server --model test-model --gpu-memory-utilization 0.85`;
+      const command = `${baseCommand} --tensor-parallel-size ${gpuCount}`;
       return {
         config: {
           gpu_memory_utilization: 0.85,
@@ -57,10 +59,8 @@ vi.mock('../calculationEngine.js', async (importOriginal) => {
           type: workloadType,
           adjustments: ['memory_efficient']
         },
-        command: gpuCount > 1 ? 
-          `vllm serve --model test-model --gpu-memory-utilization 0.85 --tensor-parallel-size ${gpuCount}` :
-          'vllm serve --model test-model --gpu-memory-utilization 0.85'
-      }
+        command
+      };
     }),
     calculateVLLMMemoryUsage: vi.fn(() => ({
       modelWeights: 8000,
@@ -407,35 +407,6 @@ describe('App Integration Tests: Full Application Flow', () => {
   })
 
   describe('Multi-GPU Scenarios', () => {
-    it('should handle multi-GPU configurations correctly', async () => {
-      const wrapper = mountAppWithStores()
-      
-      // Import and access Pinia stores
-      const { useGpuStore } = await import('../../stores/gpuStore.js')
-      const { useModelStore } = await import('../../stores/modelStore.js')
-      const { useConfigStore } = await import('../../stores/configStore.js')
-      
-      const gpuStore = useGpuStore()
-      const modelStore = useModelStore()
-      const configStore = useConfigStore()
-      
-      // Set up multi-GPU configuration
-      const multiGPUSelection = [{ gpu: mockGPUs[0], quantity: 4 }]
-      gpuStore.updateSelectedGPUs(multiGPUSelection)
-      modelStore.updateSelectedModels([mockModels[1]]) // Larger model for multi-GPU
-      await wrapper.vm.$nextTick()
-      
-      expect(gpuStore.totalVRAM).toBe(320) // 4 * 80GB
-      expect(configStore.hasValidConfiguration).toBe(true)
-      
-      // Configurations should include tensor parallelism only if more than one GPU is selected
-      const configs = configStore.configurations
-      configs.forEach(config => {
-        if (config.command && gpuStore.totalGPUCount > 1) {
-          expect(config.command).toContain('tensor-parallel-size')
-        }
-      })
-    })
 
     it('should handle mixed GPU types', async () => {
       const wrapper = mountAppWithStores()

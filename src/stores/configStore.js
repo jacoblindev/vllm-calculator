@@ -179,7 +179,9 @@ export const useConfigStore = defineStore('config', () => {
       modelSizeGB: modelStore.totalModelSize,
       models: modelStore.modelSpecs,
       hardware: gpuStore.hardwareSpecs,
-      model: primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
+      model: primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH',
+      // Always set tensor-parallel-size for calculation engine
+      'tensor-parallel-size': gpuStore.totalGPUCount > 0 ? gpuStore.totalGPUCount : 1
     }
 
     try {
@@ -351,7 +353,13 @@ export const useConfigStore = defineStore('config', () => {
 
     const params = engineConfig.parameters || engineConfig.vllmParameters || {}
     const metrics = engineConfig.metrics || engineConfig.performanceEstimate || {}
-    
+
+    // Force tensor-parallel-size for multi-GPU scenarios
+    const gpuCount = typeof params['tensor-parallel-size'] === 'number' ? params['tensor-parallel-size'] : 1;
+    if (gpuStore.totalGPUCount > 1 && !params['tensor-parallel-size']) {
+      params['tensor-parallel-size'] = gpuStore.totalGPUCount;
+    }
+
     // Map calculation engine parameters to UI format
     const uiParameters = [
       {

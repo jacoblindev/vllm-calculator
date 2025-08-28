@@ -155,10 +155,6 @@ export function generateVLLMCommand(config, options = {}) {
     config = { ...config, model: 'placeholder-model' }
   }
 
-  // Always ensure tensor-parallel-size is present in config
-  if (!('tensor-parallel-size' in config)) {
-    config['tensor-parallel-size'] = 1;
-  }
   // Build argument list
   const args = [];
   // Filter out parameters with false, null, or undefined values
@@ -170,6 +166,10 @@ export function generateVLLMCommand(config, options = {}) {
   if (config['tensor-parallel-size'] && typeof config['tensor-parallel-size'] === 'number') {
     gpuCount = config['tensor-parallel-size'];
   }
+    // Always include tensor-parallel-size for multi-GPU scenarios
+    if (gpuCount > 1 && !config['tensor-parallel-size']) {
+      paramList.push(['tensor-parallel-size', gpuCount]);
+    }
 
   if (format === 'docker') {
     args.push('docker run --gpus all --rm -p 8000:8000 vllm/vllm-openai');
