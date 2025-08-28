@@ -75,7 +75,7 @@ export const useConfigStore = defineStore('config', () => {
         const quantization = model.quantization || 'fp16'
         
         const weightsMemory = calculateModelWeightsMemory(params, quantization)
-        breakdown.modelWeights += weightsMemory
+        breakdown.modelWeights += weightsMemory.totalMemory
       })
 
       // Calculate KV cache memory (estimate based on configuration)
@@ -121,6 +121,14 @@ export const useConfigStore = defineStore('config', () => {
       const usedMemory = breakdown.modelWeights + breakdown.kvCache + 
                         breakdown.activations + breakdown.systemOverhead
       breakdown.available = Math.max(0, gpuStore.totalVRAM - usedMemory)
+
+      // Ensure all values are valid numbers
+      Object.keys(breakdown).forEach(key => {
+        if (typeof breakdown[key] !== 'number' || isNaN(breakdown[key])) {
+          console.warn(`Invalid VRAM breakdown value for ${key}:`, breakdown[key])
+          breakdown[key] = 0
+        }
+      })
 
       return breakdown
     } catch (error) {

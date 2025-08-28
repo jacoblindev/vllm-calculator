@@ -32,6 +32,12 @@ const stateAnalysis = computed(() => configStore.stateAnalysis)
 const stateErrors = computed(() => configStore.stateErrors)
 const quantizationRecommendations = computed(() => configStore.quantizationRecommendations)
 
+// Safe formatter for VRAM values to prevent toFixed errors
+const formatVRAM = (value) => {
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0
+  return numValue.toFixed(1)
+}
+
 // Debug console helper functions
 const logDebugState = () => {
   console.log('vLLM Debug State:', {
@@ -112,13 +118,17 @@ const logConfigurations = () => {
         <div v-if="vramBreakdown">
           <h4 class="text-sm font-bold text-purple-400 mb-2">VRAM Breakdown</h4>
           <div class="bg-gray-800 p-3 sm:p-4 rounded-lg text-xs sm:text-sm space-y-1 sm:space-y-2">
-            <div><span class="text-gray-400">Model Weights:</span> {{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
-            <div><span class="text-gray-400">KV Cache:</span> {{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
-            <div><span class="text-gray-400">Activations:</span> {{ vramBreakdown.activations.toFixed(1) }}GB</div>
-            <div><span class="text-gray-400">System Overhead:</span> {{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
+            <div><span class="text-gray-400">Model Weights:</span> {{ formatVRAM(vramBreakdown.modelWeights) }}GB</div>
+            <div><span class="text-gray-400">KV Cache:</span> {{ formatVRAM(vramBreakdown.kvCache) }}GB</div>
+            <div><span class="text-gray-400">Activations:</span> {{ formatVRAM(vramBreakdown.activations) }}GB</div>
+            <div><span class="text-gray-400">System Overhead:</span> {{ formatVRAM(vramBreakdown.systemOverhead) }}GB</div>
             <div><span class="text-gray-400">Available:</span> 
-              <span :class="vramBreakdown.available > 5 ? 'text-green-400' : vramBreakdown.available > 2 ? 'text-yellow-400' : 'text-red-400'">
-                {{ vramBreakdown.available.toFixed(1) }}GB
+              <span :class="{
+                'text-green-400': vramBreakdown.available > 5,
+                'text-yellow-400': vramBreakdown.available > 2 && vramBreakdown.available <= 5,
+                'text-red-400': vramBreakdown.available <= 2
+              }">
+                {{ formatVRAM(vramBreakdown.available) }}GB
               </span>
             </div>
           </div>
