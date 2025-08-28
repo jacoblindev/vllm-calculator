@@ -89,37 +89,28 @@ export const useConfigStore = defineStore('config', () => {
         }
       })
 
-      // Calculate KV cache memory (estimate based on configuration)
-      const avgConfig = configurations.value.find(c => c.type === 'balanced') || configurations.value[0]
-      if (avgConfig && avgConfig.parameters) {
-        const maxSeqsParam = avgConfig.parameters.find(p => p.name === '--max-num-seqs')
-        const maxLenParam = avgConfig.parameters.find(p => p.name === '--max-model-len')
-        const maxSeqs = parseInt(maxSeqsParam?.value || '16')
-        const maxLen = parseInt(maxLenParam?.value || '2048')
+      // Calculate KV cache memory (estimate based on a reasonable default)
+      if (modelStore.selectedModels && modelStore.selectedModels.length > 0) {
+        const primaryModel = modelStore.selectedModels[0];
+        const params = primaryModel.parameters || modelStore.estimateParametersFromSize(primaryModel.size);
+        const estimatedLayers = Math.floor(Math.sqrt(params / 1000000)) || 32;
+        const estimatedHiddenSize = Math.floor(Math.pow(params / estimatedLayers, 0.33)) || 4096;
+        const estimatedHeads = Math.max(1, Math.floor(estimatedHiddenSize / 128)) || 32;
         
-        modelStore.selectedModels.forEach(model => {
-          const params = model.parameters || modelStore.estimateParametersFromSize(model.size)
-          // Estimate model architecture from parameters
-          const estimatedLayers = Math.floor(Math.sqrt(params / 1000000)) || 32 // Default to 32 layers
-          const estimatedHiddenSize = Math.floor(Math.pow(params / estimatedLayers, 0.33)) || 4096 // Rough estimate
-          const estimatedHeads = Math.max(1, Math.floor(estimatedHiddenSize / 128)) || 32 // Typical head size is 128
-          
-          try {
-            const kvMemory = calculateKVCacheMemory(
-              maxSeqs,              // batchSize
-              maxLen,               // maxSeqLen  
-              estimatedLayers,      // numLayers
-              estimatedHiddenSize,  // hiddenSize
-              estimatedHeads,       // numHeads
-              'fp16'                // kvPrecision
-            )
-            breakdown.kvCache += kvMemory
-          } catch (error) {
-            console.warn('Error calculating KV cache memory:', error)
-            // Fallback to simple estimation
-            breakdown.kvCache += params * 0.1 / 1000000000 // 10% of parameters as GB
-          }
-        })
+        try {
+          const kvMemory = calculateKVCacheMemory(
+            32,       // A reasonable default batch size for estimation
+            2048,     // A reasonable default max sequence length
+            estimatedLayers,
+            estimatedHiddenSize,
+            estimatedHeads,
+            'fp16'
+          );
+          breakdown.kvCache = kvMemory;
+        } catch (error) {
+          console.warn('Error calculating KV cache memory, using fallback:', error);
+          breakdown.kvCache = (params * 0.1) / 1e9; // Fallback: 10% of params in GB
+        }
       }
 
       // Estimate activation memory (roughly 10-20% of model weights)
@@ -220,6 +211,8 @@ export const useConfigStore = defineStore('config', () => {
         transformConfigToUI(latencyConfig, 'latency', 'Minimum Latency'),
         transformConfigToUI(balancedConfig, 'balanced', 'Balanced Performance')
       ]
+
+      console.log('Generated UI Configurations:', JSON.stringify(configs, null, 2));
 
       // Cache the result
       calculationCache.value.set(cacheKey, configs)
@@ -442,20 +435,6 @@ export const useConfigStore = defineStore('config', () => {
         latency: 'Estimated',
         memoryUsage: 'Estimated'
       },
-      command: (() => {
-        const params = {}
-        baseConfig.parameters.forEach(param => {
-          const key = param.name.replace(/^--/, '').replace(/-/g, '_')
-          params[key] = param.value
-        })
-        
-        // Add model parameter
-        const primaryModel = modelStore.selectedModels?.[0]
-        params.model = primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
-        
-        const result = generateVLLMCommand(params)
-        return result.command
-      })(),
       considerations: ['This is a fallback configuration.']
     }
 
@@ -466,6 +445,17 @@ export const useConfigStore = defineStore('config', () => {
         explanation: 'Use all available GPUs for tensor parallelism.'
       })
     }
+
+    // Now assign the command property after baseConfig is initialized
+    const params = {}
+    baseConfig.parameters.forEach(param => {
+      const key = param.name.replace(/^--/, '').replace(/-/g, '_')
+      params[key] = param.value
+    })
+    const primaryModel = modelStore.selectedModels?.[0]
+    params.model = primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
+    const result = generateVLLMCommand(params)
+    baseConfig.command = result.command
 
     return baseConfig
   }

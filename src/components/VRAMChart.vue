@@ -194,7 +194,11 @@ const memoryColors = {
 
 // Generate VRAM breakdown data for configurations
 const generateVRAMBreakdownData = () => {
-  if (!selectedGPUs.value.length || !selectedModels.value.length || !configurations.value.length) {
+  const gpus = selectedGPUs.value || []
+  const models = selectedModels.value || []
+  const configs = configurations.value || []
+
+  if (gpus.length === 0 || models.length === 0 || configs.length === 0) {
     return {
       labels: ['No Configuration'],
       datasets: [{
@@ -205,7 +209,7 @@ const generateVRAMBreakdownData = () => {
     }
   }
 
-  const labels = configurations.value.map(config => config.title || config.type)
+  const labels = configs.map(config => config.title || config.type)
   const datasets = []
 
   // Calculate total VRAM from selected GPUs
@@ -319,7 +323,7 @@ const throttledUpdate = async () => {
 
 // Watch for changes in props that should trigger chart updates
 watch(
-  [selectedGPUs, selectedModels, configurations],
+  [() => gpuStore.selectedGPUs, () => modelStore.selectedModels, () => configStore.configurations],
   () => {
     throttledUpdate()
   },
