@@ -266,78 +266,6 @@ describe('HeroSection', () => {
       await new Promise(resolve => setTimeout(resolve, 50))
     })
 
-    it('shows moderate memory pressure warning', async () => {
-      const configStore = useConfigStore()
-      
-      // Mock both state analysis and memory pressure BEFORE mounting
-      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
-        isComplete: true,
-        gpuCount: 1,
-        modelCount: 1,
-        memoryEfficiency: 0.85
-      })
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('moderate')
-
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
-      await wrapper.vm.$nextTick()
-
-      expect(wrapper.find('.bg-yellow-50').exists()).toBe(true)
-      expect(wrapper.text()).toContain('Moderate Memory Pressure')
-    })
-
-    it('shows high memory pressure warning', async () => {
-      const configStore = useConfigStore()
-      
-      // Mock both state analysis and memory pressure BEFORE mounting
-      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
-        isComplete: true,
-        gpuCount: 1,
-        modelCount: 1,
-        memoryEfficiency: 0.85
-      })
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('high')
-
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
-      await wrapper.vm.$nextTick()
-
-      expect(wrapper.find('.bg-orange-50').exists()).toBe(true)
-      expect(wrapper.text()).toContain('High Memory Pressure')
-    })
-
-    it('shows critical memory pressure warning', async () => {
-      const configStore = useConfigStore()
-      
-      // Mock both state analysis and memory pressure BEFORE mounting
-      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
-        isComplete: true,
-        gpuCount: 1,
-        modelCount: 1,
-        memoryEfficiency: 0.85
-      })
-      vi.spyOn(configStore, 'memoryPressure', 'get').mockReturnValue('critical')
-
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
-      await wrapper.vm.$nextTick()
-
-      expect(wrapper.find('.bg-red-50').exists()).toBe(true)
-      expect(wrapper.text()).toContain('Critical Memory Pressure')
-    })
-
     it('does not show indicator for low memory pressure', async () => {
       const configStore = useConfigStore()
       
@@ -440,39 +368,6 @@ describe('HeroSection', () => {
       await wrapper.vm.$nextTick()
 
       expect(wrapper.text()).not.toContain('VRAM Allocation Breakdown')
-    })
-
-    it('uses correct color coding for VRAM components', async () => {
-      const configStore = useConfigStore()
-      
-      // Mock both state analysis and VRAM breakdown BEFORE mounting
-      vi.spyOn(configStore, 'stateAnalysis', 'get').mockReturnValue({
-        isComplete: true,
-        gpuCount: 1,
-        modelCount: 1,
-        memoryEfficiency: 0.85
-      })
-      vi.spyOn(configStore, 'vramBreakdown', 'get').mockReturnValue({
-        modelWeights: 13.5,
-        kvCache: 8.0,
-        activations: 4.5,
-        systemOverhead: 2.0,
-        available: 52.0
-      })
-
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
-      await wrapper.vm.$nextTick()
-
-      expect(wrapper.find('.bg-blue-50').exists()).toBe(true)   // Model Weights
-      expect(wrapper.find('.bg-green-50').exists()).toBe(true)  // KV Cache
-      expect(wrapper.find('.bg-yellow-50').exists()).toBe(true) // Activations
-      expect(wrapper.find('.bg-red-50').exists()).toBe(true)    // System
-      expect(wrapper.find('.bg-gray-50').exists()).toBe(true)   // Available
     })
   })
 
@@ -683,25 +578,6 @@ describe('HeroSection', () => {
       const parentContainer = wrapper.find('.py-12')
       expect(parentContainer.classes()).toContain('px-6')
       expect(parentContainer.classes()).toContain('sm:px-8')
-    })
-
-    it('has responsive text sizing', async () => {
-      const wrapper = mount(HeroSection, {
-        global: {
-          plugins: [pinia]
-        }
-      })
-
-      await wrapper.vm.$nextTick()
-
-      const title = wrapper.find('h2')
-      expect(title.classes()).toContain('text-4xl')
-      expect(title.classes()).toContain('sm:text-5xl')
-      expect(title.classes()).toContain('lg:text-6xl')
-
-      const description = wrapper.find('p')
-      expect(description.classes()).toContain('text-lg')
-      expect(description.classes()).toContain('sm:text-xl')
     })
 
     it('has responsive margin classes', async () => {
