@@ -38,7 +38,7 @@
             class="w-full border-gray-300 rounded-lg text-sm font-medium focus:ring-blue-500 focus:border-blue-500"
           >
             <option
-              v-for="config in configurations"
+              v-for="config in (configurations || [])"
               :key="config.type"
               :value="config.type"
             >
@@ -50,7 +50,7 @@
         <!-- Desktop Tabs -->
         <nav class="hidden sm:flex -mb-px space-x-4 lg:space-x-8">
           <button
-            v-for="config in configurations"
+            v-for="config in (configurations || [])"
             :key="config.type"
             @click="activeTab = config.type"
             :class="[
@@ -66,7 +66,7 @@
       </div>
 
       <!-- Active Configuration Display -->
-      <div v-for="config in configurations" :key="config.type" v-show="activeTab === config.type">
+      <div v-for="config in (configurations || [])" :key="config.type" v-show="activeTab === config.type">
         <div class="mb-3 sm:mb-4 lg:mb-6">
           <h3 class="text-base sm:text-lg lg:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">{{ config.title }}</h3>
           <p class="text-xs sm:text-sm lg:text-base text-gray-600">{{ config.description }}</p>
@@ -74,7 +74,7 @@
 
         <!-- Parameters Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-6 mb-3 sm:mb-4 lg:mb-6">
-          <div v-for="param in config.parameters" :key="param.name" class="border rounded-lg p-3 sm:p-4">
+          <div v-for="param in (config.parameters || [])" :key="param.name" class="border rounded-lg p-3 sm:p-4">
             <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 space-y-1 sm:space-y-0">
               <h4 class="font-medium text-gray-900 text-sm sm:text-base">{{ param.name }}</h4>
               <code class="bg-gray-100 px-2 py-1 rounded text-xs sm:text-sm font-mono self-start">{{ param.value }}</code>

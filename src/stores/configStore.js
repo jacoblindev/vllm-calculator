@@ -74,8 +74,19 @@ export const useConfigStore = defineStore('config', () => {
         const params = model.parameters || modelStore.estimateParametersFromSize(model.size)
         const quantization = model.quantization || 'fp16'
         
-        const weightsMemory = calculateModelWeightsMemory(params, quantization)
-        breakdown.modelWeights += weightsMemory.totalMemory
+        try {
+          const weightsMemory = calculateModelWeightsMemory(params, quantization)
+          if (weightsMemory && typeof weightsMemory.totalMemory === 'number' && weightsMemory.totalMemory > 0) {
+            breakdown.modelWeights += weightsMemory.totalMemory
+          } else {
+            console.warn('Invalid VRAM breakdown value for modelWeights:', weightsMemory?.totalMemory)
+            // Fallback calculation
+            breakdown.modelWeights += (model.size || 7) * 2 // Rough estimate: size * 2 for fp16
+          }
+        } catch (error) {
+          console.warn('Error calculating model weights memory:', error)
+          breakdown.modelWeights += (model.size || 7) * 2 // Fallback
+        }
       })
 
       // Calculate KV cache memory (estimate based on configuration)
@@ -112,7 +123,12 @@ export const useConfigStore = defineStore('config', () => {
       }
 
       // Estimate activation memory (roughly 10-20% of model weights)
-      breakdown.activations = breakdown.modelWeights * 0.15
+      if (breakdown.modelWeights > 0) {
+        breakdown.activations = breakdown.modelWeights * 0.15
+      } else {
+        console.warn('Invalid VRAM breakdown value for activations: modelWeights is', breakdown.modelWeights)
+        breakdown.activations = 1.0 // Fallback minimum
+      }
 
       // Estimate system overhead (roughly 5-10% of total VRAM)
       breakdown.systemOverhead = gpuStore.totalVRAM * 0.08
@@ -121,6 +137,11 @@ export const useConfigStore = defineStore('config', () => {
       const usedMemory = breakdown.modelWeights + breakdown.kvCache + 
                         breakdown.activations + breakdown.systemOverhead
       breakdown.available = Math.max(0, gpuStore.totalVRAM - usedMemory)
+      
+      if (breakdown.available < 0 || isNaN(breakdown.available)) {
+        console.warn('Invalid VRAM breakdown value for available:', breakdown.available)
+        breakdown.available = Math.max(0, gpuStore.totalVRAM * 0.1) // At least 10% should be available
+      }
 
       // Ensure all values are valid numbers
       Object.keys(breakdown).forEach(key => {
@@ -155,17 +176,19 @@ export const useConfigStore = defineStore('config', () => {
   const configurations = computed(() => {
     if (!hasValidConfiguration.value) return []
 
-    const cacheKey = `${gpuStore.totalVRAM}-${modelStore.totalModelSize}-${modelStore.selectedModels.length}`
+    const cacheKey = `${gpuStore.totalVRAM}-${modelStore.totalModelSize}-${modelStore.selectedModels?.length || 0}`
     if (calculationCache.value.has(cacheKey)) {
       return calculationCache.value.get(cacheKey)
     }
 
     // Prepare parameters for calculation engine
+    const primaryModel = modelStore.selectedModels?.[0]
     const baseParams = {
       totalVRAMGB: gpuStore.totalVRAM,
       modelSizeGB: modelStore.totalModelSize,
       models: modelStore.modelSpecs,
-      hardware: gpuStore.hardwareSpecs
+      hardware: gpuStore.hardwareSpecs,
+      model: primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
     }
 
     try {
@@ -329,12 +352,12 @@ export const useConfigStore = defineStore('config', () => {
 
   // Helper functions
   const transformConfigToUI = (engineConfig, type, title) => {
-    if (!engineConfig || !engineConfig.parameters) {
+    if (!engineConfig || (!engineConfig.parameters && !engineConfig.vllmParameters)) {
       return generateFallbackConfig(type, title)
     }
 
-    const params = engineConfig.parameters
-    const metrics = engineConfig.metrics || {}
+    const params = engineConfig.parameters || engineConfig.vllmParameters || {}
+    const metrics = engineConfig.metrics || engineConfig.performanceEstimate || {}
     
     // Map calculation engine parameters to UI format
     const uiParameters = [
@@ -362,15 +385,17 @@ export const useConfigStore = defineStore('config', () => {
     ]
 
     // Add additional parameters if they exist
-    Object.entries(params).forEach(([key, value]) => {
-      if (!uiParameters.some(p => p.name === `--${key}`)) {
-        uiParameters.push({
-          name: `--${key}`,
-          value: value.toString(),
-          explanation: `${key.replace(/-/g, ' ')} parameter.`
-        })
-      }
-    })
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([key, value]) => {
+        if (!uiParameters.some(p => p.name === `--${key}`)) {
+          uiParameters.push({
+            name: `--${key}`,
+            value: value?.toString() || '',
+            explanation: `${key.replace(/-/g, ' ')} parameter.`
+          })
+        }
+      })
+    }
 
     return {
       type,
@@ -382,7 +407,10 @@ export const useConfigStore = defineStore('config', () => {
         latency: metrics.latency || 'N/A',
         memoryUsage: metrics.memoryUsage || 'N/A'
       },
-  command: generateVLLMCommand(params).command,
+      command: engineConfig.command || engineConfig.vllmCommand || (() => {
+        const result = generateVLLMCommand(params)
+        return result.command
+      })(),
       considerations: engineConfig.considerations || []
     }
   }
@@ -414,7 +442,20 @@ export const useConfigStore = defineStore('config', () => {
         latency: 'Estimated',
         memoryUsage: 'Estimated'
       },
-      command: '',
+      command: (() => {
+        const params = {}
+        baseConfig.parameters.forEach(param => {
+          const key = param.name.replace(/^--/, '').replace(/-/g, '_')
+          params[key] = param.value
+        })
+        
+        // Add model parameter
+        const primaryModel = modelStore.selectedModels?.[0]
+        params.model = primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
+        
+        const result = generateVLLMCommand(params)
+        return result.command
+      })(),
       considerations: ['This is a fallback configuration.']
     }
 
