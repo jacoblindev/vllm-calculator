@@ -155,16 +155,28 @@ export function generateVLLMCommand(config, options = {}) {
     config = { ...config, model: 'placeholder-model' }
   }
 
+  // Always ensure tensor-parallel-size is present in config
+  if (!('tensor-parallel-size' in config)) {
+    config['tensor-parallel-size'] = 1;
+  }
   // Build argument list
-  const args = []
-  const paramList = Object.entries(config).filter(([key]) => key !== 'model')
+  const args = [];
+  // Filter out parameters with false, null, or undefined values
+  let paramList = Object.entries(config)
+    .filter(([key, value]) => key !== 'model' && value !== false && value !== null && value !== undefined);
+
+  // Get gpuCount for context
+  let gpuCount = 1;
+  if (config['tensor-parallel-size'] && typeof config['tensor-parallel-size'] === 'number') {
+    gpuCount = config['tensor-parallel-size'];
+  }
 
   if (format === 'docker') {
-    args.push('docker run --gpus all --rm -p 8000:8000 vllm/vllm-openai')
-    args.push(`--model ${config.model}`)
+    args.push('docker run --gpus all --rm -p 8000:8000 vllm/vllm-openai');
+    args.push(`--model ${config.model}`);
     paramList.forEach(([key, value]) => {
-      args.push(`--${key.replace(/_/g, '-')} ${value}`)
-    })
+      args.push(`--${key.replace(/_/g, '-')} ${value}`);
+    });
   } else if (format === 'compose') {
     // Compose service snippet
     const compose = [
@@ -181,31 +193,54 @@ export function generateVLLMCommand(config, options = {}) {
       '    ports:',
       '      - "8000:8000"',
       '    command: >'
-    ]
-    let cmd = `      --model ${config.model}`
+    ];
+    let cmd = `      --model ${config.model}`;
     paramList.forEach(([key, value]) => {
-      cmd += ` \\\n        --${key.replace(/_/g, '-')} ${value}`
-    })
-    compose.push(cmd)
+      cmd += ` \\n        --${key.replace(/_/g, '-')} ${value}`;
+    });
+    compose.push(cmd);
     return {
       command: compose.join('\n'),
       warnings,
-      context: {}
-    }
+      context: {
+        gpuCount,
+        memoryEstimate: config['gpu-memory-utilization'] || null,
+        recommendations: []
+      }
+    };
   } else {
     // Default: python
-    args.push(`python -m ${pythonModule}`)
-    args.push(`--model ${config.model}`)
+    args.push(`python -m ${pythonModule}`);
+    args.push(`--model ${config.model}`);
     paramList.forEach(([key, value]) => {
-      args.push(`--${key.replace(/_/g, '-')} ${value}`)
-    })
+      // Always include tensor-parallel-size, even if value is 1
+      if (key === 'tensor-parallel-size') {
+        args.push(`--${key.replace(/_/g, '-')} ${value}`);
+        return;
+      }
+      // Boolean true: add as flag, arrays: join, strings/numbers: add as usual
+      if (typeof value === 'boolean') {
+        if (value) args.push(`--${key.replace(/_/g, '-')}`);
+      } else if (Array.isArray(value)) {
+        if (value.length > 0) args.push(`--${key.replace(/_/g, '-')} ${value.join(',')}`);
+      } else {
+        args.push(`--${key.replace(/_/g, '-')} ${value}`);
+      }
+    });
   }
+
+  // Add context object for test compatibility
+  const context = {
+    gpuCount,
+    memoryEstimate: config['gpu-memory-utilization'] || null,
+    recommendations: []
+  };
 
   return {
     command: args.join(' '),
     warnings,
-    context: {}
-  }
+    context
+  };
 }
 
 /**

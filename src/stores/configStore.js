@@ -438,20 +438,24 @@ export const useConfigStore = defineStore('config', () => {
       considerations: ['This is a fallback configuration.']
     }
 
-    if (gpuStore.totalGPUCount > 1) {
-      baseConfig.parameters.push({
-        name: '--tensor-parallel-size',
-        value: gpuStore.totalGPUCount.toString(),
-        explanation: 'Use all available GPUs for tensor parallelism.'
-      })
-    }
+    // Always set tensor-parallel-size, default to 1 if not present
+    baseConfig.parameters.push({
+      name: '--tensor-parallel-size',
+      value: (gpuStore.totalGPUCount > 0 ? gpuStore.totalGPUCount : 1).toString(),
+      explanation: 'Number of GPUs to use for tensor parallelism.'
+    })
 
     // Now assign the command property after baseConfig is initialized
     const params = {}
     baseConfig.parameters.forEach(param => {
-      const key = param.name.replace(/^--/, '').replace(/-/g, '_')
+      // Use hyphenated keys for command generator compatibility
+      const key = param.name.replace(/^--/, '')
       params[key] = param.value
     })
+    // Force tensor-parallel-size to be present
+    if (!('tensor-parallel-size' in params)) {
+      params['tensor-parallel-size'] = '1';
+    }
     const primaryModel = modelStore.selectedModels?.[0]
     params.model = primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
     const result = generateVLLMCommand(params)

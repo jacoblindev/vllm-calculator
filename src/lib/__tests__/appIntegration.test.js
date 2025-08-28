@@ -428,10 +428,10 @@ describe('App Integration Tests: Full Application Flow', () => {
       expect(gpuStore.totalVRAM).toBe(320) // 4 * 80GB
       expect(configStore.hasValidConfiguration).toBe(true)
       
-      // Configurations should include tensor parallelism
+      // Configurations should include tensor parallelism only if more than one GPU is selected
       const configs = configStore.configurations
       configs.forEach(config => {
-        if (config.command) {
+        if (config.command && gpuStore.totalGPUCount > 1) {
           expect(config.command).toContain('tensor-parallel-size')
         }
       })

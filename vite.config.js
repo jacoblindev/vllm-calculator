@@ -5,6 +5,14 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
+  build: {
+    target: 'es2018',
+    sourcemap: false,
+    assetsInlineLimit: 8192,
+    minify: 'esbuild',
+    cssCodeSplit: true,
+    brotliSize: true,
+  },
   test: {
     environment: 'happy-dom',
     globals: true,
