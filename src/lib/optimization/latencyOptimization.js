@@ -1,3 +1,4 @@
+
 /**
  * Latency Optimization Module
  * Handles all latency-focused optimization strategies for vLLM
@@ -222,7 +223,6 @@ export function estimateLatencyMetrics(config, hardwareSpecs, optimizationLevel 
     gpuMemoryBandwidthGBps = 900, // Default for A100
     tensorCores = true,
   } = hardwareSpecs
-
   // Memory bandwidth utilization (lower for latency to avoid contention)
   const memoryBandwidthUtilization = optimizationLevel === 'ultra-low' ? 0.5 : 0.6
   const effectiveMemoryBandwidth = gpuMemoryBandwidthGBps * memoryBandwidthUtilization
@@ -417,31 +417,30 @@ export function calculateLatencyOptimizedConfig(params) {
     model: modelSpecs.modelPath || 'MODEL_PATH',
     host: '0.0.0.0',
     port: 8000,
-    
     // Memory and batch optimization for latency
     'gpu-memory-utilization': memoryStrategy.gpuMemoryUtilization,
     'max-num-seqs': batchConfig.maxNumSeqs,
     'max-num-batched-tokens': batchConfig.maxNumBatchedTokens,
     'max-model-len': maxSequenceLength,
     'block-size': memoryStrategy.recommendedBlockSize,
-    
     // Latency-specific optimizations
     'disable-log-stats': true, // Reduce logging overhead
     'enforce-eager': false, // Keep CUDA graphs for performance
-    
     // Swap space (minimal for latency)
     ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    
     // Quantization
     ...(quantization !== 'fp16' && { quantization }),
-    
-    // Multi-GPU setup
-    ...(multiGPU && gpuCount > 1 && { 'tensor-parallel-size': gpuCount }),
-    
     // Disable chunked prefill for shorter sequences (reduces TTFT)
     ...(maxSequenceLength <= LATENCY_OPTIMIZATION_CONFIGS.disableChunkedPrefillThreshold && {
       'disable-chunked-prefill': true
     }),
+  }
+  // Always include tensor-parallel-size for multi-GPU scenarios
+  const effectiveGpuCount = Math.max(gpuCount, params['tensor-parallel-size'] || params.tensorParallelSize || 1);
+  if (effectiveGpuCount > 1) {
+    vllmArgs['tensor-parallel-size'] = effectiveGpuCount.toString();
+  } else if (typeof params['tensor-parallel-size'] !== 'undefined') {
+    vllmArgs['tensor-parallel-size'] = params['tensor-parallel-size'].toString();
   }
 
   return {

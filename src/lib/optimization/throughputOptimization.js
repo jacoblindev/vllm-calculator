@@ -302,8 +302,8 @@ export function calculateThroughputOptimizedConfig(params) {
   } = workloadSpecs
 
   // Auto-detect multi-GPU configuration
-  const effectiveGpuCount = Math.max(gpuCount, params.tensorParallelSize || 1)
-  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params.tensorParallelSize > 1
+  const effectiveGpuCount = Math.max(gpuCount, params['tensor-parallel-size'] || params.tensorParallelSize || 1)
+  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params['tensor-parallel-size'] > 1 || params.tensorParallelSize > 1
 
   // Calculate model memory if not provided
   let finalModelSizeGB = modelSizeGB
@@ -367,30 +367,28 @@ export function calculateThroughputOptimizedConfig(params) {
     model: modelSpecs.modelPath || 'MODEL_PATH',
     host: '0.0.0.0',
     port: 8000,
-    
     // Memory and batch optimization
     'gpu-memory-utilization': memoryStrategy.gpuMemoryUtilization,
     'max-num-seqs': batchConfig.maxNumSeqs,
     'max-num-batched-tokens': batchConfig.maxNumBatchedTokens,
     'max-model-len': maxSequenceLength,
     'block-size': memoryStrategy.recommendedBlockSize,
-    
     // Swap and offloading
     ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
-    
     // Chunked prefill for long sequences
     ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength > THROUGHPUT_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
       'enable-chunked-prefill': true
     }),
-    
     // Quantization
     ...(quantization !== 'fp16' && { quantization }),
-    
-    // Multi-GPU setup
-    ...(isMultiGPU && effectiveGpuCount > 1 && { 'tensor-parallel-size': effectiveGpuCount.toString() }),
-    
     // Performance optimizations
     'disable-log-stats': workloadType === 'batch', // Reduce logging overhead for batch processing
+  }
+  // Always include tensor-parallel-size for multi-GPU scenarios
+  if (effectiveGpuCount > 1) {
+    vllmArgs['tensor-parallel-size'] = effectiveGpuCount.toString();
+  } else if (typeof params['tensor-parallel-size'] !== 'undefined') {
+    vllmArgs['tensor-parallel-size'] = params['tensor-parallel-size'].toString();
   }
 
   return {

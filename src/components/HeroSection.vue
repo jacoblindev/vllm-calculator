@@ -28,6 +28,12 @@ const memoryPressure = computed(() => configStore.memoryPressure)
 const vramBreakdown = computed(() => configStore.vramBreakdown)
 const stateAnalysis = computed(() => configStore.stateAnalysis)
 const quantizationRecommendations = computed(() => configStore.quantizationRecommendations)
+
+// Safe formatter for VRAM values to prevent toFixed errors
+const formatVRAM = (value) => {
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0
+  return numValue.toFixed(1)
+}
 </script>
 
 <template>
@@ -192,23 +198,23 @@ const quantizationRecommendations = computed(() => configStore.quantizationRecom
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
               <div class="card-professional p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all duration-300">
                 <div class="font-semibold text-blue-900 text-sm mb-2">Model Weights</div>
-                <div class="text-blue-700 text-xl font-bold">{{ vramBreakdown.modelWeights?.toFixed(1) || '0.0' }}GB</div>
+                <div class="text-blue-700 text-xl font-bold">{{ formatVRAM(vramBreakdown.modelWeights) }}GB</div>
               </div>
               <div class="card-professional p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all duration-300">
                 <div class="font-semibold text-green-900 text-sm mb-2">KV Cache</div>
-                <div class="text-green-700 text-xl font-bold">{{ vramBreakdown.kvCache?.toFixed(1) || '0.0' }}GB</div>
+                <div class="text-green-700 text-xl font-bold">{{ formatVRAM(vramBreakdown.kvCache) }}GB</div>
               </div>
               <div class="card-professional p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 hover:shadow-lg transition-all duration-300">
                 <div class="font-semibold text-yellow-900 text-sm mb-2">Activations</div>
-                <div class="text-yellow-700 text-xl font-bold">{{ vramBreakdown.activations?.toFixed(1) || '0.0' }}GB</div>
+                <div class="text-yellow-700 text-xl font-bold">{{ formatVRAM(vramBreakdown.activations) }}GB</div>
               </div>
               <div class="card-professional p-4 bg-gradient-to-br from-red-50 to-red-100 border-red-200 hover:shadow-lg transition-all duration-300">
                 <div class="font-semibold text-red-900 text-sm mb-2">System</div>
-                <div class="text-red-700 text-xl font-bold">{{ vramBreakdown.systemOverhead?.toFixed(1) || '0.0' }}GB</div>
+                <div class="text-red-700 text-xl font-bold">{{ formatVRAM(vramBreakdown.systemOverhead) }}GB</div>
               </div>
               <div class="card-professional p-4 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200 hover:shadow-lg transition-all duration-300">
                 <div class="font-semibold text-gray-900 text-sm mb-2">Available</div>
-                <div class="text-gray-700 text-xl font-bold">{{ vramBreakdown.available?.toFixed(1) || '0.0' }}GB</div>
+                <div class="text-gray-700 text-xl font-bold">{{ formatVRAM(vramBreakdown.available) }}GB</div>
               </div>
             </div>
           </div>

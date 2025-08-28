@@ -143,56 +143,104 @@ export function generateVLLMCommand(config, options = {}) {
   const {
     includeComments = false,
     includeOptional = true,
-    format = 'python', // 'shell' or 'python' - default to python for test compatibility
+    format = 'python', // 'python', 'docker', 'compose'
     pythonModule = 'vllm.entrypoints.openai.api_server'
   } = options
 
   const warnings = []
 
+  // Ensure model is present
   if (!config.model) {
     warnings.push('Missing required parameter: model. Command generation may fail.')
-    // Set a default model for testing purposes
     config = { ...config, model: 'placeholder-model' }
   }
 
-  const args = []
-  
-  // Add model as positional argument for shell format
-  if (format === 'shell') {
-    args.push('vllm serve')
-    args.push(config.model)
+  // Build argument list
+  const args = [];
+  // Filter out parameters with false, null, or undefined values
+  let paramList = Object.entries(config)
+    .filter(([key, value]) => key !== 'model' && value !== false && value !== null && value !== undefined);
+
+  // Get gpuCount for context
+  let gpuCount = 1;
+  if (config['tensor-parallel-size'] && typeof config['tensor-parallel-size'] === 'number') {
+    gpuCount = config['tensor-parallel-size'];
+  }
+    // Always include tensor-parallel-size for multi-GPU scenarios
+    if (gpuCount > 1 && !config['tensor-parallel-size']) {
+      paramList.push(['tensor-parallel-size', gpuCount]);
+    }
+
+  if (format === 'docker') {
+    args.push('docker run --gpus all --rm -p 8000:8000 vllm/vllm-openai');
+    args.push(`--model ${config.model}`);
+    paramList.forEach(([key, value]) => {
+      args.push(`--${key.replace(/_/g, '-')} ${value}`);
+    });
+  } else if (format === 'compose') {
+    // Compose service snippet
+    const compose = [
+      'services:',
+      '  vllm:',
+      '    image: vllm/vllm-openai',
+      '    deploy:',
+      '      resources:',
+      '        reservations:',
+      '          devices:',
+      '            - driver: nvidia',
+      '              count: all',
+      '              capabilities: [gpu]',
+      '    ports:',
+      '      - "8000:8000"',
+      '    command: >'
+    ];
+    let cmd = `      --model ${config.model}`;
+    paramList.forEach(([key, value]) => {
+      cmd += `\n        --${key.replace(/_/g, '-')} ${value}`;
+    });
+    compose.push(cmd);
+    return {
+      command: compose.join('\n'),
+      warnings,
+      context: {
+        gpuCount,
+        memoryEstimate: config['gpu-memory-utilization'] || null,
+        recommendations: []
+      }
+    };
   } else {
-    args.push(`python -m ${pythonModule}`)
-    args.push(`--model ${config.model}`)
+    // Default: python
+    args.push(`python -m ${pythonModule}`);
+    args.push(`--model ${config.model}`);
+    paramList.forEach(([key, value]) => {
+      // Always include tensor-parallel-size, even if value is 1
+      if (key === 'tensor-parallel-size') {
+        args.push(`--${key.replace(/_/g, '-')} ${value}`);
+        return;
+      }
+      // Boolean true: add as flag, arrays: join, strings/numbers: add as usual
+      if (typeof value === 'boolean') {
+        if (value) args.push(`--${key.replace(/_/g, '-')}`);
+      } else if (Array.isArray(value)) {
+        if (value.length > 0) args.push(`--${key.replace(/_/g, '-')} ${value.join(',')}`);
+      } else {
+        args.push(`--${key.replace(/_/g, '-')} ${value}`);
+      }
+    });
   }
 
-  // Process all configuration parameters
-  for (const [key, value] of Object.entries(config)) {
-    if (key === 'model') continue // Already handled
-    
-    const paramString = formatParameter(key, value, includeComments)
-    if (paramString) {
-      args.push(paramString)
-    }
-  }
+  // Add context object for test compatibility
+  const context = {
+    gpuCount,
+    memoryEstimate: config['gpu-memory-utilization'] || null,
+    recommendations: []
+  };
 
-  const commandString = args.join(' ')
-
-  // Return object with command and context as expected by tests
   return {
-    command: commandString,
+    command: args.join(' '),
     warnings,
-    context: {
-      gpuCount: config.tensorParallelSize || config.pipelineParallelSize || 1,
-      memoryEstimate: `${(config.gpuMemoryUtilization || 0.9) * 100}%`,
-      optimizationLevel: config.optimizationLevel || 'balanced',
-      recommendations: [
-        'Monitor GPU memory usage',
-        'Adjust batch size based on workload',
-        'Consider quantization for better performance'
-      ]
-    }
-  }
+    context
+  };
 }
 
 /**

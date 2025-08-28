@@ -37,6 +37,18 @@ const uiStore = useUiStore()
 const selectedGPUs = computed(() => gpuStore.selectedGPUs)
 const selectedModels = computed(() => modelStore.selectedModels)
 const totalVRAM = computed(() => gpuStore.totalVRAM)
+
+// Safe formatter for VRAM values to prevent toFixed errors
+const formatVRAM = (value) => {
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0
+  return numValue.toFixed(1)
+}
+
+const formatPercentage = (value, total) => {
+  const numValue = typeof value === 'number' && !isNaN(value) ? value : 0
+  const numTotal = typeof total === 'number' && total > 0 ? total : 1
+  return ((numValue / numTotal) * 100).toFixed(1)
+}
 const totalModelSize = computed(() => modelStore.totalModelSize)
 const hasValidConfiguration = computed(() => configStore.hasValidConfiguration)
 const configurationStep = computed(() => configStore.configurationStep)
@@ -201,23 +213,23 @@ const configurationSummary = computed(() => {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <div class="bg-blue-50 p-3 sm:p-4 rounded-lg border border-blue-200">
           <div class="text-sm font-medium text-blue-900 mb-1">Model Weights</div>
-          <div class="text-lg sm:text-xl font-bold text-blue-700">{{ vramBreakdown.modelWeights.toFixed(1) }}GB</div>
-          <div class="text-xs text-blue-600">{{ ((vramBreakdown.modelWeights / totalVRAM) * 100).toFixed(1) }}% of total</div>
+          <div class="text-lg sm:text-xl font-bold text-blue-700">{{ formatVRAM(vramBreakdown.modelWeights) }}GB</div>
+          <div class="text-xs text-blue-600">{{ formatPercentage(vramBreakdown.modelWeights, totalVRAM) }}% of total</div>
         </div>
         <div class="bg-green-50 p-3 sm:p-4 rounded-lg border border-green-200">
           <div class="text-sm font-medium text-green-900 mb-1">KV Cache</div>
-          <div class="text-lg sm:text-xl font-bold text-green-700">{{ vramBreakdown.kvCache.toFixed(1) }}GB</div>
-          <div class="text-xs text-green-600">{{ ((vramBreakdown.kvCache / totalVRAM) * 100).toFixed(1) }}% of total</div>
+          <div class="text-lg sm:text-xl font-bold text-green-700">{{ formatVRAM(vramBreakdown.kvCache) }}GB</div>
+          <div class="text-xs text-green-600">{{ formatPercentage(vramBreakdown.kvCache, totalVRAM) }}% of total</div>
         </div>
         <div class="bg-yellow-50 p-3 sm:p-4 rounded-lg border border-yellow-200">
           <div class="text-sm font-medium text-yellow-900 mb-1">Activations</div>
-          <div class="text-lg sm:text-xl font-bold text-yellow-700">{{ vramBreakdown.activations.toFixed(1) }}GB</div>
-          <div class="text-xs text-yellow-600">{{ ((vramBreakdown.activations / totalVRAM) * 100).toFixed(1) }}% of total</div>
+          <div class="text-lg sm:text-xl font-bold text-yellow-700">{{ formatVRAM(vramBreakdown.activations) }}GB</div>
+          <div class="text-xs text-yellow-600">{{ formatPercentage(vramBreakdown.activations, totalVRAM) }}% of total</div>
         </div>
         <div class="bg-red-50 p-3 sm:p-4 rounded-lg border border-red-200">
           <div class="text-sm font-medium text-red-900 mb-1">System Overhead</div>
-          <div class="text-lg sm:text-xl font-bold text-red-700">{{ vramBreakdown.systemOverhead.toFixed(1) }}GB</div>
-          <div class="text-xs text-red-600">{{ ((vramBreakdown.systemOverhead / totalVRAM) * 100).toFixed(1) }}% of total</div>
+          <div class="text-lg sm:text-xl font-bold text-red-700">{{ formatVRAM(vramBreakdown.systemOverhead) }}GB</div>
+          <div class="text-xs text-red-600">{{ formatPercentage(vramBreakdown.systemOverhead, totalVRAM) }}% of total</div>
         </div>
         <div class="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
           <div class="text-sm font-medium text-gray-900 mb-1">Available</div>
@@ -225,8 +237,8 @@ const configurationSummary = computed(() => {
             'text-lg sm:text-xl font-bold',
             vramBreakdown.available > 5 ? 'text-green-700' : 
             vramBreakdown.available > 2 ? 'text-yellow-700' : 'text-red-700'
-          ]">{{ vramBreakdown.available.toFixed(1) }}GB</div>
-          <div class="text-xs text-gray-600">{{ ((vramBreakdown.available / totalVRAM) * 100).toFixed(1) }}% free</div>
+          ]">{{ formatVRAM(vramBreakdown.available) }}GB</div>
+          <div class="text-xs text-gray-600">{{ formatPercentage(vramBreakdown.available, totalVRAM) }}% free</div>
         </div>
       </div>
       
@@ -237,27 +249,27 @@ const configurationSummary = computed(() => {
           <div 
             class="progress-bar bg-blue-500" 
             :style="`width: ${(vramBreakdown.modelWeights / totalVRAM) * 100}%`"
-            :title="`Model Weights: ${vramBreakdown.modelWeights.toFixed(1)}GB`"
+            :title="`Model Weights: ${formatVRAM(vramBreakdown.modelWeights)}GB`"
           ></div>
           <div 
             class="progress-bar bg-green-500" 
             :style="`width: ${(vramBreakdown.kvCache / totalVRAM) * 100}%`"
-            :title="`KV Cache: ${vramBreakdown.kvCache.toFixed(1)}GB`"
+            :title="`KV Cache: ${formatVRAM(vramBreakdown.kvCache)}GB`"
           ></div>
           <div 
             class="progress-bar bg-yellow-500" 
             :style="`width: ${(vramBreakdown.activations / totalVRAM) * 100}%`"
-            :title="`Activations: ${vramBreakdown.activations.toFixed(1)}GB`"
+            :title="`Activations: ${formatVRAM(vramBreakdown.activations)}GB`"
           ></div>
           <div 
             class="progress-bar bg-red-500" 
             :style="`width: ${(vramBreakdown.systemOverhead / totalVRAM) * 100}%`"
-            :title="`System Overhead: ${vramBreakdown.systemOverhead.toFixed(1)}GB`"
+            :title="`System Overhead: ${formatVRAM(vramBreakdown.systemOverhead)}GB`"
           ></div>
           <div 
             class="progress-bar bg-gray-300" 
             :style="`width: ${(vramBreakdown.available / totalVRAM) * 100}%`"
-            :title="`Available: ${vramBreakdown.available.toFixed(1)}GB`"
+            :title="`Available: ${formatVRAM(vramBreakdown.available)}GB`"
           ></div>
         </div>
         <div class="flex justify-between text-xs text-gray-500 mt-1">

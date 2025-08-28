@@ -74,45 +74,52 @@ export const useConfigStore = defineStore('config', () => {
         const params = model.parameters || modelStore.estimateParametersFromSize(model.size)
         const quantization = model.quantization || 'fp16'
         
-        const weightsMemory = calculateModelWeightsMemory(params, quantization)
-        breakdown.modelWeights += weightsMemory
+        try {
+          const weightsMemory = calculateModelWeightsMemory(params, quantization)
+          if (weightsMemory && typeof weightsMemory.totalMemory === 'number' && weightsMemory.totalMemory > 0) {
+            breakdown.modelWeights += weightsMemory.totalMemory
+          } else {
+            console.warn('Invalid VRAM breakdown value for modelWeights:', weightsMemory?.totalMemory)
+            // Fallback calculation
+            breakdown.modelWeights += (model.size || 7) * 2 // Rough estimate: size * 2 for fp16
+          }
+        } catch (error) {
+          console.warn('Error calculating model weights memory:', error)
+          breakdown.modelWeights += (model.size || 7) * 2 // Fallback
+        }
       })
 
-      // Calculate KV cache memory (estimate based on configuration)
-      const avgConfig = configurations.value.find(c => c.type === 'balanced') || configurations.value[0]
-      if (avgConfig && avgConfig.parameters) {
-        const maxSeqsParam = avgConfig.parameters.find(p => p.name === '--max-num-seqs')
-        const maxLenParam = avgConfig.parameters.find(p => p.name === '--max-model-len')
-        const maxSeqs = parseInt(maxSeqsParam?.value || '16')
-        const maxLen = parseInt(maxLenParam?.value || '2048')
+      // Calculate KV cache memory (estimate based on a reasonable default)
+      if (modelStore.selectedModels && modelStore.selectedModels.length > 0) {
+        const primaryModel = modelStore.selectedModels[0];
+        const params = primaryModel.parameters || modelStore.estimateParametersFromSize(primaryModel.size);
+        const estimatedLayers = Math.floor(Math.sqrt(params / 1000000)) || 32;
+        const estimatedHiddenSize = Math.floor(Math.pow(params / estimatedLayers, 0.33)) || 4096;
+        const estimatedHeads = Math.max(1, Math.floor(estimatedHiddenSize / 128)) || 32;
         
-        modelStore.selectedModels.forEach(model => {
-          const params = model.parameters || modelStore.estimateParametersFromSize(model.size)
-          // Estimate model architecture from parameters
-          const estimatedLayers = Math.floor(Math.sqrt(params / 1000000)) || 32 // Default to 32 layers
-          const estimatedHiddenSize = Math.floor(Math.pow(params / estimatedLayers, 0.33)) || 4096 // Rough estimate
-          const estimatedHeads = Math.max(1, Math.floor(estimatedHiddenSize / 128)) || 32 // Typical head size is 128
-          
-          try {
-            const kvMemory = calculateKVCacheMemory(
-              maxSeqs,              // batchSize
-              maxLen,               // maxSeqLen  
-              estimatedLayers,      // numLayers
-              estimatedHiddenSize,  // hiddenSize
-              estimatedHeads,       // numHeads
-              'fp16'                // kvPrecision
-            )
-            breakdown.kvCache += kvMemory
-          } catch (error) {
-            console.warn('Error calculating KV cache memory:', error)
-            // Fallback to simple estimation
-            breakdown.kvCache += params * 0.1 / 1000000000 // 10% of parameters as GB
-          }
-        })
+        try {
+          const kvMemory = calculateKVCacheMemory(
+            32,       // A reasonable default batch size for estimation
+            2048,     // A reasonable default max sequence length
+            estimatedLayers,
+            estimatedHiddenSize,
+            estimatedHeads,
+            'fp16'
+          );
+          breakdown.kvCache = kvMemory;
+        } catch (error) {
+          console.warn('Error calculating KV cache memory, using fallback:', error);
+          breakdown.kvCache = (params * 0.1) / 1e9; // Fallback: 10% of params in GB
+        }
       }
 
       // Estimate activation memory (roughly 10-20% of model weights)
-      breakdown.activations = breakdown.modelWeights * 0.15
+      if (breakdown.modelWeights > 0) {
+        breakdown.activations = breakdown.modelWeights * 0.15
+      } else {
+        console.warn('Invalid VRAM breakdown value for activations: modelWeights is', breakdown.modelWeights)
+        breakdown.activations = 1.0 // Fallback minimum
+      }
 
       // Estimate system overhead (roughly 5-10% of total VRAM)
       breakdown.systemOverhead = gpuStore.totalVRAM * 0.08
@@ -121,6 +128,19 @@ export const useConfigStore = defineStore('config', () => {
       const usedMemory = breakdown.modelWeights + breakdown.kvCache + 
                         breakdown.activations + breakdown.systemOverhead
       breakdown.available = Math.max(0, gpuStore.totalVRAM - usedMemory)
+      
+      if (breakdown.available < 0 || isNaN(breakdown.available)) {
+        console.warn('Invalid VRAM breakdown value for available:', breakdown.available)
+        breakdown.available = Math.max(0, gpuStore.totalVRAM * 0.1) // At least 10% should be available
+      }
+
+      // Ensure all values are valid numbers
+      Object.keys(breakdown).forEach(key => {
+        if (typeof breakdown[key] !== 'number' || isNaN(breakdown[key])) {
+          console.warn(`Invalid VRAM breakdown value for ${key}:`, breakdown[key])
+          breakdown[key] = 0
+        }
+      })
 
       return breakdown
     } catch (error) {
@@ -147,17 +167,21 @@ export const useConfigStore = defineStore('config', () => {
   const configurations = computed(() => {
     if (!hasValidConfiguration.value) return []
 
-    const cacheKey = `${gpuStore.totalVRAM}-${modelStore.totalModelSize}-${modelStore.selectedModels.length}`
+    const cacheKey = `${gpuStore.totalVRAM}-${modelStore.totalModelSize}-${modelStore.selectedModels?.length || 0}`
     if (calculationCache.value.has(cacheKey)) {
       return calculationCache.value.get(cacheKey)
     }
 
     // Prepare parameters for calculation engine
+    const primaryModel = modelStore.selectedModels?.[0]
     const baseParams = {
       totalVRAMGB: gpuStore.totalVRAM,
       modelSizeGB: modelStore.totalModelSize,
       models: modelStore.modelSpecs,
-      hardware: gpuStore.hardwareSpecs
+      hardware: gpuStore.hardwareSpecs,
+      model: primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH',
+      // Always set tensor-parallel-size for calculation engine
+      'tensor-parallel-size': gpuStore.totalGPUCount > 0 ? gpuStore.totalGPUCount : 1
     }
 
     try {
@@ -189,6 +213,11 @@ export const useConfigStore = defineStore('config', () => {
         transformConfigToUI(latencyConfig, 'latency', 'Minimum Latency'),
         transformConfigToUI(balancedConfig, 'balanced', 'Balanced Performance')
       ]
+
+      // Only log debug info if VITE_DEBUG is set (for Vite projects)
+      if (import.meta.env && import.meta.env.VITE_DEBUG) {
+        console.log('Generated UI Configurations:', JSON.stringify(configs, null, 2));
+      }
 
       // Cache the result
       calculationCache.value.set(cacheKey, configs)
@@ -321,13 +350,19 @@ export const useConfigStore = defineStore('config', () => {
 
   // Helper functions
   const transformConfigToUI = (engineConfig, type, title) => {
-    if (!engineConfig || !engineConfig.parameters) {
+    if (!engineConfig || (!engineConfig.parameters && !engineConfig.vllmParameters)) {
       return generateFallbackConfig(type, title)
     }
 
-    const params = engineConfig.parameters
-    const metrics = engineConfig.metrics || {}
-    
+    const params = engineConfig.parameters || engineConfig.vllmParameters || {}
+    const metrics = engineConfig.metrics || engineConfig.performanceEstimate || {}
+
+    // Force tensor-parallel-size for multi-GPU scenarios
+    const gpuCount = typeof params['tensor-parallel-size'] === 'number' ? params['tensor-parallel-size'] : 1;
+    if (gpuStore.totalGPUCount > 1 && !params['tensor-parallel-size']) {
+      params['tensor-parallel-size'] = gpuStore.totalGPUCount;
+    }
+
     // Map calculation engine parameters to UI format
     const uiParameters = [
       {
@@ -354,15 +389,17 @@ export const useConfigStore = defineStore('config', () => {
     ]
 
     // Add additional parameters if they exist
-    Object.entries(params).forEach(([key, value]) => {
-      if (!uiParameters.some(p => p.name === `--${key}`)) {
-        uiParameters.push({
-          name: `--${key}`,
-          value: value.toString(),
-          explanation: `${key.replace(/-/g, ' ')} parameter.`
-        })
-      }
-    })
+    if (params && typeof params === 'object') {
+      Object.entries(params).forEach(([key, value]) => {
+        if (!uiParameters.some(p => p.name === `--${key}`)) {
+          uiParameters.push({
+            name: `--${key}`,
+            value: value?.toString() || '',
+            explanation: `${key.replace(/-/g, ' ')} parameter.`
+          })
+        }
+      })
+    }
 
     return {
       type,
@@ -374,7 +411,10 @@ export const useConfigStore = defineStore('config', () => {
         latency: metrics.latency || 'N/A',
         memoryUsage: metrics.memoryUsage || 'N/A'
       },
-  command: generateVLLMCommand(params).command,
+      command: engineConfig.command || engineConfig.vllmCommand || (() => {
+        const result = generateVLLMCommand(params)
+        return result.command
+      })(),
       considerations: engineConfig.considerations || []
     }
   }
@@ -406,17 +446,31 @@ export const useConfigStore = defineStore('config', () => {
         latency: 'Estimated',
         memoryUsage: 'Estimated'
       },
-      command: '',
       considerations: ['This is a fallback configuration.']
     }
 
-    if (gpuStore.totalGPUCount > 1) {
-      baseConfig.parameters.push({
-        name: '--tensor-parallel-size',
-        value: gpuStore.totalGPUCount.toString(),
-        explanation: 'Use all available GPUs for tensor parallelism.'
-      })
+    // Always set tensor-parallel-size, default to 1 if not present
+    baseConfig.parameters.push({
+      name: '--tensor-parallel-size',
+      value: (gpuStore.totalGPUCount > 0 ? gpuStore.totalGPUCount : 1).toString(),
+      explanation: 'Number of GPUs to use for tensor parallelism.'
+    })
+
+    // Now assign the command property after baseConfig is initialized
+    const params = {}
+    baseConfig.parameters.forEach(param => {
+      // Use hyphenated keys for command generator compatibility
+      const key = param.name.replace(/^--/, '')
+      params[key] = param.value
+    })
+    // Force tensor-parallel-size to be present
+    if (!('tensor-parallel-size' in params)) {
+      params['tensor-parallel-size'] = '1';
     }
+    const primaryModel = modelStore.selectedModels?.[0]
+    params.model = primaryModel?.hf_id || primaryModel?.name || 'MODEL_PATH'
+    const result = generateVLLMCommand(params)
+    baseConfig.command = result.command
 
     return baseConfig
   }

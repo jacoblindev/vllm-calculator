@@ -172,47 +172,40 @@ export function calculateBalancedMemoryStrategy(config) {
     default: // 'balanced'
       gpuMemoryUtilization = BALANCED_OPTIMIZATION_CONFIGS.gpuMemoryUtilization.balanced
   }
+        // Memory calculations
+        const allocatedVRAMGB = totalVRAMGB * gpuMemoryUtilization;
+        const availableForKVCacheGB = allocatedVRAMGB - modelSizeGB;
+        const systemReservedGB = totalVRAMGB * (1 - gpuMemoryUtilization);
+        const kvCacheAllocationGB = availableForKVCacheGB * 0.75; // Reserve 25% for activations and overhead
+        const swapSpaceGB = Math.min(4, totalVRAMGB * 0.1); // 10% or 4GB max
+        const recommendedBlockSize = balancePriority === 'performance' ? 24 : 16;
+        const enableChunkedPrefill = targetBatchSize > 32; // Enable when we have reasonable batch size
 
-  const allocatedVRAMGB = totalVRAMGB * gpuMemoryUtilization
-  const availableForKVCacheGB = allocatedVRAMGB - modelSizeGB
-  
-  // Reserve balanced amount for system overhead
-  const systemReservedGB = totalVRAMGB * (1 - gpuMemoryUtilization)
-  
-  // Calculate KV cache allocation (balanced approach)
-  const kvCacheAllocationGB = availableForKVCacheGB * 0.75 // Reserve 25% for activations and overhead
-  
-  // Moderate swap space for balanced workloads
-  const swapSpaceGB = Math.min(4, totalVRAMGB * 0.1) // 10% or 4GB max
-  
-  // Balanced block sizes for good cache efficiency and memory utilization
-  const recommendedBlockSize = balancePriority === 'performance' ? 24 : 16
-  
-  // Enable chunked prefill for longer sequences
-  const enableChunkedPrefill = targetBatchSize > 32 // Enable when we have reasonable batch size
-  
-  return {
-    gpuMemoryUtilization,
-    swapSpaceGB,
-    allocatedVRAMGB,
-    kvCacheAllocationGB,
-    reservedMemoryGB: systemReservedGB,
-    recommendedBlockSize,
-    enableChunkedPrefill,
-    workloadOptimization: workloadType,
-    balanceOptimizations: {
-      moderatePreemption: true, // Allow some preemption for efficiency
-      adaptiveBatching: balancePriority === 'performance',
-      stableAllocation: balancePriority === 'conservative',
-    },
-    memoryBreakdown: {
-      model: modelSizeGB,
-      kvCache: kvCacheAllocationGB,
-      reserved: systemReservedGB,
-      swap: swapSpaceGB,
-    }
-  }
-}
+  // vllmArgs generation removed from this function. Only memory strategy is returned.
+
+        // Return memory strategy for other functions
+        return {
+          gpuMemoryUtilization,
+          swapSpaceGB,
+          allocatedVRAMGB,
+          kvCacheAllocationGB,
+          reservedMemoryGB: systemReservedGB,
+          recommendedBlockSize,
+          enableChunkedPrefill,
+          workloadOptimization: workloadType,
+          balanceOptimizations: {
+            moderatePreemption: true, // Allow some preemption for efficiency
+            adaptiveBatching: balancePriority === 'performance',
+            stableAllocation: balancePriority === 'conservative',
+          },
+          memoryBreakdown: {
+            model: modelSizeGB,
+            kvCache: kvCacheAllocationGB,
+            reserved: systemReservedGB,
+            swap: swapSpaceGB,
+          }
+        };
+      }
 
 /**
  * Estimate balanced performance metrics (both throughput and latency)
@@ -386,8 +379,8 @@ export function calculateBalancedOptimizedConfig(params) {
   } = gpuSpecs
 
   // Auto-detect multi-GPU configuration
-  const effectiveGpuCount = Math.max(gpuCount, params.tensorParallelSize || 1)
-  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params.tensorParallelSize > 1
+  const effectiveGpuCount = Math.max(gpuCount, params['tensor-parallel-size'] || params.tensorParallelSize || 1)
+  const isMultiGPU = multiGPU || effectiveGpuCount > 1 || params['tensor-parallel-size'] > 1 || params.tensorParallelSize > 1
 
   const {
     modelSizeGB,
@@ -478,7 +471,6 @@ export function calculateBalancedOptimizedConfig(params) {
     'max-num-batched-tokens': batchConfig.maxNumBatchedTokens,
     'max-model-len': maxSequenceLength,
     'block-size': memoryStrategy.recommendedBlockSize,
-    
     // Balanced optimizations
     ...(memoryStrategy.swapSpaceGB > 0 && { 'swap-space': `${memoryStrategy.swapSpaceGB}GB` }),
     ...(memoryStrategy.enableChunkedPrefill && maxSequenceLength >= BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillThreshold && {
@@ -486,11 +478,15 @@ export function calculateBalancedOptimizedConfig(params) {
       'max-chunked-prefill-tokens': BALANCED_OPTIMIZATION_CONFIGS.chunkedPrefillSize
     }),
     ...(quantization !== 'fp16' && { quantization }),
-    ...(isMultiGPU && effectiveGpuCount > 1 && { 'tensor-parallel-size': effectiveGpuCount.toString() }),
-    
     // Balanced performance settings
     'disable-log-stats': workloadType === 'batch', // Only for batch workloads
     ...(balancePriority === 'performance' && { 'enforce-eager': false }), // Enable CUDA graphs for performance
+  }
+  // Always include tensor-parallel-size for multi-GPU scenarios
+  if (effectiveGpuCount > 1) {
+    vllmArgs['tensor-parallel-size'] = effectiveGpuCount.toString();
+  } else if (typeof params['tensor-parallel-size'] !== 'undefined') {
+    vllmArgs['tensor-parallel-size'] = params['tensor-parallel-size'].toString();
   }
 
   return {
