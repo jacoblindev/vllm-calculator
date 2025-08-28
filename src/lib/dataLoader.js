@@ -8,7 +8,7 @@
  */
 export async function loadGPUData() {
   try {
-    const response = await fetch('/data/gpus.json')
+    const response = await fetch('/vllm-calculator/gpus.json')
     if (!response.ok) {
       throw new Error(`Failed to load GPU data: ${response.status}`)
     }
@@ -32,7 +32,7 @@ export async function loadGPUData() {
  */
 export async function loadModelData() {
   try {
-    const response = await fetch('/data/models.json')
+    const response = await fetch('/vllm-calculator/models.json')
     if (!response.ok) {
       throw new Error(`Failed to load model data: ${response.status}`)
     }
