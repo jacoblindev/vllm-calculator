@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/vllm-calculator/', // Required for GitHub Pages deployment
   plugins: [vue(), tailwindcss()],
   build: {
     target: 'es2018',
