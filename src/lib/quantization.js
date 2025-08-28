@@ -301,8 +301,12 @@ export function calculateModelWeightsMemory(numParams, quantization = 'fp16', op
 
   const quantInfo = calculateQuantizationFactor(normalizedQuantization, options)
   
-  // Base memory calculation
-  const baseMemoryGB = numParams * quantInfo.bytesPerParam
+  // Base memory calculation: 
+  // If numParams <= 1000, assume it's in billions (e.g., 7 means 7B)
+  // If numParams > 1000, assume it's raw parameter count (e.g., 7000000000)
+  const actualParams = numParams <= 1000 ? numParams * 1e9 : numParams
+  const baseMemoryBytes = actualParams * quantInfo.bytesPerParam
+  const baseMemoryGB = baseMemoryBytes / 1e9  // Convert bytes to GB
   
   // Add overhead if applicable
   const overheadGB = options.includeOverhead !== false ? baseMemoryGB * quantInfo.overhead : 0
